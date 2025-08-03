@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import NProgress from 'nprogress';
 
@@ -13,7 +13,7 @@ NProgress.configure({
   trickleSpeed: 200,
 });
 
-export function ProgressProvider({ children }: { children: React.ReactNode }) {
+function ProgressProviderInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -98,4 +98,12 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return <>{children}</>;
+}
+
+export function ProgressProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<>{children}</>}>
+      <ProgressProviderInner>{children}</ProgressProviderInner>
+    </Suspense>
+  );
 }
