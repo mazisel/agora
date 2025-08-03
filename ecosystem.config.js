@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: 'team-management-system',
+    name: 'agora',
     script: 'npm',
     args: 'start',
     cwd: '/opt/agora',
