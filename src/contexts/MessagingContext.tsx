@@ -360,7 +360,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('channel_members')
-        .select('id')
+        .select('id, role')
         .eq('channel_id', channelId)
         .eq('user_id', user.id)
         .limit(1);
@@ -601,6 +601,10 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       };
 
       console.log('Successfully sent message to database:', message.content);
+      
+      // Mesajı hemen UI'da göster
+      dispatch({ type: 'ADD_MESSAGE', payload: messageWithProfile as Message });
+      
       return messageWithProfile as Message;
     } catch (error) {
       console.error('Error sending message:', error);
