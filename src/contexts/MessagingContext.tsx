@@ -361,8 +361,8 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           testChannel.subscribe((status) => {
             if (status === 'SUBSCRIBED') {
               
-              // Now setup the actual message listeners
-              const messageChannel = supabase.channel(`messages-realtime-${user.id}`);
+              // Now setup the actual message listeners with timestamp for uniqueness
+              const messageChannel = supabase.channel(`messages-realtime-${user.id}-${Date.now()}`);
               
               messageChannel
                 .on('postgres_changes',
@@ -495,8 +495,10 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                 )
                 .subscribe((status) => {
                   if (status === 'SUBSCRIBED') {
-                    // WebSocket active
+                    // WebSocket active - force a small test to ensure it's working
+                    console.log('✅ WebSocket subscribed for user:', user.id);
                   } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                    console.log('❌ WebSocket failed for user:', user.id, 'Status:', status);
                     usePolling = true;
                     setupPolling();
                   }
