@@ -58,6 +58,11 @@ function messagingReducer(state: ChatState, action: MessagingAction): ChatState 
       return { ...state, channels: action.payload };
 
     case 'ADD_CHANNEL':
+      // Duplicate kanal kontrolü
+      const channelExists = state.channels.some(ch => ch.id === action.payload.id);
+      if (channelExists) {
+        return state; // Kanal zaten var, state'i değiştirme
+      }
       return { 
         ...state, 
         channels: [...state.channels, action.payload].sort((a, b) => a.name.localeCompare(b.name))
@@ -75,7 +80,14 @@ function messagingReducer(state: ChatState, action: MessagingAction): ChatState 
       return {
         ...state,
         channels: state.channels.filter(channel => channel.id !== action.payload),
-        activeChannelId: state.activeChannelId === action.payload ? undefined : state.activeChannelId
+        activeChannelId: state.activeChannelId === action.payload ? undefined : state.activeChannelId,
+        // Kanalın mesajlarını ve unread count'unu da temizle
+        messages: Object.fromEntries(
+          Object.entries(state.messages).filter(([channelId]) => channelId !== action.payload)
+        ),
+        unreadCounts: Object.fromEntries(
+          Object.entries(state.unreadCounts).filter(([channelId]) => channelId !== action.payload)
+        )
       };
 
     case 'SET_ACTIVE_CHANNEL':
@@ -434,6 +446,71 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                         }
                       } catch (error) {
                         console.error('Error loading message details:', error);
+                      }
+                    }
+                  }
+                )
+                // Listen to channel changes
+                .on('postgres_changes',
+                  { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'channels'
+                  },
+                  async (payload) => {
+                    if (!mounted) return;
+                    console.log('🏢 Channel change via WebSocket:', payload.eventType, payload.new || payload.old);
+                    
+                    if (payload.eventType === 'INSERT' && payload.new) {
+                      // Check if user is member of this new channel
+                      const { data: membership } = await supabase
+                        .from('channel_members')
+                        .select('id')
+                        .eq('channel_id', payload.new.id)
+                        .eq('user_id', user.id)
+                        .limit(1);
+
+                      if (membership && membership.length > 0) {
+                        console.log('📢 Adding new channel to UI via WebSocket:', payload.new);
+                        dispatch({ type: 'ADD_CHANNEL', payload: payload.new as Channel });
+                      }
+                    } else if (payload.eventType === 'UPDATE' && payload.new) {
+                      console.log('📝 Updating channel via WebSocket:', payload.new);
+                      dispatch({ type: 'UPDATE_CHANNEL', payload: payload.new as Channel });
+                    } else if (payload.eventType === 'DELETE' && payload.old) {
+                      console.log('🗑️ Removing channel via WebSocket:', payload.old);
+                      dispatch({ type: 'REMOVE_CHANNEL', payload: payload.old.id });
+                    }
+                  }
+                )
+                // Listen to channel member changes (for read status updates)
+                .on('postgres_changes',
+                  { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'channel_members'
+                  },
+                  async (payload) => {
+                    if (!mounted) return;
+                    console.log('👥 Channel member change via WebSocket:', payload.eventType, payload.new || payload.old);
+                    
+                    if (payload.eventType === 'INSERT' && payload.new) {
+                      // If this user was added to a channel, reload channels
+                      if (payload.new.user_id === user.id) {
+                        console.log('👤 User added to new channel, reloading channels');
+                        setTimeout(() => loadChannels(), 500);
+                      }
+                    } else if (payload.eventType === 'UPDATE' && payload.new) {
+                      // If last_read_at was updated, recalculate unread counts
+                      if (payload.new.user_id === user.id && payload.new.last_read_at) {
+                        console.log('📖 Read status updated via WebSocket, recalculating unread counts');
+                        setTimeout(() => calculateUnreadCounts(), 100);
+                      }
+                    } else if (payload.eventType === 'DELETE' && payload.old) {
+                      // If this user was removed from a channel, remove from UI
+                      if (payload.old.user_id === user.id) {
+                        console.log('👋 User removed from channel, updating UI');
+                        dispatch({ type: 'REMOVE_CHANNEL', payload: payload.old.channel_id });
                       }
                     }
                   }
