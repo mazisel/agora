@@ -92,9 +92,52 @@ export default function TestRealtimePage() {
         addLog(`❌ Error sending test message: ${error.message}`);
       } else {
         addLog(`✅ Test message sent successfully: ${message.id}`);
+        addLog('⏳ Waiting for WebSocket event... (should appear in 1-2 seconds)');
       }
     } catch (error) {
       addLog(`❌ Exception sending test message: ${error}`);
+    }
+  };
+
+  const checkRealtimeSettings = async () => {
+    try {
+      addLog('🔍 Checking Supabase Realtime settings...');
+      
+      // Test if we can get realtime info
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id')
+        .limit(1);
+        
+      if (error) {
+        addLog(`❌ Database access error: ${error.message}`);
+      } else {
+        addLog('✅ Database access working');
+      }
+      
+      // Check if realtime is enabled by trying to subscribe to a simple channel
+      const testChannel2 = supabase.channel('settings-test');
+      
+      testChannel2
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'messages' },
+          (payload) => {
+            addLog(`🎯 Direct message event: ${payload.eventType}`);
+          }
+        )
+        .subscribe((status) => {
+          addLog(`🔧 Settings test channel status: ${status}`);
+          
+          if (status === 'SUBSCRIBED') {
+            addLog('✅ Realtime subscription working for messages table');
+          } else if (status === 'CHANNEL_ERROR') {
+            addLog('❌ Realtime NOT enabled for messages table in Supabase dashboard!');
+            addLog('💡 Go to Supabase Dashboard > Database > Replication and enable realtime for messages table');
+          }
+        });
+        
+    } catch (error) {
+      addLog(`❌ Settings check error: ${error}`);
     }
   };
 
@@ -114,13 +157,22 @@ export default function TestRealtimePage() {
           </span>
         </div>
         
-        <button
-          onClick={testSendMessage}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          disabled={status !== 'SUBSCRIBED'}
-        >
-          Send Test Message
-        </button>
+        <div className="space-x-2">
+          <button
+            onClick={testSendMessage}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            disabled={status !== 'SUBSCRIBED'}
+          >
+            Send Test Message
+          </button>
+          
+          <button
+            onClick={checkRealtimeSettings}
+            className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
+          >
+            Check Realtime Settings
+          </button>
+        </div>
       </div>
 
       <div className="bg-gray-100 p-4 rounded-lg">
