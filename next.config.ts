@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: 'build',
   trailingSlash: true,
   experimental: {
     ppr: false,
+    serverComponentsExternalPackages: ['@supabase/supabase-js'],
   },
   eslint: {
     ignoreDuringBuilds: true,
