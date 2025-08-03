@@ -92,10 +92,24 @@ curl -X POST http://localhost:3001/api/setup-db
 # .env.local dosyasını kontrol edin
 nano .env.local
 
-# Gerekli değişkenler:
-# NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-# NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-# SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+# GEREKLİ DEĞIŞKENLER (Hepsi zorunlu):
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# SUPABASE_SERVICE_ROLE_KEY eksikse build hatası alırsınız!
+# Bu key'i Supabase Dashboard > Settings > API'den alabilirsiniz
+```
+
+### 7.1. Supabase Keys Nasıl Bulunur
+```bash
+# 1. Supabase Dashboard'a gidin: https://supabase.com/dashboard
+# 2. Projenizi seçin
+# 3. Settings > API'ye gidin
+# 4. Şu değerleri kopyalayın:
+#    - Project URL (NEXT_PUBLIC_SUPABASE_URL)
+#    - anon public key (NEXT_PUBLIC_SUPABASE_ANON_KEY)
+#    - service_role secret key (SUPABASE_SERVICE_ROLE_KEY)
 ```
 
 ### 8. Projeyi Build Edin
