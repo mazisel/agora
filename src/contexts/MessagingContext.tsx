@@ -93,6 +93,13 @@ function messagingReducer(state: ChatState, action: MessagingAction): ChatState 
     case 'ADD_MESSAGE':
       const channelId = action.payload.channel_id;
       const currentMessages = state.messages[channelId] || [];
+      
+      // Duplicate mesaj kontrolü
+      const messageExists = currentMessages.some(msg => msg.id === action.payload.id);
+      if (messageExists) {
+        return state; // Mesaj zaten var, state'i değiştirme
+      }
+      
       return {
         ...state,
         messages: {
