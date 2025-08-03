@@ -24,7 +24,9 @@ sudo cp -r . ../team-management-system-backup-$(date +%Y%m%d_%H%M%S)
 # pg_dump your_database > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
-### 4. Git Repository'den Güncellemeleri Çekin
+### 4. Yeni Kodu İndirin
+
+#### Seçenek A: Git Repository Varsa
 ```bash
 # Mevcut değişiklikleri stash'leyin (varsa)
 git stash
@@ -34,6 +36,39 @@ git checkout main
 
 # En son değişiklikleri çekin
 git pull origin main
+```
+
+#### Seçenek B: Git Repository Yoksa (Sizin Durumunuz)
+```bash
+# Mevcut dizini yedekleyin
+sudo mv /opt/agora /opt/agora-backup-$(date +%Y%m%d_%H%M%S)
+
+# Yeni kodu GitHub'dan indirin
+cd /opt
+sudo git clone https://github.com/mazisel/agora.git
+
+# Proje dizinine gidin
+cd /opt/agora
+
+# Eğer farklı bir branch kullanıyorsanız:
+# git checkout your-branch-name
+```
+
+#### Seçenek C: Manuel İndirme
+```bash
+# ZIP dosyasını indirin
+cd /tmp
+wget https://github.com/mazisel/agora/archive/refs/heads/main.zip
+
+# Mevcut dizini yedekleyin
+sudo mv /opt/agora /opt/agora-backup-$(date +%Y%m%d_%H%M%S)
+
+# ZIP'i açın
+unzip main.zip
+sudo mv agora-main /opt/agora
+
+# Proje dizinine gidin
+cd /opt/agora
 ```
 
 ### 5. Bağımlılıkları Güncelleyin
