@@ -419,8 +419,18 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                             dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
                           }
                           
-                          // Update unread counts
-                          setTimeout(() => calculateUnreadCounts(), 100);
+                          // Update unread counts immediately for realtime
+                          const channelId = message.channel_id;
+                          
+                          // Eğer mesaj aktif kanalda değilse unread count'u artır
+                          if (channelId !== state.activeChannelId && message.user_id !== user.id) {
+                            const currentCount = state.unreadCounts[channelId] || 0;
+                            dispatch({
+                              type: 'SET_UNREAD_COUNT',
+                              payload: { channelId, count: currentCount + 1 }
+                            });
+                            console.log(`📊 Unread count updated for channel ${channelId}: ${currentCount + 1}`);
+                          }
                         }
                       } catch (error) {
                         console.error('Error loading message details:', error);
