@@ -272,75 +272,158 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
     const setupRealtime = async () => {
       try {
-        console.log('Setting up realtime with polling fallback...');
+        console.log('Setting up realtime with WebSocket and polling fallback...');
 
-        // Always use polling to avoid CSP issues
-        console.log('Using polling for realtime updates');
-        
-        // Polling function - optimized for better performance
-        const pollForUpdates = async () => {
-          if (!mounted) return;
+        // Try WebSocket first
+        let usePolling = false;
 
-          try {
-            // Only check for new messages in channels user is member of
-            const { data: memberships } = await supabase
-              .from('channel_members')
-              .select('channel_id')
-              .eq('user_id', user.id);
+        try {
+          console.log('Attempting WebSocket connection...');
+          
+          // Setup WebSocket subscriptions for messages
+          const messagesChannel = supabase.channel(`messages-${user.id}`);
+          
+          messagesChannel
+            .on('postgres_changes',
+              { event: 'INSERT', schema: 'public', table: 'messages' },
+              async (payload) => {
+                if (!mounted) return;
+                console.log('🔥 New message via WebSocket:', payload.new);
+                
+                try {
+                  // Get full message with relations
+                  const { data: message } = await supabase
+                    .from('messages')
+                    .select(`
+                      *,
+                      attachments:message_attachments(*),
+                      reactions:message_reactions(*)
+                    `)
+                    .eq('id', payload.new.id)
+                    .single();
 
-            if (!memberships || memberships.length === 0) return;
+                  if (message && mounted) {
+                    // Get user profile
+                    if (message.user_id) {
+                      const { data: userProfile } = await supabase
+                        .from('user_profiles')
+                        .select('user_id, first_name, last_name, profile_photo_url')
+                        .eq('user_id', message.user_id)
+                        .single();
 
-            const channelIds = memberships.map(m => m.channel_id);
+                      const messageWithProfile = {
+                        ...message,
+                        user_profile: userProfile
+                      };
 
-            // Check for new messages in user's channels only
-            const { data: newMessages } = await supabase
-              .from('messages')
-              .select(`
-                *,
-                attachments:message_attachments(*),
-                reactions:message_reactions(*)
-              `)
-              .in('channel_id', channelIds)
-              .gte('created_at', new Date(lastMessageCheck).toISOString())
-              .eq('is_deleted', false)
-              .order('created_at', { ascending: true });
-
-            if (newMessages && newMessages.length > 0) {
-              // User profiles bilgilerini çek
-              const userIds = [...new Set(newMessages.map(m => m.user_id).filter(Boolean))];
-              
-              if (userIds.length > 0) {
-                const { data: userProfiles } = await supabase
-                  .from('user_profiles')
-                  .select('user_id, first_name, last_name, profile_photo_url')
-                  .in('user_id', userIds);
-
-                // Mesajlara user_profile bilgilerini ekle
-                const messagesWithProfiles = newMessages.map(message => ({
-                  ...message,
-                  user_profile: userProfiles?.find(profile => profile.user_id === message.user_id)
-                }));
-
-                messagesWithProfiles.forEach(message => {
-                  dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-                });
-              } else {
-                newMessages.forEach(message => {
-                  dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-                });
+                      dispatch({ type: 'ADD_MESSAGE', payload: messageWithProfile as Message });
+                    } else {
+                      dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
+                    }
+                    
+                    // Update unread counts
+                    setTimeout(() => calculateUnreadCounts(), 100);
+                  }
+                } catch (error) {
+                  console.error('Error loading message details:', error);
+                }
               }
-              
-              // Okunmamış sayıları güncelle
-              setTimeout(() => calculateUnreadCounts(), 100);
-              lastMessageCheck = Date.now();
-            }
-          } catch (error) {
-            console.error('Polling error:', error);
+            )
+            .subscribe((status) => {
+              console.log('WebSocket subscription status:', status);
+              if (status === 'SUBSCRIBED') {
+                console.log('✅ WebSocket connected successfully');
+              } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                console.log('❌ WebSocket failed, falling back to polling');
+                usePolling = true;
+                setupPolling();
+              }
+            });
+
+          // Wait a bit to see if WebSocket connects
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          if (!usePolling) {
+            console.log('✅ Using WebSocket for realtime updates');
           }
+
+        } catch (wsError) {
+          console.log('❌ WebSocket failed, falling back to polling:', wsError);
+          usePolling = true;
+        }
+
+        // Setup polling as fallback
+        const setupPolling = () => {
+          console.log('🔄 Setting up polling fallback...');
+          
+          const pollForUpdates = async () => {
+            if (!mounted) return;
+
+            try {
+              // Only check for new messages in channels user is member of
+              const { data: memberships } = await supabase
+                .from('channel_members')
+                .select('channel_id')
+                .eq('user_id', user.id);
+
+              if (!memberships || memberships.length === 0) return;
+
+              const channelIds = memberships.map(m => m.channel_id);
+
+              // Check for new messages in user's channels only
+              const { data: newMessages } = await supabase
+                .from('messages')
+                .select(`
+                  *,
+                  attachments:message_attachments(*),
+                  reactions:message_reactions(*)
+                `)
+                .in('channel_id', channelIds)
+                .gte('created_at', new Date(lastMessageCheck).toISOString())
+                .eq('is_deleted', false)
+                .order('created_at', { ascending: true });
+
+              if (newMessages && newMessages.length > 0) {
+                // User profiles bilgilerini çek
+                const userIds = [...new Set(newMessages.map(m => m.user_id).filter(Boolean))];
+                
+                if (userIds.length > 0) {
+                  const { data: userProfiles } = await supabase
+                    .from('user_profiles')
+                    .select('user_id, first_name, last_name, profile_photo_url')
+                    .in('user_id', userIds);
+
+                  // Mesajlara user_profile bilgilerini ekle
+                  const messagesWithProfiles = newMessages.map(message => ({
+                    ...message,
+                    user_profile: userProfiles?.find(profile => profile.user_id === message.user_id)
+                  }));
+
+                  messagesWithProfiles.forEach(message => {
+                    dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
+                  });
+                } else {
+                  newMessages.forEach(message => {
+                    dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
+                  });
+                }
+                
+                // Okunmamış sayıları güncelle
+                setTimeout(() => calculateUnreadCounts(), 100);
+                lastMessageCheck = Date.now();
+              }
+            } catch (error) {
+              console.error('Polling error:', error);
+            }
+          };
+
+          // Start polling every 1 second as fallback
+          pollingInterval = setInterval(pollForUpdates, 1000);
         };
 
-        // Start polling every 3 seconds (reduced frequency for better performance)
-        pollingInterval = setInterval(pollForUpdates, 3000);
+        if (usePolling) {
+          setupPolling();
+        }
 
         console.log('Realtime setup complete');
       } catch (error) {
