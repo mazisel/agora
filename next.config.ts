@@ -10,6 +10,22 @@ const nextConfig: NextConfig = {
   webpack: (config: any) => {
     return config;
   },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "connect-src 'self' wss://*.supabase.co https://*.supabase.co ws://localhost:* https://localhost:*"
+          }
+        ]
+      }
+    ]
+  },
+  experimental: {
+    serverComponentsExternalPackages: ['@supabase/supabase-js']
+  }
 };
 
 export default nextConfig;
