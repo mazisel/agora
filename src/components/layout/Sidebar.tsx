@@ -362,8 +362,8 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
       {!collapsed && (
         <div className="p-4 border-t border-slate-700/50">
           <div className="text-center">
-            <p className="text-xs text-slate-500 mb-1">Ekip Yönetim Sistemi</p>
-            <p className="text-xs text-slate-600">v1.0.0</p>
+            <p className="text-xs text-slate-500 mb-1">Agora - e4 Labs </p>
+            <p className="text-xs text-slate-600">v1.0.1</p>
           </div>
         </div>
       )}

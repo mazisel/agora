@@ -28,13 +28,13 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
       setLoadingMessage(message);
       
-      // Auto-clear loading after 30 seconds to prevent infinite loading
+      // Auto-clear loading after 15 seconds to prevent infinite loading
       const timeout = setTimeout(() => {
-        console.warn('Loading state auto-cleared after 30 seconds');
+        console.warn('Loading state auto-cleared after 15 seconds');
         setIsLoading(false);
         setLoadingMessage('');
         setLoadingTimeout(null);
-      }, 30000);
+      }, 15000);
       
       setLoadingTimeout(timeout);
     } else {

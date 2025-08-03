@@ -47,7 +47,7 @@ export default function MessageInput() {
   const activeChannel = state.channels.find(c => c.id === state.activeChannelId);
 
   return (
-    <div className="border-t border-slate-700 p-4 bg-slate-800">
+    <div className="p-4 bg-slate-800">
       <form onSubmit={handleSubmit} className="flex gap-3">
         <input
           type="text"
@@ -55,21 +55,21 @@ export default function MessageInput() {
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={`#${activeChannel?.name || 'kanal'} kanalına mesaj yazın...`}
-          className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="flex-1 px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
           disabled={isLoading}
         />
         
         <button
           type="submit"
           disabled={!message.trim() || isLoading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 flex-shrink-0"
         >
           {isLoading ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
             <Send className="w-4 h-4" />
           )}
-          Gönder
+          <span className="hidden sm:inline">Gönder</span>
         </button>
       </form>
     </div>

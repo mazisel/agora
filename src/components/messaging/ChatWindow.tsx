@@ -42,11 +42,11 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-800">
+    <div className="flex-1 flex flex-col bg-slate-800 min-h-0 overflow-hidden">
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
+          <div className="flex flex-col items-center justify-center h-full text-center p-8">
             <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mb-4">
               <Hash className="w-8 h-8 text-slate-400" />
             </div>
@@ -56,21 +56,27 @@ export default function ChatWindow() {
             <p className="text-slate-500">Bu kanalın başlangıcı. İlk mesajı gönderin!</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {messages.map((message) => (
-              <MessageItem
-                key={message.id}
-                message={message}
-                isOwn={message.user_id === user?.id}
-              />
-            ))}
+          <div className="flex flex-col">
+            <div className="flex-1 px-4 py-2">
+              <div className="space-y-1">
+                {messages.map((message) => (
+                  <MessageItem
+                    key={message.id}
+                    message={message}
+                    isOwn={message.user_id === user?.id}
+                  />
+                ))}
+              </div>
+            </div>
+            <div ref={messagesEndRef} className="h-1" />
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Message Input */}
-      <MessageInput />
+      <div className="flex-shrink-0 border-t border-slate-700/50">
+        <MessageInput />
+      </div>
     </div>
   );
 }

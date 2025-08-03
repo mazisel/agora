@@ -6,7 +6,6 @@ const nextConfig: NextConfig = {
   experimental: {
     ppr: false,
     dynamicIO: false,
-    forceSwcTransforms: true,
   },
   poweredByHeader: false,
   eslint: {

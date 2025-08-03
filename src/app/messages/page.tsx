@@ -10,7 +10,7 @@ import CreateChannelModal from '@/components/messaging/CreateChannelModal';
 import MembersModal from '@/components/messaging/MembersModal';
 
 export default function MessagesPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { state, setActiveChannel } = useMessaging();
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
@@ -22,9 +22,21 @@ export default function MessagesPage() {
     }
   }, [state.channels, state.activeChannelId, setActiveChannel]);
 
+  // Show loading while checking authentication
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-900">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Kimlik doğrulanıyor...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen bg-slate-900">
         <div className="text-center">
           <MessageSquare className="w-16 h-16 text-slate-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-slate-300 mb-2">Giriş Yapın</h2>
@@ -67,10 +79,10 @@ export default function MessagesPage() {
       <div className="flex-1 flex flex-col">
         {activeChannel ? (
           <>
-            {/* Chat Header */}
-            <div className="h-16 bg-slate-800/30 border-b border-slate-700/50 flex items-center justify-between px-6">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
+            {/* Chat Header - Fixed Height */}
+            <div className="h-16 bg-slate-800/30 border-b border-slate-700/50 flex items-center justify-between px-6 flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {activeChannel.type === 'public' ? (
                     <Hash className="w-5 h-5 text-slate-400" />
                   ) : activeChannel.type === 'private' ? (
@@ -78,18 +90,18 @@ export default function MessagesPage() {
                   ) : (
                     <Users className="w-5 h-5 text-slate-400" />
                   )}
-                  <h2 className="text-lg font-semibold text-white">
+                  <h2 className="text-lg font-semibold text-white truncate">
                     {activeChannel.name}
                   </h2>
                 </div>
                 {activeChannel.description && (
-                  <span className="text-sm text-slate-400 border-l border-slate-600 pl-3">
+                  <span className="text-sm text-slate-400 border-l border-slate-600 pl-3 truncate min-w-0">
                     {activeChannel.description}
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <button 
                   onClick={() => setShowMembers(true)}
                   className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"

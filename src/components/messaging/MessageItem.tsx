@@ -101,7 +101,7 @@ export default function MessageItem({ message, isOwn }: MessageItemProps) {
   }
 
   return (
-    <div className={`flex gap-3 py-3 px-4 hover:bg-slate-700/20 ${isOwn ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex gap-3 py-2 px-2 hover:bg-slate-700/10 rounded-lg transition-colors ${isOwn ? 'flex-row-reverse' : ''}`}>
       {/* Avatar */}
       <div className="flex-shrink-0">
         {getUserAvatar(displayName)}
@@ -121,7 +121,7 @@ export default function MessageItem({ message, isOwn }: MessageItemProps) {
 
         {/* Message Bubble */}
         {message.content && (
-          <div className={`inline-block max-w-xs lg:max-w-md xl:max-w-lg px-4 py-2 rounded-2xl text-sm leading-relaxed ${
+          <div className={`inline-block max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl px-3 py-2 rounded-2xl text-sm leading-relaxed break-words ${
             isOwn 
               ? 'bg-blue-600 text-white ml-auto' 
               : 'bg-slate-700 text-slate-100'

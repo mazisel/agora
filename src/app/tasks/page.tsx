@@ -10,7 +10,7 @@ import CreateTaskView from '@/components/tasks/CreateTaskView';
 import TaskDetailView from '@/components/tasks/TaskDetailView';
 
 export default function TasksPage() {
-  const { userProfile } = useAuth();
+  const { userProfile, loading } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<{
@@ -132,6 +132,28 @@ export default function TasksPage() {
       fetchData();
     }
   }, [userProfile]);
+
+  // Show loading while checking authentication
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-900">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Kimlik doğrulanıyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-900">
+        <div className="text-center">
+          <p className="text-slate-400">Giriş sayfasına yönlendiriliyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Filter tasks
   const filteredTasks = tasks.filter(task => {

@@ -31,20 +31,34 @@ export default function Home() {
     }
   }, []);
 
-  // Redirect to login if not authenticated
+  // Immediate redirect to login if not authenticated
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      console.log('🔄 No user found, redirecting to login...');
+      router.replace('/login');
     }
   }, [user, loading, router]);
 
-  // Show loading while checking authentication
-  if (loading || !user) {
+  // Show loading while checking authentication (max 5 seconds)
+  if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Yükleniyor...</p>
+          <p className="text-slate-400">Kimlik doğrulanıyor...</p>
+          <p className="text-slate-500 text-sm mt-2">Birkaç saniye sürebilir</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated (after loading is complete)
+  if (!user) {
+    console.log('🔄 Loading complete but no user, redirecting...');
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-400">Giriş sayfasına yönlendiriliyor...</p>
         </div>
       </div>
     );

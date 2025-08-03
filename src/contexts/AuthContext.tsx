@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { handleAuthError, clearAuthSession } from '@/lib/auth-utils';
+import { debugLoading } from '@/lib/loading-debug';
 import { UserProfile } from '@/types';
 
 interface AuthContextType {
@@ -23,110 +24,119 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch user profile from Supabase
+  // Create fallback profile immediately
+  const createFallbackProfile = (userId: string): UserProfile => {
+    return {
+      id: userId,
+      personnel_number: 'P0000',
+      first_name: 'Kullanıcı',
+      last_name: '',
+      status: 'active',
+      work_type: 'full_time',
+      is_leader: false,
+      authority_level: 'employee',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  };
+
+  // Simplified profile fetch with immediate fallback
   const fetchUserProfile = async (userId: string) => {
+    const debugKey = `profile-${userId}`;
+    debugLoading.start(debugKey, 'Fetching user profile');
+    
+    // Set fallback profile immediately to prevent loading hang
+    const fallbackProfile = createFallbackProfile(userId);
+    setUserProfile(fallbackProfile);
+    
     try {
-      console.log('🔍 Fetching user profile for ID:', userId);
+      console.log('🔍 Attempting to fetch user profile for ID:', userId);
+      
+      // Much shorter timeout - 3 seconds
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
       
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
+        .abortSignal(controller.signal)
         .single();
 
+      clearTimeout(timeoutId);
+
       if (error) {
-        console.error('❌ Error fetching user profile:', error.message, 'Code:', error.code);
-        
-        // Infinite recursion hatası kontrolü
-        if (error.code === '42P17') {
-          console.error('🔄 CRITICAL: Infinite recursion in RLS policies detected!');
-          return;
-        }
-        
-        // RLS erişim hatası
-        if (error.code === 'PGRST301') {
-          console.error('🔒 RLS Policy blocked access - user may not be authenticated properly');
-          return;
-        }
-        
-        // Varsayılan profil oluştur
-        console.log('📝 Creating fallback profile...');
-        const defaultProfile: UserProfile = {
-          id: userId,
-          personnel_number: 'P0000',
-          first_name: 'Kullanıcı',
-          last_name: '',
-          status: 'active',
-          work_type: 'full_time',
-          is_leader: false,
-          authority_level: 'employee',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        setUserProfile(defaultProfile);
+        console.warn('⚠️ Profile fetch failed, using fallback:', error.message);
+        debugLoading.error(debugKey, error);
+        // Keep fallback profile
         return;
       }
 
-      console.log('✅ User profile loaded successfully:', data.first_name, data.last_name, data.personnel_number);
-      setUserProfile(data);
-    } catch (error) {
-      console.error('💥 Unexpected error fetching user profile:', error);
-      // Fallback profil
-      const defaultProfile: UserProfile = {
-        id: userId,
-        personnel_number: 'P0000',
-        first_name: 'Kullanıcı',
-        last_name: '',
-        status: 'active',
-        work_type: 'full_time',
-        is_leader: false,
-        authority_level: 'employee',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      setUserProfile(defaultProfile);
+      if (data) {
+        console.log('✅ User profile loaded successfully:', data.first_name, data.last_name);
+        setUserProfile(data);
+        debugLoading.end(debugKey);
+      }
+    } catch (error: any) {
+      console.warn('⚠️ Profile fetch error, using fallback:', error.message);
+      debugLoading.error(debugKey, error);
+      // Keep fallback profile
     }
   };
 
   useEffect(() => {
     let mounted = true;
+    let initTimeout: NodeJS.Timeout;
     
-    // Get initial session
+    // Get initial session with timeout
     const getSession = async () => {
       try {
+        console.log('🔍 Getting initial session...');
+        
+        // Set a maximum 5 second timeout for initial auth check
+        initTimeout = setTimeout(() => {
+          if (mounted) {
+            console.warn('⏰ Auth initialization timeout - proceeding without auth');
+            setLoading(false);
+          }
+        }, 5000);
+
         const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (initTimeout) {
+          clearTimeout(initTimeout);
+        }
         
         if (!mounted) return;
         
         if (error) {
-          console.error('Session error:', error);
-          // Auth error utility fonksiyonunu kullan
-          const wasHandled = await handleAuthError(error);
-          if (wasHandled) {
-            if (mounted) {
-              setSession(null);
-              setUser(null);
-              setUserProfile(null);
-              setLoading(false);
-            }
-            return;
-          }
+          console.error('❌ Session error:', error);
+          setSession(null);
+          setUser(null);
+          setUserProfile(null);
+          setLoading(false);
+          return;
         }
         
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            await fetchUserProfile(session.user.id);
-          }
-          
-          setLoading(false);
+        console.log('📋 Session status:', session ? 'authenticated' : 'not authenticated');
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          // Don't await - let it run in background
+          fetchUserProfile(session.user.id);
+        } else {
+          setUserProfile(null);
         }
+        
+        setLoading(false);
       } catch (error) {
-        console.error('Unexpected error getting session:', error);
+        console.error('💥 Unexpected error getting session:', error);
         if (mounted) {
-          await handleAuthError(error);
+          setSession(null);
+          setUser(null);
+          setUserProfile(null);
           setLoading(false);
         }
       }
@@ -139,48 +149,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('Auth state changed:', event, session?.user?.id);
+        console.log('🔄 Auth state changed:', event, session?.user?.id);
         
-        // Token yenileme hatalarını yakala
-        if (event === 'TOKEN_REFRESHED' && !session) {
-          console.log('Token refresh failed, clearing session...');
-          await clearAuthSession();
-          if (mounted) {
-            setSession(null);
-            setUser(null);
-            setUserProfile(null);
-          }
+        // Handle sign out
+        if (event === 'SIGNED_OUT' || !session) {
+          console.log('👋 User signed out or session ended');
+          setSession(null);
+          setUser(null);
+          setUserProfile(null);
           return;
         }
         
-        // Oturum kapatma olayını yakala
-        if (event === 'SIGNED_OUT') {
-          console.log('User signed out');
-          if (mounted) {
-            setSession(null);
-            setUser(null);
-            setUserProfile(null);
-          }
-          return;
-        }
-        
-        if (mounted) {
+        // Handle sign in or token refresh
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          console.log('👤 User signed in or token refreshed');
           setSession(session);
           setUser(session?.user ?? null);
           
           if (session?.user) {
-            await fetchUserProfile(session.user.id);
-          } else {
-            setUserProfile(null);
+            // Don't await - let it run in background
+            fetchUserProfile(session.user.id);
           }
-          
-          setLoading(false);
         }
       }
     );
 
     return () => {
       mounted = false;
+      if (initTimeout) {
+        clearTimeout(initTimeout);
+      }
       subscription.unsubscribe();
     };
   }, []);
