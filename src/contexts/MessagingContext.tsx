@@ -349,115 +349,103 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         try {
           console.log('Attempting WebSocket connection...');
           
-          // Setup WebSocket subscriptions for messages and channels
-          const realtimeChannel = supabase.channel(`realtime-${user.id}`);
+          // Test basic WebSocket connection first
+          const testChannel = supabase.channel('test-connection');
           
-          // Listen to all message inserts
-          realtimeChannel
-            .on('postgres_changes',
-              { event: 'INSERT', schema: 'public', table: 'messages' },
-              async (payload) => {
-                if (!mounted) return;
-                console.log('🔥 New message via WebSocket:', payload.new);
-                
-                try {
-                  // Check if user is member of this channel first
-                  const { data: membership } = await supabase
-                    .from('channel_members')
-                    .select('id')
-                    .eq('channel_id', payload.new.channel_id)
-                    .eq('user_id', user.id)
-                    .limit(1);
-
-                  if (!membership || membership.length === 0) {
-                    console.log('User not member of channel, ignoring message');
-                    return;
-                  }
-
-                  // Get full message with relations
-                  const { data: message } = await supabase
-                    .from('messages')
-                    .select(`
-                      *,
-                      attachments:message_attachments(*),
-                      reactions:message_reactions(*)
-                    `)
-                    .eq('id', payload.new.id)
-                    .single();
-
-                  if (message && mounted) {
-                    // Get user profile
-                    if (message.user_id) {
-                      const { data: userProfile } = await supabase
-                        .from('user_profiles')
-                        .select('user_id, first_name, last_name, profile_photo_url')
-                        .eq('user_id', message.user_id)
-                        .single();
-
-                      const messageWithProfile = {
-                        ...message,
-                        user_profile: userProfile
-                      };
-
-                      console.log('📨 Adding message to UI via WebSocket:', messageWithProfile);
-                      dispatch({ type: 'ADD_MESSAGE', payload: messageWithProfile as Message });
-                    } else {
-                      console.log('📨 Adding message to UI via WebSocket (no profile):', message);
-                      dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-                    }
+          testChannel.subscribe((status) => {
+            console.log('🔌 Test WebSocket status:', status);
+            
+            if (status === 'SUBSCRIBED') {
+              console.log('✅ Basic WebSocket connection successful, setting up message listeners...');
+              
+              // Now setup the actual message listeners
+              const messageChannel = supabase.channel(`messages-realtime-${user.id}`);
+              
+              messageChannel
+                .on('postgres_changes',
+                  { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'messages',
+                    filter: `channel_id=in.(${state.channels.map(c => c.id).join(',')})`
+                  },
+                  async (payload) => {
+                    if (!mounted) return;
+                    console.log('🔥 Message change via WebSocket:', payload.eventType, payload.new || payload.old);
                     
-                    // Update unread counts
-                    setTimeout(() => calculateUnreadCounts(), 100);
-                  }
-                } catch (error) {
-                  console.error('Error loading message details:', error);
-                }
-              }
-            )
-            // Listen to channel changes
-            .on('postgres_changes',
-              { event: 'INSERT', schema: 'public', table: 'channels' },
-              async (payload) => {
-                if (!mounted) return;
-                console.log('🆕 New channel via WebSocket:', payload.new);
-                
-                // Check if user is member of this new channel
-                const { data: membership } = await supabase
-                  .from('channel_members')
-                  .select('id')
-                  .eq('channel_id', payload.new.id)
-                  .eq('user_id', user.id)
-                  .limit(1);
+                    if (payload.eventType === 'INSERT' && payload.new) {
+                      try {
+                        // Check if user is member of this channel first
+                        const { data: membership } = await supabase
+                          .from('channel_members')
+                          .select('id')
+                          .eq('channel_id', payload.new.channel_id)
+                          .eq('user_id', user.id)
+                          .limit(1);
 
-                if (membership && membership.length > 0) {
-                  console.log('📢 Adding new channel to UI:', payload.new);
-                  dispatch({ type: 'ADD_CHANNEL', payload: payload.new as Channel });
-                }
-              }
-            )
-            // Listen to channel member changes
-            .on('postgres_changes',
-              { event: 'INSERT', schema: 'public', table: 'channel_members' },
-              async (payload) => {
-                if (!mounted) return;
+                        if (!membership || membership.length === 0) {
+                          console.log('User not member of channel, ignoring message');
+                          return;
+                        }
+
+                        // Get full message with relations
+                        const { data: message } = await supabase
+                          .from('messages')
+                          .select(`
+                            *,
+                            attachments:message_attachments(*),
+                            reactions:message_reactions(*)
+                          `)
+                          .eq('id', payload.new.id)
+                          .single();
+
+                        if (message && mounted) {
+                          // Get user profile
+                          if (message.user_id) {
+                            const { data: userProfile } = await supabase
+                              .from('user_profiles')
+                              .select('user_id, first_name, last_name, profile_photo_url')
+                              .eq('user_id', message.user_id)
+                              .single();
+
+                            const messageWithProfile = {
+                              ...message,
+                              user_profile: userProfile
+                            };
+
+                            console.log('📨 Adding message to UI via WebSocket:', messageWithProfile);
+                            dispatch({ type: 'ADD_MESSAGE', payload: messageWithProfile as Message });
+                          } else {
+                            console.log('📨 Adding message to UI via WebSocket (no profile):', message);
+                            dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
+                          }
+                          
+                          // Update unread counts
+                          setTimeout(() => calculateUnreadCounts(), 100);
+                        }
+                      } catch (error) {
+                        console.error('Error loading message details:', error);
+                      }
+                    }
+                  }
+                )
+                .subscribe((status) => {
+                  console.log('📨 Message channel status:', status);
+                  if (status === 'SUBSCRIBED') {
+                    console.log('✅ Message WebSocket listener active');
+                  } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                    console.log('❌ Message WebSocket failed, falling back to polling');
+                    usePolling = true;
+                    setupPolling();
+                  }
+                });
                 
-                // If this user was added to a channel, reload channels
-                if (payload.new.user_id === user.id) {
-                  console.log('👥 User added to new channel, reloading channels');
-                  setTimeout(() => loadChannels(), 500);
-                }
-              }
-            )
-            .subscribe((status) => {
-              console.log('WebSocket subscription status:', status);
-              if (status === 'SUBSCRIBED') {
-                console.log('✅ WebSocket connected successfully');
-              } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                console.log('❌ WebSocket failed, falling back to polling');
-                usePolling = true;
-                setupPolling();
-              }
-            });
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              console.log('❌ Basic WebSocket failed, falling back to polling immediately');
+              usePolling = true;
+              setupPolling();
+            }
+          });
 
           // Wait a bit to see if WebSocket connects
           await new Promise(resolve => setTimeout(resolve, 2000));
