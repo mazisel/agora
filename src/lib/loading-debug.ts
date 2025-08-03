@@ -13,22 +13,20 @@ export const debugLoading = {
         start: Date.now(),
         message
       };
-      console.log(`🔄 [${key}] Loading started: ${message}`);
+      // Debug logs removed for production
     }
   },
 
   end: (key: string) => {
     if (typeof window !== 'undefined' && loadingStates[key]) {
-      const duration = Date.now() - loadingStates[key].start;
-      console.log(`✅ [${key}] Loading completed in ${duration}ms`);
       delete loadingStates[key];
     }
   },
 
   error: (key: string, error: any) => {
     if (typeof window !== 'undefined' && loadingStates[key]) {
-      const duration = Date.now() - loadingStates[key].start;
-      console.error(`❌ [${key}] Loading failed after ${duration}ms:`, error);
+      // Only log actual errors, not debug info
+      console.error(`Loading failed:`, error);
       delete loadingStates[key];
     }
   },
@@ -37,8 +35,6 @@ export const debugLoading = {
     if (typeof window !== 'undefined') {
       setTimeout(() => {
         if (loadingStates[key]) {
-          const duration = Date.now() - loadingStates[key].start;
-          console.warn(`⏰ [${key}] Loading timeout after ${duration}ms - auto-clearing`);
           delete loadingStates[key];
         }
       }, timeoutMs);
@@ -54,11 +50,7 @@ export const debugLoading = {
   },
 
   clearAll: () => {
-    const activeStates = Object.keys(loadingStates);
-    if (activeStates.length > 0) {
-      console.warn(`🧹 Clearing ${activeStates.length} active loading states:`, activeStates);
-      loadingStates = {};
-    }
+    loadingStates = {};
   }
 };
 

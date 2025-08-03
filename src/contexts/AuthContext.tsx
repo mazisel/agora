@@ -50,8 +50,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUserProfile(fallbackProfile);
     
     try {
-      console.log('🔍 Attempting to fetch user profile for ID:', userId);
-      
       // Much shorter timeout - 3 seconds
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
@@ -66,19 +64,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timeoutId);
 
       if (error) {
-        console.warn('⚠️ Profile fetch failed, using fallback:', error.message);
         debugLoading.error(debugKey, error);
         // Keep fallback profile
         return;
       }
 
       if (data) {
-        console.log('✅ User profile loaded successfully:', data.first_name, data.last_name);
         setUserProfile(data);
         debugLoading.end(debugKey);
       }
     } catch (error: any) {
-      console.warn('⚠️ Profile fetch error, using fallback:', error.message);
       debugLoading.error(debugKey, error);
       // Keep fallback profile
     }
@@ -91,12 +86,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get initial session with timeout
     const getSession = async () => {
       try {
-        console.log('🔍 Getting initial session...');
-        
         // Set a maximum 5 second timeout for initial auth check
         initTimeout = setTimeout(() => {
           if (mounted) {
-            console.warn('⏰ Auth initialization timeout - proceeding without auth');
             setLoading(false);
           }
         }, 5000);
@@ -117,8 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
           return;
         }
-        
-        console.log('📋 Session status:', session ? 'authenticated' : 'not authenticated');
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -149,11 +139,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('🔄 Auth state changed:', event, session?.user?.id);
-        
         // Handle sign out
         if (event === 'SIGNED_OUT' || !session) {
-          console.log('👋 User signed out or session ended');
           setSession(null);
           setUser(null);
           setUserProfile(null);
@@ -162,7 +149,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Handle sign in or token refresh
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          console.log('👤 User signed in or token refreshed');
           setSession(session);
           setUser(session?.user ?? null);
           
