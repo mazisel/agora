@@ -13,8 +13,20 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
+  const [particles, setParticles] = useState<Array<{left: number, top: number, delay: number, duration: number}>>([]);
   const router = useRouter();
   const { signIn, user } = useAuth();
+
+  // Initialize particles on client side
+  useEffect(() => {
+    const newParticles = Array.from({ length: 20 }, (_, i) => ({
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      delay: Math.random() * 3,
+      duration: 2 + Math.random() * 2,
+    }));
+    setParticles(newParticles);
+  }, []);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -202,15 +214,15 @@ export default function LoginPage() {
 
       {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(20)].map((_, i) => (
+        {particles.map((particle, i) => (
           <div
             key={i}
             className="absolute w-1 h-1 bg-white/20 rounded-full animate-pulse"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${2 + Math.random() * 2}s`,
+              left: `${particle.left}%`,
+              top: `${particle.top}%`,
+              animationDelay: `${particle.delay}s`,
+              animationDuration: `${particle.duration}s`,
             }}
           ></div>
         ))}

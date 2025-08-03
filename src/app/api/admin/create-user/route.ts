@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { notifyUserWelcome } from '@/lib/notifications';
 
 // Service role key ile admin client oluştur
 const supabaseAdmin = createClient(
@@ -67,6 +68,15 @@ export async function POST(request: NextRequest) {
         { error: 'Profil oluşturulurken hata oluştu: ' + profileError.message },
         { status: 400 }
       );
+    }
+
+    // Hoş geldin e-postası gönder
+    try {
+      const userName = `${firstName} ${lastName}`;
+      await notifyUserWelcome(email, userName, password);
+    } catch (emailError) {
+      console.error('Welcome email could not be sent:', emailError);
+      // E-posta gönderilememesi kullanıcı oluşturma işlemini durdurmaz
     }
 
     return NextResponse.json({

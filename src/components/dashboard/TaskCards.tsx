@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Task, TaskComment, TaskAttachment } from '@/types';
-import { Plus, Clock, User, Play, CheckCircle2, Eye, AlertCircle, X, MessageSquare, FileText, Users, Calendar, Paperclip, Download, Send, Image, Smile, Edit3, Save, XCircle } from 'lucide-react';
+import { Task, TaskComment, TaskAttachment, TaskExpense } from '@/types';
+import { Plus, Clock, User, Play, CheckCircle2, Eye, AlertCircle, X, MessageSquare, FileText, Users, Calendar, Paperclip, Download, Send, Image, Smile, Edit3, Save, XCircle, DollarSign } from 'lucide-react';
 
 interface TaskCardsProps {
   selectedStatus?: string;
@@ -18,12 +18,27 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   const [viewingTask, setViewingTask] = useState<Task | null>(null);
   const [taskComments, setTaskComments] = useState<TaskComment[]>([]);
   const [taskAttachments, setTaskAttachments] = useState<TaskAttachment[]>([]);
+  const [taskExpenses, setTaskExpenses] = useState<TaskExpense[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editingTask, setEditingTask] = useState<{
     status: string;
   }>({ status: '' });
   const [commentsSubscription, setCommentsSubscription] = useState<any>(null);
+  
+  // Expense states
+  const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [newExpense, setNewExpense] = useState({
+    title: '',
+    description: '',
+    amount: '',
+    currency: 'TRY' as const,
+    category: 'material' as const,
+    vendor: '',
+    receipt_number: '',
+    expense_date: new Date().toISOString().split('T')[0]
+  });
+  
   const { user, userProfile } = useAuth();
 
   // Fetch tasks from Supabase
@@ -37,7 +52,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         .from('tasks')
         .select(`
           *,
-          project:projects(id, name),
+          project:projects(id, name, project_manager_id),
           assignee:user_profiles!tasks_assigned_to_fkey(id, first_name, last_name, personnel_number),
           assigner:user_profiles!tasks_assigned_by_fkey(id, first_name, last_name, personnel_number),
           informed:user_profiles!tasks_informed_person_fkey(id, first_name, last_name, personnel_number),
@@ -181,8 +196,22 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
 
       if (attachmentsError) throw attachmentsError;
 
+      // Fetch expenses
+      const { data: expensesData, error: expensesError } = await supabase
+        .from('task_expenses')
+        .select(`
+          *,
+          creator:user_profiles!task_expenses_created_by_fkey(id, first_name, last_name),
+          approver:user_profiles!task_expenses_approved_by_fkey(id, first_name, last_name)
+        `)
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: false });
+
+      if (expensesError) throw expensesError;
+
       setTaskComments(commentsData || []);
       setTaskAttachments(attachmentsData || []);
+      setTaskExpenses(expensesData || []);
 
       // Setup realtime subscription for comments
       const subscription = supabase
@@ -303,6 +332,151 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
       setEditingTask({
         status: viewingTask.status
       });
+    }
+  };
+
+  // Expense functions
+  const handleAddExpense = async () => {
+    if (!viewingTask || !user || !newExpense.title.trim() || !newExpense.amount) return;
+
+    try {
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
+      const response = await fetch(`/api/tasks/${viewingTask.id}/expenses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          title: newExpense.title.trim(),
+          description: newExpense.description.trim() || null,
+          amount: parseFloat(newExpense.amount),
+          currency: newExpense.currency,
+          category: newExpense.category,
+          vendor: newExpense.vendor.trim() || null,
+          receipt_number: newExpense.receipt_number.trim() || null,
+          expense_date: newExpense.expense_date
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add expense');
+      }
+
+      const result = await response.json();
+      console.log('Expense added successfully:', result.data);
+
+      // Reset form
+      setNewExpense({
+        title: '',
+        description: '',
+        amount: '',
+        currency: 'TRY',
+        category: 'material',
+        vendor: '',
+        receipt_number: '',
+        expense_date: new Date().toISOString().split('T')[0]
+      });
+      setIsAddingExpense(false);
+
+      // Refresh expenses
+      await fetchTaskDetails(viewingTask.id);
+    } catch (error: any) {
+      console.error('Error adding expense:', error);
+      alert(`Harcama eklenirken hata oluştu: ${error?.message || 'Bilinmeyen hata'}`);
+    }
+  };
+
+  const handleApproveExpense = async (expenseId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('task_expenses')
+        .update({
+          status: 'approved',
+          approved_by: user.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      // Refresh expenses
+      if (viewingTask) {
+        await fetchTaskDetails(viewingTask.id);
+      }
+    } catch (error) {
+      console.error('Error approving expense:', error);
+    }
+  };
+
+  const handleRejectExpense = async (expenseId: string, reason: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('task_expenses')
+        .update({
+          status: 'rejected',
+          approved_by: user.id,
+          approved_at: new Date().toISOString(),
+          rejection_reason: reason
+        })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      // Refresh expenses
+      if (viewingTask) {
+        await fetchTaskDetails(viewingTask.id);
+      }
+    } catch (error) {
+      console.error('Error rejecting expense:', error);
+    }
+  };
+
+  const formatCurrency = (amount: number, currency: string) => {
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
+  const getCategoryLabel = (category: string) => {
+    const labels: Record<string, string> = {
+      material: 'Malzeme',
+      service: 'Hizmet',
+      travel: 'Seyahat',
+      equipment: 'Ekipman',
+      software: 'Yazılım',
+      other: 'Diğer'
+    };
+    return labels[category] || category;
+  };
+
+  const getExpenseStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+      case 'approved': return 'bg-green-500/20 text-green-300 border-green-500/30';
+      case 'rejected': return 'bg-red-500/20 text-red-300 border-red-500/30';
+      default: return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+    }
+  };
+
+  const getExpenseStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Bekliyor';
+      case 'approved': return 'Onaylandı';
+      case 'rejected': return 'Reddedildi';
+      default: return status;
     }
   };
 
@@ -911,6 +1085,300 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
                           <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4" />
                             <span>Son güncelleme: {new Date(taskComments[taskComments.length - 1]?.created_at).toLocaleString('tr-TR')}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Enhanced Expenses Section */}
+                  <div className="bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-2xl p-8 border border-slate-600/40 shadow-xl">
+                    <div className="flex items-center justify-between mb-6">
+                      <h4 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
+                          <DollarSign className="w-5 h-5 text-white" />
+                        </div>
+                        Harcamalar & Giderler
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-lg text-sm font-medium">
+                          {taskExpenses.length} Harcama
+                        </span>
+                        <button
+                          onClick={() => setIsAddingExpense(true)}
+                          className="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all text-sm font-medium flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Ekle
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Add Expense Form */}
+                    {isAddingExpense && (
+                      <div className="mb-8 bg-slate-800/50 rounded-xl p-6 border border-slate-600/30">
+                        <h5 className="text-lg font-semibold text-white mb-4">Yeni Harcama Ekle</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Başlık *
+                            </label>
+                            <input
+                              type="text"
+                              value={newExpense.title}
+                              onChange={(e) => setNewExpense({ ...newExpense, title: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50"
+                              placeholder="Harcama başlığı"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Tutar *
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={newExpense.amount}
+                                onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                                className="flex-1 px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50"
+                                placeholder="0.00"
+                              />
+                              <select
+                                value={newExpense.currency}
+                                onChange={(e) => setNewExpense({ ...newExpense, currency: e.target.value as any })}
+                                className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50"
+                              >
+                                <option value="TRY">TRY</option>
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Kategori
+                            </label>
+                            <select
+                              value={newExpense.category}
+                              onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value as any })}
+                              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50"
+                            >
+                              <option value="material">Malzeme</option>
+                              <option value="service">Hizmet</option>
+                              <option value="travel">Seyahat</option>
+                              <option value="equipment">Ekipman</option>
+                              <option value="software">Yazılım</option>
+                              <option value="other">Diğer</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Tarih
+                            </label>
+                            <input
+                              type="date"
+                              value={newExpense.expense_date}
+                              onChange={(e) => setNewExpense({ ...newExpense, expense_date: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Satıcı/Firma
+                            </label>
+                            <input
+                              type="text"
+                              value={newExpense.vendor}
+                              onChange={(e) => setNewExpense({ ...newExpense, vendor: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50"
+                              placeholder="Satıcı adı"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Fiş/Fatura No
+                            </label>
+                            <input
+                              type="text"
+                              value={newExpense.receipt_number}
+                              onChange={(e) => setNewExpense({ ...newExpense, receipt_number: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50"
+                              placeholder="Fiş numarası"
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Açıklama
+                          </label>
+                          <textarea
+                            value={newExpense.description}
+                            onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 resize-none"
+                            rows={3}
+                            placeholder="Harcama detayları..."
+                          />
+                        </div>
+                        <div className="flex items-center justify-end gap-3 mt-6">
+                          <button
+                            onClick={() => {
+                              setIsAddingExpense(false);
+                              setNewExpense({
+                                title: '',
+                                description: '',
+                                amount: '',
+                                currency: 'TRY',
+                                category: 'material',
+                                vendor: '',
+                                receipt_number: '',
+                                expense_date: new Date().toISOString().split('T')[0]
+                              });
+                            }}
+                            className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                          >
+                            İptal
+                          </button>
+                          <button
+                            onClick={handleAddExpense}
+                            disabled={!newExpense.title.trim() || !newExpense.amount}
+                            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                            Harcama Ekle
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Expenses List */}
+                    <div className="space-y-4">
+                      {taskExpenses.length === 0 ? (
+                        <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-600/20">
+                          <div className="w-20 h-20 bg-slate-700/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <DollarSign className="w-10 h-10 text-slate-500" />
+                          </div>
+                          <h5 className="text-lg font-semibold text-white mb-2">Henüz Harcama Yok</h5>
+                          <p className="text-slate-400 mb-4">Bu görev için ilk harcamayı ekleyin</p>
+                          <button
+                            onClick={() => setIsAddingExpense(true)}
+                            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all flex items-center gap-2 mx-auto"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Harcama Ekle
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {taskExpenses.map((expense) => (
+                            <div key={expense.id} className="bg-slate-800/60 rounded-xl p-6 border border-slate-600/30 hover:border-slate-500/50 transition-all duration-300">
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <h6 className="font-semibold text-white text-lg">{expense.title}</h6>
+                                    <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${getExpenseStatusColor(expense.status)}`}>
+                                      {getExpenseStatusLabel(expense.status)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-4 text-sm text-slate-300 mb-3">
+                                    <span className="font-medium text-orange-400">
+                                      {formatCurrency(expense.amount, expense.currency)}
+                                    </span>
+                                    <span className="px-2 py-1 bg-slate-700/50 rounded text-xs">
+                                      {getCategoryLabel(expense.category)}
+                                    </span>
+                                    <span className="text-slate-400">
+                                      {new Date(expense.expense_date).toLocaleDateString('tr-TR')}
+                                    </span>
+                                  </div>
+                                  {expense.description && (
+                                    <p className="text-slate-300 text-sm mb-3">{expense.description}</p>
+                                  )}
+                                  <div className="flex items-center gap-4 text-xs text-slate-400">
+                                    <span>
+                                      Ekleyen: {expense.creator?.first_name} {expense.creator?.last_name}
+                                    </span>
+                                    {expense.vendor && <span>Satıcı: {expense.vendor}</span>}
+                                    {expense.receipt_number && <span>Fiş: {expense.receipt_number}</span>}
+                                  </div>
+                                </div>
+                        {expense.status === 'pending' && viewingTask?.project?.project_manager_id === user?.id && (
+                          <div className="flex items-center gap-1 ml-3">
+                            <button
+                              onClick={() => handleApproveExpense(expense.id)}
+                              className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-all text-xs font-medium"
+                            >
+                              Onayla
+                            </button>
+                            <button
+                              onClick={() => {
+                                const reason = prompt('Red nedeni:');
+                                if (reason) {
+                                  handleRejectExpense(expense.id, reason);
+                                }
+                              }}
+                              className="px-2 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-all text-xs font-medium"
+                            >
+                              Reddet
+                            </button>
+                          </div>
+                        )}
+                              </div>
+                              {expense.status === 'approved' && expense.approver && (
+                                <div className="pt-3 border-t border-slate-600/30">
+                                  <p className="text-xs text-green-400">
+                                    ✓ {expense.approver.first_name} {expense.approver.last_name} tarafından onaylandı
+                                    {expense.approved_at && ` - ${new Date(expense.approved_at).toLocaleString('tr-TR')}`}
+                                  </p>
+                                </div>
+                              )}
+                              {expense.status === 'rejected' && (
+                                <div className="pt-3 border-t border-slate-600/30">
+                                  <p className="text-xs text-red-400 mb-1">
+                                    ✗ {expense.approver?.first_name} {expense.approver?.last_name} tarafından reddedildi
+                                    {expense.approved_at && ` - ${new Date(expense.approved_at).toLocaleString('tr-TR')}`}
+                                  </p>
+                                  {expense.rejection_reason && (
+                                    <p className="text-xs text-slate-400">Neden: {expense.rejection_reason}</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Expenses Summary */}
+                    {taskExpenses.length > 0 && (
+                      <div className="mt-6 pt-6 border-t border-slate-600/30">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-slate-800/40 rounded-lg p-4">
+                            <p className="text-xs text-slate-400 mb-1">Toplam Harcama</p>
+                            <p className="text-lg font-semibold text-white">
+                              {formatCurrency(
+                                taskExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+                                'TRY'
+                              )}
+                            </p>
+                          </div>
+                          <div className="bg-slate-800/40 rounded-lg p-4">
+                            <p className="text-xs text-slate-400 mb-1">Onaylanan</p>
+                            <p className="text-lg font-semibold text-green-400">
+                              {formatCurrency(
+                                taskExpenses.filter(e => e.status === 'approved').reduce((sum, expense) => sum + expense.amount, 0),
+                                'TRY'
+                              )}
+                            </p>
+                          </div>
+                          <div className="bg-slate-800/40 rounded-lg p-4">
+                            <p className="text-xs text-slate-400 mb-1">Bekleyen</p>
+                            <p className="text-lg font-semibold text-yellow-400">
+                              {formatCurrency(
+                                taskExpenses.filter(e => e.status === 'pending').reduce((sum, expense) => sum + expense.amount, 0),
+                                'TRY'
+                              )}
+                            </p>
                           </div>
                         </div>
                       </div>

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit3, Trash2, Clock, User, Calendar, MessageSquare, Paperclip, CheckCircle2, Eye, X, Send, Download, AlertCircle, FileText, Users, Image, Smile, Save, XCircle } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, Clock, User, Calendar, MessageSquare, Paperclip, CheckCircle2, Eye, X, Send, Download, AlertCircle, FileText, Users, Image, Smile, Save, XCircle, DollarSign, Receipt, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Task, Project, UserProfile, TaskComment, TaskAttachment } from '@/types';
+import { Task, Project, UserProfile, TaskComment, TaskAttachment, TaskExpense } from '@/types';
 
 import CreateTaskView from '@/components/tasks/CreateTaskView';
 import TaskDetailView from '@/components/tasks/TaskDetailView';
@@ -47,10 +47,24 @@ export default function TasksPage() {
   const [newComment, setNewComment] = useState('');
   const [taskComments, setTaskComments] = useState<TaskComment[]>([]);
   const [taskAttachments, setTaskAttachments] = useState<TaskAttachment[]>([]);
+  const [taskExpenses, setTaskExpenses] = useState<TaskExpense[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTask, setEditingTask] = useState<{
     status: string;
   }>({ status: '' });
+
+  // Expense states
+  const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [newExpense, setNewExpense] = useState({
+    title: '',
+    description: '',
+    amount: '',
+    currency: 'TRY' as const,
+    category: 'material' as const,
+    vendor: '',
+    receipt_number: '',
+    expense_date: new Date().toISOString().split('T')[0]
+  });
 
   // Fetch data from Supabase
   const fetchData = async () => {
@@ -219,8 +233,22 @@ export default function TasksPage() {
 
       if (attachmentsError) throw attachmentsError;
 
+      // Fetch expenses
+      const { data: expensesData, error: expensesError } = await supabase
+        .from('task_expenses')
+        .select(`
+          *,
+          creator:user_profiles!task_expenses_created_by_fkey(id, first_name, last_name),
+          approver:user_profiles!task_expenses_approved_by_fkey(id, first_name, last_name)
+        `)
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: false });
+
+      if (expensesError) throw expensesError;
+
       setTaskComments(commentsData || []);
       setTaskAttachments(attachmentsData || []);
+      setTaskExpenses(expensesData || []);
     } catch (error) {
       console.error('Error fetching task details:', error);
     }
@@ -372,6 +400,152 @@ export default function TasksPage() {
 
   const isOverdue = (dueDate: string) => {
     return new Date(dueDate) < new Date() && viewingTask?.status !== 'done';
+  };
+
+  // Expense functions
+  const handleAddExpense = async (taskId: string) => {
+    if (!newExpense.title || !newExpense.amount) {
+      alert('Başlık ve tutar zorunludur.');
+      return;
+    }
+
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('User not authenticated');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('task_expenses')
+        .insert([{
+          task_id: taskId,
+          title: newExpense.title,
+          description: newExpense.description || null,
+          amount: parseFloat(newExpense.amount),
+          currency: newExpense.currency,
+          category: newExpense.category,
+          vendor: newExpense.vendor || null,
+          receipt_number: newExpense.receipt_number || null,
+          expense_date: newExpense.expense_date,
+          status: 'pending',
+          created_by: user.id
+        }]);
+
+      if (error) throw error;
+
+      setNewExpense({
+        title: '',
+        description: '',
+        amount: '',
+        currency: 'TRY',
+        category: 'material',
+        vendor: '',
+        receipt_number: '',
+        expense_date: new Date().toISOString().split('T')[0]
+      });
+      setIsAddingExpense(false);
+      await fetchTaskDetails(taskId);
+    } catch (error) {
+      console.error('Error adding expense:', error);
+      alert('Harcama eklenirken hata oluştu.');
+    }
+  };
+
+  const handleApproveExpense = async (expenseId: string) => {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('User not authenticated');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('task_expenses')
+        .update({
+          status: 'approved',
+          approved_by: user.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      if (viewingTask) {
+        await fetchTaskDetails(viewingTask.id);
+      }
+    } catch (error) {
+      console.error('Error approving expense:', error);
+      alert('Harcama onaylanırken hata oluştu.');
+    }
+  };
+
+  const handleRejectExpense = async (expenseId: string, reason: string) => {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('User not authenticated');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('task_expenses')
+        .update({
+          status: 'rejected',
+          approved_by: user.id,
+          approved_at: new Date().toISOString(),
+          rejection_reason: reason
+        })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      if (viewingTask) {
+        await fetchTaskDetails(viewingTask.id);
+      }
+    } catch (error) {
+      console.error('Error rejecting expense:', error);
+      alert('Harcama reddedilirken hata oluştu.');
+    }
+  };
+
+  const getExpenseStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+      case 'approved': return 'bg-green-500/20 text-green-300 border-green-500/30';
+      case 'rejected': return 'bg-red-500/20 text-red-300 border-red-500/30';
+      default: return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+    }
+  };
+
+  const getExpenseStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Beklemede';
+      case 'approved': return 'Onaylandı';
+      case 'rejected': return 'Reddedildi';
+      default: return status;
+    }
+  };
+
+  const getCategoryLabel = (category: string) => {
+    switch (category) {
+      case 'material': return 'Malzeme';
+      case 'service': return 'Hizmet';
+      case 'travel': return 'Seyahat';
+      case 'equipment': return 'Ekipman';
+      case 'software': return 'Yazılım';
+      case 'other': return 'Diğer';
+      default: return category;
+    }
+  };
+
+  const formatCurrency = (amount: number, currency: string) => {
+    const formatter = new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2
+    });
+    return formatter.format(amount);
   };
 
   return (
@@ -969,396 +1143,18 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Enhanced Task Detail Modal */}
+      {/* Task Detail Modal */}
       {viewingTask && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800/95 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-            {/* Enhanced Modal Header */}
-            <div className="relative p-6 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4">
-                  <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${getStatusColor(viewingTask.status).replace('text-', 'bg-').replace('/20', '/10')} border ${getStatusColor(viewingTask.status).split(' ')[2]}`}>
-                    {getStatusIcon(viewingTask.status)}
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">{viewingTask.title}</h3>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 text-slate-300">
-                        <FileText className="w-4 h-4" />
-                        <span>{viewingTask.project?.name}</span>
-                      </div>
-                      {viewingTask.due_date && (
-                        <div className={`flex items-center gap-2 ${isOverdue(viewingTask.due_date) ? 'text-red-400' : 'text-slate-300'}`}>
-                          <Calendar className="w-4 h-4" />
-                          <span>{new Date(viewingTask.due_date).toLocaleDateString('tr-TR')}</span>
-                          {isOverdue(viewingTask.due_date) && <span className="text-xs font-medium">(Gecikmiş)</span>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {!isEditing ? (
-                    <button
-                      onClick={handleEditTask}
-                      className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-all"
-                      title="Görevi Düzenle"
-                    >
-                      <Edit3 className="w-5 h-5" />
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={handleSaveEdit}
-                        className="w-10 h-10 flex items-center justify-center text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all"
-                        title="Değişiklikleri Kaydet"
-                      >
-                        <Save className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={handleCancelEdit}
-                        className="w-10 h-10 flex items-center justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all"
-                        title="Düzenlemeyi İptal Et"
-                      >
-                        <XCircle className="w-5 h-5" />
-                      </button>
-                    </>
-                  )}
-                  <button
-                    onClick={() => setViewingTask(null)}
-                    className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-xl transition-all"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-              
-              {/* Status and Priority Row */}
-              <div className="flex items-center gap-3 mt-4">
-                {isEditing ? (
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-slate-300">Durum:</label>
-                    <select
-                      value={editingTask.status}
-                      onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
-                      className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
-                    >
-                      <option value="todo">Yeni</option>
-                      <option value="in_progress">Devam Ediyor</option>
-                      <option value="review">İnceleme</option>
-                      <option value="done">Tamamlandı</option>
-                      <option value="cancelled">İptal</option>
-                    </select>
-                  </div>
-                ) : (
-                  <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium ${getStatusColor(viewingTask.status)}`}>
-                    {getStatusIcon(viewingTask.status)}
-                    {getStatusLabel(viewingTask.status)}
-                  </span>
-                )}
-                <span className={`inline-flex items-center px-4 py-2 rounded-xl border text-sm font-medium ${getPriorityColor(viewingTask.priority)}`}>
-                  {getPriorityLabel(viewingTask.priority)}
-                </span>
-                {!isEditing && viewingTask.status !== 'done' && viewingTask.status !== 'cancelled' && (
-                  <button
-                    onClick={async () => {
-                      await handleUpdateTaskStatus(viewingTask.id, 'done');
-                      // Update the viewing task immediately
-                      setViewingTask({
-                        ...viewingTask,
-                        status: 'done',
-                        completed_at: new Date().toISOString()
-                      });
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-xl hover:bg-green-500/30 transition-all text-sm font-medium"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Tamamla
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Enhanced Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-150px)] pb-24 md:pb-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Main Content */}
-                <div className="lg:col-span-2 space-y-8">
-                  {/* Description */}
-                  <div className="bg-slate-700/20 rounded-xl p-6 border border-slate-600/30">
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-blue-400" />
-                      Açıklama
-                    </h4>
-                    <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
-                      {viewingTask.description || 'Bu görev için henüz açıklama eklenmemiş.'}
-                    </p>
-                  </div>
-
-                  {/* Enhanced Comments Section */}
-                  <div className="bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-2xl p-4 md:p-8 border border-slate-600/40 shadow-xl">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
-                      <h4 className="text-xl md:text-2xl font-bold text-white flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
-                          <MessageSquare className="w-5 h-5 text-white" />
-                        </div>
-                        Yorumlar
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <span className="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-sm font-medium">
-                          {taskComments.length} Yorum
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Enhanced Add Comment */}
-                    <div className="mb-8 bg-slate-800/50 rounded-xl p-4 md:p-6 border border-slate-600/30">
-                      <div className="flex flex-col sm:flex-row items-start gap-4">
-                        <div className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0">
-                          {userProfile?.profile_photo_url ? (
-                            <img
-                              src={userProfile.profile_photo_url}
-                              alt={`${userProfile.first_name} ${userProfile.last_name}`}
-                              className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-cover"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
-                              {userProfile?.first_name?.charAt(0) || 'U'}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 w-full">
-                          <div className="mb-3">
-                            <label className="block text-sm font-medium text-slate-300 mb-2">
-                              Yorum Ekle
-                            </label>
-                            <div className="relative">
-                              <textarea
-                                value={newComment}
-                                onChange={(e) => setNewComment(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 resize-none transition-all"
-                                rows={3}
-                                placeholder="Görüşlerinizi, güncellemelerinizi veya sorularınızı paylaşın..."
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-end">
-                            <button
-                              onClick={() => {
-                                if (viewingTask) {
-                                  handleAddComment(viewingTask.id);
-                                }
-                              }}
-                              disabled={!newComment.trim()}
-                              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
-                            >
-                              <Send className="w-3 h-3" />
-                              Yorum Yap
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Enhanced Comments List */}
-                    <div className="space-y-6">
-                      {taskComments.length === 0 ? (
-                        <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-600/20">
-                          <div className="w-20 h-20 bg-slate-700/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                            <MessageSquare className="w-10 h-10 text-slate-500" />
-                          </div>
-                          <h5 className="text-lg font-semibold text-white mb-2">Henüz Yorum Yok</h5>
-                          <p className="text-slate-400 mb-4">Bu görev hakkında ilk yorumu siz yapın</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {taskComments.map((comment, index) => (
-                            <div key={comment.id} className="group relative">
-                              <div className="bg-slate-800/60 rounded-xl p-4 md:p-6 border border-slate-600/30">
-                                <div className="flex items-start gap-4">
-                                  <div className="relative flex-shrink-0">
-                                    {comment.user?.profile_photo_url ? (
-                                      <img
-                                        src={comment.user.profile_photo_url}
-                                        alt={`${comment.user.first_name} ${comment.user.last_name}`}
-                                        className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-cover shadow-lg"
-                                      />
-                                    ) : (
-                                      <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                                        {comment.user?.first_name?.charAt(0)}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3">
-                                      <h6 className="font-semibold text-white">
-                                        {comment.user?.first_name} {comment.user?.last_name}
-                                      </h6>
-                                      <div className="text-xs text-slate-400 mt-1 sm:mt-0">
-                                        {new Date(comment.created_at).toLocaleString('tr-TR')}
-                                      </div>
-                                    </div>
-                                    <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/20">
-                                      <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">
-                                        {comment.comment}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sidebar */}
-                <div className="lg:col-span-1 space-y-6">
-                  {/* People */}
-                  <div className="bg-slate-700/20 rounded-xl p-6 border border-slate-600/30">
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <Users className="w-5 h-5 text-purple-400" />
-                      Kişiler
-                    </h4>
-                    <div className="space-y-4">
-                      {viewingTask.assignee && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-lg">
-                          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white text-sm font-bold">
-                            {viewingTask.assignee.first_name?.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Sorumlu</p>
-                            <p className="text-white font-medium">
-                              {viewingTask.assignee.first_name} {viewingTask.assignee.last_name}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      {viewingTask.assigner && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-lg">
-                          <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center text-white text-sm font-bold">
-                            {viewingTask.assigner.first_name?.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Atayan</p>
-                            <p className="text-white font-medium">
-                              {viewingTask.assigner.first_name} {viewingTask.assigner.last_name}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      {viewingTask.informed && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-lg">
-                          <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center text-white text-sm font-bold">
-                            {viewingTask.informed.first_name?.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Bilgi</p>
-                            <p className="text-white font-medium">
-                              {viewingTask.informed.first_name} {viewingTask.informed.last_name}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      {viewingTask.creator && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-lg">
-                          <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center text-white text-sm font-bold">
-                            {viewingTask.creator.first_name?.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Oluşturan</p>
-                            <p className="text-white font-medium">
-                              {viewingTask.creator.first_name} {viewingTask.creator.last_name}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Timeline */}
-                  <div className="bg-slate-700/20 rounded-xl p-6 border border-slate-600/30">
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-orange-400" />
-                      Zaman Çizelgesi
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-lg">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <div>
-                          <p className="text-xs text-slate-400 mb-1">Oluşturulma</p>
-                          <p className="text-white text-sm">
-                            {new Date(viewingTask.created_at).toLocaleString('tr-TR')}
-                          </p>
-                        </div>
-                      </div>
-                      {viewingTask.due_date && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-lg">
-                          <div className={`w-2 h-2 rounded-full ${isOverdue(viewingTask.due_date) ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Son Teslim</p>
-                            <p className={`text-sm ${isOverdue(viewingTask.due_date) ? 'text-red-400' : 'text-white'}`}>
-                              {new Date(viewingTask.due_date).toLocaleString('tr-TR')}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      {viewingTask.completed_at && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-lg">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Tamamlanma</p>
-                            <p className="text-white text-sm">
-                              {new Date(viewingTask.completed_at).toLocaleString('tr-TR')}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Attachments */}
-                  <div className="bg-slate-700/20 rounded-xl p-6 border border-slate-600/30">
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <Paperclip className="w-5 h-5 text-cyan-400" />
-                      Dosyalar ({taskAttachments.length})
-                    </h4>
-                    <div className="space-y-3">
-                      {taskAttachments.length === 0 ? (
-                        <div className="text-center py-6">
-                          <Paperclip className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                          <p className="text-slate-400 text-sm">Dosya eklenmemiş</p>
-                        </div>
-                      ) : (
-                        taskAttachments.map((attachment) => (
-                          <div key={attachment.id} className="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg border border-slate-600/20">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <Paperclip className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                              <div className="min-w-0">
-                                <p className="text-white text-sm truncate">{attachment.file_name}</p>
-                                <p className="text-xs text-slate-400">
-                                  {attachment.uploader?.first_name} {attachment.uploader?.last_name}
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => window.open(attachment.file_url, '_blank')}
-                              className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-600/50 rounded-lg transition-all flex-shrink-0"
-                            >
-                              <Download className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <TaskDetailView
+          task={viewingTask}
+          onClose={() => setViewingTask(null)}
+          onUpdateTaskStatus={handleUpdateTaskStatus}
+          fetchTaskDetails={fetchTaskDetails}
+          taskComments={taskComments}
+          taskAttachments={taskAttachments}
+          setTaskComments={setTaskComments}
+          setTaskAttachments={setTaskAttachments}
+        />
       )}
     </div>
   );

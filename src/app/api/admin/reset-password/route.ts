@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { notifyPasswordReset } from '@/lib/notifications';
 
 // Service role key ile admin client oluştur
 const supabaseAdmin = createClient(
@@ -29,6 +30,30 @@ export async function POST(request: NextRequest) {
         { error: 'Şifre güncellenirken hata oluştu: ' + error.message },
         { status: 400 }
       );
+    }
+
+    // Kullanıcı bilgilerini al ve şifre sıfırlama e-postası gönder
+    if (data.user) {
+      try {
+        // Kullanıcı profilini al
+        const { data: profile, error: profileError } = await supabaseAdmin
+          .from('user_profiles')
+          .select('first_name, last_name, email')
+          .eq('id', userId)
+          .single();
+
+        if (!profileError && profile) {
+          const userName = `${profile.first_name} ${profile.last_name}`;
+          const userEmail = profile.email || data.user.email;
+          
+          if (userEmail) {
+            await notifyPasswordReset(userEmail, userName, newPassword);
+          }
+        }
+      } catch (emailError) {
+        console.error('Password reset email could not be sent:', emailError);
+        // E-posta gönderilememesi şifre sıfırlama işlemini durdurmaz
+      }
     }
 
     return NextResponse.json({

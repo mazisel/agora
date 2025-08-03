@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Edit3, Trash2, Building, Calendar, DollarSign, User, Eye } from 'lucide-react';
-import { Project } from '@/types';
+import { Plus, Search, Edit3, Trash2, Building, Calendar, DollarSign, User, Eye, X, Clock, CheckCircle, AlertCircle, Users, FileText, Target } from 'lucide-react';
+import { Project, Task } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import MainLayout from '@/components/layout/MainLayout';
@@ -35,6 +35,8 @@ export default function ProjectsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [viewingProject, setViewingProject] = useState<Project | null>(null);
+  const [projectTasks, setProjectTasks] = useState<Task[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [newProject, setNewProject] = useState({
@@ -126,6 +128,93 @@ export default function ProjectsPage() {
     fetchUsers();
   }, []);
 
+  // Fetch tasks for a specific project
+  const fetchProjectTasks = async (projectId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          project:projects!tasks_project_id_fkey (
+            id,
+            name
+          ),
+          assignee:user_profiles!tasks_assigned_to_fkey (
+            id,
+            first_name,
+            last_name
+          ),
+          assigner:user_profiles!tasks_assigned_by_fkey (
+            id,
+            first_name,
+            last_name
+          ),
+          creator:user_profiles!tasks_created_by_fkey (
+            id,
+            first_name,
+            last_name
+          )
+        `)
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProjectTasks(data || []);
+    } catch (error) {
+      console.error('Error fetching project tasks:', error);
+      setProjectTasks([]);
+    }
+  };
+
+  // Handle project view
+  const handleViewProject = async (project: Project) => {
+    setViewingProject(project);
+    await fetchProjectTasks(project.id);
+  };
+
+  // Get task status color and text
+  const getTaskStatusColor = (status: Task['status']) => {
+    switch (status) {
+      case 'todo': return 'bg-gray-500';
+      case 'in_progress': return 'bg-blue-500';
+      case 'review': return 'bg-yellow-500';
+      case 'done': return 'bg-green-500';
+      case 'cancelled': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getTaskStatusText = (status: Task['status']) => {
+    switch (status) {
+      case 'todo': return 'Yapılacak';
+      case 'in_progress': return 'Devam Ediyor';
+      case 'review': return 'İncelemede';
+      case 'done': return 'Tamamlandı';
+      case 'cancelled': return 'İptal Edildi';
+      default: return status;
+    }
+  };
+
+  const getTaskPriorityColor = (priority: Task['priority']) => {
+    switch (priority) {
+      case 'low': return 'text-green-400';
+      case 'medium': return 'text-yellow-400';
+      case 'high': return 'text-orange-400';
+      case 'urgent': return 'text-red-400';
+      default: return 'text-gray-400';
+    }
+  };
+
+  const getTaskPriorityText = (priority: Task['priority']) => {
+    switch (priority) {
+      case 'low': return 'Düşük';
+      case 'medium': return 'Orta';
+      case 'high': return 'Yüksek';
+      case 'urgent': return 'Acil';
+      default: return priority;
+    }
+  };
+
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.client?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -184,6 +273,45 @@ export default function ProjectsPage() {
     } catch (error) {
       console.error('Error creating project:', error);
       alert('Proje oluşturulurken hata oluştu.');
+    }
+  };
+
+  const updateProject = async () => {
+    if (!editingProject) return;
+
+    if (!editingProject.name.trim() || !editingProject.client_id || !editingProject.project_manager_id) {
+      alert('Proje adı, müşteri ve proje yöneticisi zorunludur.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          name: editingProject.name.trim(),
+          description: editingProject.description?.trim(),
+          status: editingProject.status,
+          project_type: editingProject.project_type,
+          client_id: editingProject.client_id,
+          start_date: editingProject.start_date,
+          end_date: editingProject.end_date || null,
+          estimated_end_date: editingProject.estimated_end_date,
+          project_manager_id: editingProject.project_manager_id,
+          project_members: editingProject.project_members,
+          total_budget: editingProject.total_budget,
+          spent_budget: editingProject.spent_budget,
+          notes: editingProject.notes?.trim()
+        })
+        .eq('id', editingProject.id);
+
+      if (error) throw error;
+
+      await fetchProjects();
+      setEditingProject(null);
+      alert('Proje başarıyla güncellendi!');
+    } catch (error) {
+      console.error('Error updating project:', error);
+      alert('Proje güncellenirken hata oluştu.');
     }
   };
 
@@ -373,7 +501,7 @@ export default function ProjectsPage() {
                   ))
                 ) : (
                   filteredProjects.map((project) => (
-                    <tr key={project.id} className="hover:bg-slate-700/30 transition-colors">
+                    <tr key={project.id} className="hover:bg-slate-700/30 transition-colors cursor-pointer" onClick={() => handleViewProject(project)}>
                       <td className="px-6 py-4">
                         <div>
                           <div className="font-medium text-white">{project.name}</div>
@@ -443,14 +571,20 @@ export default function ProjectsPage() {
                           {userProfile && canManageProjects(userProfile.authority_level) && (
                             <>
                               <button
-                                onClick={() => setEditingProject(project)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingProject(project);
+                                }}
                                 className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-700/50 rounded-lg transition-all"
                                 title="Düzenle"
                               >
                                 <Edit3 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => deleteProject(project.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteProject(project.id);
+                                }}
                                 className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700/50 rounded-lg transition-all"
                                 title="Sil"
                               >
@@ -482,7 +616,7 @@ export default function ProjectsPage() {
             ))
           ) : (
             filteredProjects.map((project) => (
-              <div key={project.id} className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 space-y-3">
+              <div key={project.id} className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 space-y-3 cursor-pointer hover:bg-slate-700/30 transition-colors" onClick={() => handleViewProject(project)}>
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-bold text-white">{project.name}</h3>
@@ -519,14 +653,20 @@ export default function ProjectsPage() {
                 {userProfile && canManageProjects(userProfile.authority_level) && (
                   <div className="flex justify-end gap-2 pt-2 border-t border-slate-700/50">
                     <button
-                      onClick={() => setEditingProject(project)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingProject(project);
+                      }}
                       className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-700/50 rounded-lg transition-all"
                       title="Düzenle"
                     >
                       <Edit3 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => deleteProject(project.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteProject(project.id);
+                      }}
                       className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700/50 rounded-lg transition-all"
                       title="Sil"
                     >
@@ -775,6 +915,538 @@ export default function ProjectsPage() {
                     className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200"
                   >
                     Proje Oluştur
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Project Details Modal */}
+        {viewingProject && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-6xl w-full max-h-[90vh] overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-700/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                      <Target className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">{viewingProject.name}</h3>
+                      <p className="text-slate-400">{getProjectTypeLabel(viewingProject.project_type)}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setViewingProject(null)}
+                    className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto max-h-[70vh]">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Project Details - Left Column */}
+                  <div className="lg:col-span-2 space-y-6">
+                    {/* Project Info */}
+                    <div className="bg-slate-700/30 rounded-xl p-6">
+                      <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-blue-400" />
+                        Proje Bilgileri
+                      </h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-slate-400 text-sm">Müşteri:</span>
+                          <p className="text-white font-medium">{viewingProject.client?.name || '-'}</p>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-sm">Proje Yöneticisi:</span>
+                          <p className="text-white font-medium">
+                            {viewingProject.project_manager ? 
+                              `${viewingProject.project_manager.first_name} ${viewingProject.project_manager.last_name}` : 
+                              '-'
+                            }
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-sm">Durum:</span>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(viewingProject.status)}`}>
+                            {getStatusText(viewingProject.status)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-sm">Başlangıç Tarihi:</span>
+                          <p className="text-white font-medium">{formatDate(viewingProject.start_date)}</p>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-sm">Tahmini Bitiş:</span>
+                          <p className={`font-medium ${
+                            isOverdue(viewingProject.estimated_end_date) ? 'text-red-400' : 'text-white'
+                          }`}>
+                            {formatDate(viewingProject.estimated_end_date)}
+                            {isOverdue(viewingProject.estimated_end_date) && ' (Gecikmiş)'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-sm">Gerçek Bitiş:</span>
+                          <p className="text-white font-medium">{formatDate(viewingProject.end_date || '')}</p>
+                        </div>
+                      </div>
+
+                      {viewingProject.description && (
+                        <div className="mt-4">
+                          <span className="text-slate-400 text-sm">Açıklama:</span>
+                          <p className="text-white mt-1">{viewingProject.description}</p>
+                        </div>
+                      )}
+
+                      {viewingProject.notes && (
+                        <div className="mt-4">
+                          <span className="text-slate-400 text-sm">Notlar:</span>
+                          <p className="text-white mt-1">{viewingProject.notes}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Budget Info */}
+                    <div className="bg-slate-700/30 rounded-xl p-6">
+                      <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <DollarSign className="w-5 h-5 text-green-400" />
+                        Bütçe Bilgileri
+                      </h4>
+                      
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Toplam Bütçe:</span>
+                          <span className="text-white font-bold text-lg">{formatCurrency(viewingProject.total_budget)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Harcanan:</span>
+                          <span className="text-white font-bold text-lg">{formatCurrency(viewingProject.spent_budget)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Kalan:</span>
+                          <span className="text-white font-bold text-lg">{formatCurrency(viewingProject.total_budget - viewingProject.spent_budget)}</span>
+                        </div>
+                        
+                        <div className="w-full bg-slate-700 rounded-full h-3">
+                          <div 
+                            className={`h-3 rounded-full transition-all duration-300 ${
+                              calculateProgress(viewingProject) > 90 ? 'bg-red-500' : 
+                              calculateProgress(viewingProject) > 70 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(calculateProgress(viewingProject), 100)}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-center">
+                          <span className="text-slate-400 text-sm">%{calculateProgress(viewingProject)} kullanıldı</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Project Tasks */}
+                    <div className="bg-slate-700/30 rounded-xl p-6">
+                      <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 text-purple-400" />
+                        Proje Görevleri ({projectTasks.length})
+                      </h4>
+                      
+                      {projectTasks.length > 0 ? (
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                          {projectTasks.map((task) => (
+                            <div key={task.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-600/50">
+                              <div className="flex items-start justify-between mb-2">
+                                <h5 className="font-medium text-white">{task.title}</h5>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getTaskStatusColor(task.status)}`}>
+                                  {getTaskStatusText(task.status)}
+                                </span>
+                              </div>
+                              
+                              {task.description && (
+                                <p className="text-slate-400 text-sm mb-3">{task.description}</p>
+                              )}
+                              
+                              <div className="flex items-center justify-between text-sm">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-1">
+                                    <User className="w-3 h-3 text-slate-400" />
+                                    <span className="text-slate-300">
+                                      {task.assignee ? 
+                                        `${task.assignee.first_name} ${task.assignee.last_name}` : 
+                                        'Atanmamış'
+                                      }
+                                    </span>
+                                  </div>
+                                  <div className={`flex items-center gap-1 ${getTaskPriorityColor(task.priority)}`}>
+                                    <AlertCircle className="w-3 h-3" />
+                                    <span>{getTaskPriorityText(task.priority)}</span>
+                                  </div>
+                                </div>
+                                
+                                {task.due_date && (
+                                  <div className="flex items-center gap-1 text-slate-400">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{formatDate(task.due_date)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <CheckCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                          <p className="text-slate-400">Bu projeye henüz görev atanmamış</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Project Stats - Right Column */}
+                  <div className="space-y-6">
+                    {/* Quick Stats */}
+                    <div className="bg-slate-700/30 rounded-xl p-6">
+                      <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <Users className="w-5 h-5 text-cyan-400" />
+                        Proje İstatistikleri
+                      </h4>
+                      
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Toplam Görev:</span>
+                          <span className="text-white font-bold">{projectTasks.length}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Tamamlanan:</span>
+                          <span className="text-green-400 font-bold">
+                            {projectTasks.filter(t => t.status === 'done').length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Devam Eden:</span>
+                          <span className="text-blue-400 font-bold">
+                            {projectTasks.filter(t => t.status === 'in_progress').length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">İncelemede:</span>
+                          <span className="text-yellow-400 font-bold">
+                            {projectTasks.filter(t => t.status === 'review').length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Bekleyen:</span>
+                          <span className="text-gray-400 font-bold">
+                            {projectTasks.filter(t => t.status === 'todo').length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Task Priority Distribution */}
+                    <div className="bg-slate-700/30 rounded-xl p-6">
+                      <h4 className="text-lg font-semibold text-white mb-4">Öncelik Dağılımı</h4>
+                      
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-red-400">Acil:</span>
+                          <span className="text-white font-bold">
+                            {projectTasks.filter(t => t.priority === 'urgent').length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-orange-400">Yüksek:</span>
+                          <span className="text-white font-bold">
+                            {projectTasks.filter(t => t.priority === 'high').length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-yellow-400">Orta:</span>
+                          <span className="text-white font-bold">
+                            {projectTasks.filter(t => t.priority === 'medium').length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-green-400">Düşük:</span>
+                          <span className="text-white font-bold">
+                            {projectTasks.filter(t => t.priority === 'low').length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Project Timeline */}
+                    <div className="bg-slate-700/30 rounded-xl p-6">
+                      <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-indigo-400" />
+                        Zaman Çizelgesi
+                      </h4>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <span className="text-slate-400 text-sm">Oluşturulma:</span>
+                          <p className="text-white">{formatDate(viewingProject.created_at)}</p>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-sm">Son Güncelleme:</span>
+                          <p className="text-white">{formatDate(viewingProject.updated_at)}</p>
+                        </div>
+                        {viewingProject.start_date && viewingProject.estimated_end_date && (
+                          <div>
+                            <span className="text-slate-400 text-sm">Süre:</span>
+                            <p className="text-white">
+                              {Math.ceil((new Date(viewingProject.estimated_end_date).getTime() - new Date(viewingProject.start_date).getTime()) / (1000 * 60 * 60 * 24))} gün
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-slate-700/50">
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => setViewingProject(null)}
+                    className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                  >
+                    Kapat
+                  </button>
+                  {userProfile && canManageProjects(userProfile.authority_level) && (
+                    <button
+                      onClick={() => {
+                        setViewingProject(null);
+                        setEditingProject(viewingProject);
+                      }}
+                      className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      Düzenle
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Project Modal */}
+        {editingProject && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-700/50">
+                <h3 className="text-xl font-bold text-white">Proje Düzenle</h3>
+                <p className="text-slate-400 mt-1">Proje bilgilerini güncelleyin</p>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto max-h-[70vh]">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Column */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Proje Adı *
+                      </label>
+                      <input
+                        type="text"
+                        value={editingProject.name}
+                        onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                        placeholder="Proje adını girin"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Açıklama
+                      </label>
+                      <textarea
+                        value={editingProject.description || ''}
+                        onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                        className="w-full px-3 py-2 h-20 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                        placeholder="Proje açıklaması"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Proje Tipi
+                        </label>
+                        <select
+                          value={editingProject.project_type}
+                          onChange={(e) => setEditingProject({ ...editingProject, project_type: e.target.value as any })}
+                          className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                        >
+                          {projectTypes.map(type => (
+                            <option key={type.value} value={type.value}>
+                              {type.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Durum
+                        </label>
+                        <select
+                          value={editingProject.status}
+                          onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value as any })}
+                          className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                        >
+                          {statusOptions.map(status => (
+                            <option key={status.value} value={status.value}>
+                              {status.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Müşteri *
+                      </label>
+                      <select
+                        value={editingProject.client_id}
+                        onChange={(e) => setEditingProject({ ...editingProject, client_id: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                      >
+                        <option value="">Müşteri seçin</option>
+                        {companies.map(company => (
+                          <option key={company.id} value={company.id}>
+                            {company.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Proje Yöneticisi *
+                      </label>
+                      <select
+                        value={editingProject.project_manager_id}
+                        onChange={(e) => setEditingProject({ ...editingProject, project_manager_id: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                      >
+                        <option value="">Yönetici seçin</option>
+                        {users.map(user => (
+                          <option key={user.id} value={user.id}>
+                            {user.first_name} {user.last_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Right Column */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Başlangıç Tarihi *
+                        </label>
+                        <input
+                          type="date"
+                          value={editingProject.start_date}
+                          onChange={(e) => setEditingProject({ ...editingProject, start_date: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Bitiş Tarihi
+                        </label>
+                        <input
+                          type="date"
+                          value={editingProject.end_date || ''}
+                          onChange={(e) => setEditingProject({ ...editingProject, end_date: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Tahmini Bitiş Tarihi *
+                      </label>
+                      <input
+                        type="date"
+                        value={editingProject.estimated_end_date}
+                        onChange={(e) => setEditingProject({ ...editingProject, estimated_end_date: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Toplam Bütçe (₺)
+                        </label>
+                        <input
+                          type="number"
+                          value={editingProject.total_budget}
+                          onChange={(e) => setEditingProject({ ...editingProject, total_budget: Number(e.target.value) })}
+                          className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                          placeholder="0"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Harcanan Bütçe (₺)
+                        </label>
+                        <input
+                          type="number"
+                          value={editingProject.spent_budget}
+                          onChange={(e) => setEditingProject({ ...editingProject, spent_budget: Number(e.target.value) })}
+                          className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Notlar
+                      </label>
+                      <textarea
+                        value={editingProject.notes || ''}
+                        onChange={(e) => setEditingProject({ ...editingProject, notes: e.target.value })}
+                        className="w-full px-3 py-2 h-32 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                        placeholder="Proje hakkında notlar..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-slate-700/50">
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => setEditingProject(null)}
+                    className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    onClick={updateProject}
+                    className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200"
+                  >
+                    Güncelle
                   </button>
                 </div>
               </div>

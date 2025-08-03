@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { handleAuthError, clearAuthSession } from '@/lib/auth-utils';
 import { UserProfile } from '@/types';
 
 interface AuthContextType {
@@ -88,17 +89,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    let mounted = true;
+    
     // Get initial session
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('Session error:', error);
+          // Auth error utility fonksiyonunu kullan
+          const wasHandled = await handleAuthError(error);
+          if (wasHandled) {
+            if (mounted) {
+              setSession(null);
+              setUser(null);
+              setUserProfile(null);
+              setLoading(false);
+            }
+            return;
+          }
+        }
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await fetchUserProfile(session.user.id);
+          }
+          
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Unexpected error getting session:', error);
+        if (mounted) {
+          await handleAuthError(error);
+          setLoading(false);
+        }
       }
-      
-      setLoading(false);
     };
 
     getSession();
@@ -106,21 +137,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
-        setSession(session);
-        setUser(session?.user ?? null);
+        if (!mounted) return;
         
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setUserProfile(null);
+        console.log('Auth state changed:', event, session?.user?.id);
+        
+        // Token yenileme hatalarını yakala
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          console.log('Token refresh failed, clearing session...');
+          await clearAuthSession();
+          if (mounted) {
+            setSession(null);
+            setUser(null);
+            setUserProfile(null);
+          }
+          return;
         }
         
-        setLoading(false);
+        // Oturum kapatma olayını yakala
+        if (event === 'SIGNED_OUT') {
+          console.log('User signed out');
+          if (mounted) {
+            setSession(null);
+            setUser(null);
+            setUserProfile(null);
+          }
+          return;
+        }
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await fetchUserProfile(session.user.id);
+          } else {
+            setUserProfile(null);
+          }
+          
+          setLoading(false);
+        }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -132,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await clearAuthSession();
   };
 
   const value = {

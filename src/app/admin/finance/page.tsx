@@ -26,7 +26,12 @@ import {
   Edit3,
   Trash2,
   X,
-  Save
+  Save,
+  Upload,
+  Paperclip,
+  Download,
+  Image,
+  File
 } from 'lucide-react';
 
 interface FinanceTransaction {
@@ -42,6 +47,7 @@ interface FinanceTransaction {
   reference_number?: string;
   created_at: string;
   created_by: string;
+  updated_at?: string;
 }
 
 interface FinanceCategory {
@@ -59,6 +65,17 @@ interface FinanceEmployee {
   personnel_number: string;
 }
 
+interface FinanceDocument {
+  id: string;
+  transaction_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  file_type: string;
+  uploaded_at: string;
+  public_url?: string;
+}
+
 export default function FinancePage() {
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [categories, setCategories] = useState<FinanceCategory[]>([]);
@@ -73,6 +90,12 @@ export default function FinancePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAmounts, setShowAmounts] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [transactionDocuments, setTransactionDocuments] = useState<{[key: string]: FinanceDocument[]}>({});
+  const [viewingDocuments, setViewingDocuments] = useState<string | null>(null);
+  const [viewingTransaction, setViewingTransaction] = useState<FinanceTransaction | null>(null);
   
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -229,7 +252,8 @@ export default function FinancePage() {
     try {
       const employeeName = newTransaction.employee_id ? getEmployeeName(newTransaction.employee_id) : null;
       
-      const { error } = await supabase
+      // İşlemi oluştur
+      const { data: transactionData, error: transactionError } = await supabase
         .from('finance_transactions')
         .insert([{
           type: newTransaction.type,
@@ -242,12 +266,43 @@ export default function FinancePage() {
           payment_method: newTransaction.payment_method,
           reference_number: newTransaction.reference_number || null,
           created_by: user.id
-        }]);
+        }])
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (transactionError) throw transactionError;
+
+      // Dosyaları yükle
+      if (uploadingFiles.length > 0) {
+        setIsUploading(true);
+        setUploadError('');
+
+        for (const file of uploadingFiles) {
+          try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('transactionId', transactionData.id);
+
+            const response = await fetch('/api/admin/upload-finance-document', {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Dosya yüklenirken hata oluştu');
+            }
+          } catch (uploadError: any) {
+            console.error('File upload error:', uploadError);
+            setUploadError(`${file.name} dosyası yüklenirken hata oluştu: ${uploadError.message || 'Bilinmeyen hata'}`);
+          }
+        }
+        setIsUploading(false);
+      }
 
       await fetchData();
       
+      // Form ve dosyaları temizle
       setNewTransaction({
         type: 'expense',
         category: '',
@@ -258,6 +313,8 @@ export default function FinancePage() {
         payment_method: 'bank_transfer',
         reference_number: ''
       });
+      setUploadingFiles([]);
+      setUploadError('');
       setIsCreating(false);
       setIsLoading(false);
       
@@ -266,6 +323,7 @@ export default function FinancePage() {
       console.error('Error creating transaction:', error);
       setError('İşlem eklenirken hata oluştu.');
       setIsLoading(false);
+      setIsUploading(false);
     }
   };
 
@@ -323,6 +381,79 @@ export default function FinancePage() {
     } catch (error) {
       console.error('Error deleting transaction:', error);
       setError('İşlem silinirken hata oluştu.');
+    }
+  };
+
+  // File upload functions
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setUploadingFiles(files);
+    setUploadError('');
+  };
+
+  const removeFile = (index: number) => {
+    setUploadingFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) {
+      return <Image className="w-4 h-4" />;
+    }
+    return <File className="w-4 h-4" />;
+  };
+
+  // Fetch documents for a transaction
+  const fetchTransactionDocuments = async (transactionId: string) => {
+    try {
+      const response = await fetch(`/api/admin/finance-documents?transactionId=${transactionId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTransactionDocuments(prev => ({
+          ...prev,
+          [transactionId]: data.documents || []
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    }
+  };
+
+  // View documents for a transaction
+  const handleViewDocuments = async (transactionId: string) => {
+    if (!transactionDocuments[transactionId]) {
+      await fetchTransactionDocuments(transactionId);
+    }
+    setViewingDocuments(transactionId);
+  };
+
+  // Delete a document
+  const handleDeleteDocument = async (documentId: string, transactionId: string) => {
+    if (!confirm('Bu belgeyi silmek istediğinizden emin misiniz?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/upload-finance-document?id=${documentId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Refresh documents for this transaction
+        await fetchTransactionDocuments(transactionId);
+        alert('Belge başarıyla silindi!');
+      } else {
+        const errorData = await response.json();
+        alert(`Hata: ${errorData.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      alert('Belge silinirken hata oluştu.');
     }
   };
 
@@ -578,6 +709,20 @@ export default function FinancePage() {
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-2">
                         <button
+                          onClick={() => setViewingTransaction(transaction)}
+                          className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                          title="Detayları Görüntüle"
+                        >
+                          <Eye className="w-4 h-4 text-slate-400 hover:text-cyan-400" />
+                        </button>
+                        <button
+                          onClick={() => handleViewDocuments(transaction.id)}
+                          className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                          title="Belgeleri Görüntüle"
+                        >
+                          <Paperclip className="w-4 h-4 text-slate-400 hover:text-purple-400" />
+                        </button>
+                        <button
                           onClick={() => setEditingTransaction(transaction)}
                           className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
                           title="Düzenle"
@@ -785,6 +930,67 @@ export default function FinancePage() {
                     required
                   />
                 </div>
+
+                {/* File Upload */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="w-4 h-4" />
+                      Belgeler (Opsiyonel)
+                    </div>
+                  </label>
+                  
+                  {/* File Input */}
+                  <div className="mb-4">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700/70 transition-all cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Dosya Seç (Resim, PDF, Word, Excel)
+                    </label>
+                  </div>
+
+                  {/* Upload Error */}
+                  {uploadError && (
+                    <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                      <p className="text-red-400 text-sm">{uploadError}</p>
+                    </div>
+                  )}
+
+                  {/* Selected Files */}
+                  {uploadingFiles.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-slate-400">Seçilen dosyalar:</p>
+                      {uploadingFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            {getFileIcon(file.type)}
+                            <div>
+                              <p className="text-sm text-white font-medium">{file.name}</p>
+                              <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="p-1 rounded-lg hover:bg-slate-600/50 transition-colors"
+                            title="Dosyayı kaldır"
+                          >
+                            <X className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -991,6 +1197,451 @@ export default function FinancePage() {
                       Güncelle
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Documents Modal */}
+      {viewingDocuments && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white">İşlem Belgeleri</h3>
+                <button
+                  onClick={() => setViewingDocuments(null)}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              {transactionDocuments[viewingDocuments] && transactionDocuments[viewingDocuments].length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {transactionDocuments[viewingDocuments].map((document) => (
+                    <div key={document.id} className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          {getFileIcon(document.file_type)}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate" title={document.file_name}>
+                              {document.file_name}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {formatFileSize(document.file_size)}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteDocument(document.id, viewingDocuments)}
+                          className="p-1 rounded-lg hover:bg-slate-600/50 transition-colors"
+                          title="Belgeyi sil"
+                        >
+                          <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                        </button>
+                      </div>
+
+                      {/* Document Preview */}
+                      <div className="mb-3">
+                        {document.file_type.startsWith('image/') ? (
+                          <div className="aspect-video bg-slate-800 rounded-lg overflow-hidden">
+                            <img
+                              src={document.public_url}
+                              alt={document.file_name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                            <div className="hidden w-full h-full flex items-center justify-center">
+                              <Image className="w-8 h-8 text-slate-500" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
+                            <div className="text-center">
+                              <File className="w-12 h-12 text-slate-500 mx-auto mb-2" />
+                              <p className="text-xs text-slate-400">
+                                {document.file_type === 'application/pdf' ? 'PDF Belgesi' :
+                                 document.file_type.includes('word') ? 'Word Belgesi' :
+                                 document.file_type.includes('excel') || document.file_type.includes('sheet') ? 'Excel Belgesi' :
+                                 'Belge'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Document Actions */}
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={document.public_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors text-xs font-medium flex-1 justify-center"
+                        >
+                          <Eye className="w-3 h-3" />
+                          Görüntüle
+                        </a>
+                        <a
+                          href={document.public_url}
+                          download={document.file_name}
+                          className="flex items-center gap-1 px-3 py-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors text-xs font-medium flex-1 justify-center"
+                        >
+                          <Download className="w-3 h-3" />
+                          İndir
+                        </a>
+                      </div>
+
+                      {/* Upload Date */}
+                      <div className="mt-3 pt-3 border-t border-slate-600/50">
+                        <p className="text-xs text-slate-400">
+                          Yüklenme: {new Date(document.uploaded_at).toLocaleDateString('tr-TR', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Paperclip className="w-8 h-8 text-slate-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Belge Bulunamadı</h3>
+                  <p className="text-slate-400">Bu işlem için henüz yüklenmiş belge bulunmuyor.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-700/50">
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => setViewingDocuments(null)}
+                  className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                >
+                  Kapat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Transaction Details Modal */}
+      {viewingTransaction && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-3xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    viewingTransaction.type === 'income' 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {viewingTransaction.type === 'income' ? (
+                      <TrendingUp className="w-6 h-6" />
+                    ) : (
+                      <TrendingDown className="w-6 h-6" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">İşlem Detayları</h3>
+                    <p className="text-slate-400 text-sm">
+                      {viewingTransaction.type === 'income' ? 'Gelir' : 'Gider'} • {new Date(viewingTransaction.date).toLocaleDateString('tr-TR')}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setViewingTransaction(null)}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column - Main Details */}
+                <div className="space-y-6">
+                  {/* Transaction Type & Amount */}
+                  <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-slate-400 text-sm mb-1">İşlem Tipi</p>
+                        <div className="flex items-center gap-2">
+                          {viewingTransaction.type === 'income' ? (
+                            <TrendingUp className="w-5 h-5 text-green-400" />
+                          ) : (
+                            <TrendingDown className="w-5 h-5 text-red-400" />
+                          )}
+                          <span className={`text-lg font-bold ${
+                            viewingTransaction.type === 'income' ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {viewingTransaction.type === 'income' ? 'Gelir' : 'Gider'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="border-t border-slate-600/50 pt-4">
+                      <p className="text-slate-400 text-sm mb-1">Tutar</p>
+                      <div className="flex items-center gap-2">
+                        {viewingTransaction.type === 'income' ? (
+                          <ArrowUpRight className="w-5 h-5 text-green-400" />
+                        ) : (
+                          <ArrowDownRight className="w-5 h-5 text-red-400" />
+                        )}
+                        <span className={`text-2xl font-bold ${
+                          viewingTransaction.type === 'income' ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {viewingTransaction.type === 'income' ? '+' : '-'}
+                          {viewingTransaction.amount.toLocaleString('tr-TR')} TL
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category */}
+                  <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                    <p className="text-slate-400 text-sm mb-2">Kategori</p>
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{getCategoryInfo(viewingTransaction.category).icon}</span>
+                      <div>
+                        <p className="text-white font-semibold">{viewingTransaction.category}</p>
+                        <p className="text-slate-400 text-sm">
+                          {viewingTransaction.type === 'income' ? 'Gelir Kategorisi' : 'Gider Kategorisi'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                    <p className="text-slate-400 text-sm mb-2">Açıklama</p>
+                    <p className="text-white leading-relaxed">{viewingTransaction.description}</p>
+                  </div>
+                </div>
+
+                {/* Middle Column - Date & Payment Details */}
+                <div className="space-y-6">
+                  {/* Date Information */}
+                  <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Calendar className="w-5 h-5 text-blue-400" />
+                      <p className="text-slate-400 text-sm">İşlem Tarihi</p>
+                    </div>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-white font-medium text-lg">
+                          {new Date(viewingTransaction.date).toLocaleDateString('tr-TR', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-slate-400 text-sm">
+                          {new Date(viewingTransaction.date).toLocaleDateString('tr-TR')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Method */}
+                  <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                    <div className="flex items-center gap-3 mb-3">
+                      <CreditCard className="w-5 h-5 text-purple-400" />
+                      <p className="text-slate-400 text-sm">Ödeme Yöntemi</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-2 rounded-lg text-sm font-medium bg-purple-500/20 text-purple-400">
+                        {viewingTransaction.payment_method === 'cash' ? '💵 Nakit' :
+                         viewingTransaction.payment_method === 'bank_transfer' ? '🏦 Havale/EFT' :
+                         viewingTransaction.payment_method === 'credit_card' ? '💳 Kredi Kartı' :
+                         viewingTransaction.payment_method === 'check' ? '📄 Çek' : viewingTransaction.payment_method}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Reference Number */}
+                  <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                    <div className="flex items-center gap-3 mb-3">
+                      <FileText className="w-5 h-5 text-amber-400" />
+                      <p className="text-slate-400 text-sm">Referans Numarası</p>
+                    </div>
+                    <p className="text-white font-medium font-mono">
+                      {viewingTransaction.reference_number || 'Belirtilmemiş'}
+                    </p>
+                  </div>
+
+                  {/* Creation Date */}
+                  <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Calendar className="w-5 h-5 text-cyan-400" />
+                      <p className="text-slate-400 text-sm">Oluşturulma Tarihi</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-white font-medium">
+                        {new Date(viewingTransaction.created_at).toLocaleDateString('tr-TR', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
+                      <p className="text-slate-400 text-sm">
+                        {new Date(viewingTransaction.created_at).toLocaleTimeString('tr-TR', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Employee & System Details */}
+                <div className="space-y-6">
+                  {/* Employee Information */}
+                  <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                    <div className="flex items-center gap-3 mb-3">
+                      <User className="w-5 h-5 text-cyan-400" />
+                      <p className="text-slate-400 text-sm">İlgili Personel</p>
+                    </div>
+                    <div>
+                      {viewingTransaction.employee_name ? (
+                        <div>
+                          <p className="text-white font-medium text-lg">{viewingTransaction.employee_name}</p>
+                          <p className="text-slate-400 text-sm">Personel</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-slate-400 font-medium">Belirtilmemiş</p>
+                          <p className="text-slate-500 text-sm">Genel işlem</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Transaction ID */}
+                  <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                    <div className="flex items-center gap-3 mb-3">
+                      <FileText className="w-5 h-5 text-indigo-400" />
+                      <p className="text-slate-400 text-sm">İşlem ID</p>
+                    </div>
+                    <p className="text-white font-mono text-sm break-all">{viewingTransaction.id}</p>
+                  </div>
+
+                  {/* Created By */}
+                  <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                    <div className="flex items-center gap-3 mb-3">
+                      <User className="w-5 h-5 text-green-400" />
+                      <p className="text-slate-400 text-sm">Oluşturan</p>
+                    </div>
+                    <p className="text-white font-medium">
+                      {viewingTransaction.created_by === user?.id ? 'Siz' : 'Sistem Yöneticisi'}
+                    </p>
+                  </div>
+
+                  {/* Employee ID (if exists) */}
+                  {viewingTransaction.employee_id && (
+                    <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                      <div className="flex items-center gap-3 mb-3">
+                        <FileText className="w-5 h-5 text-orange-400" />
+                        <p className="text-slate-400 text-sm">Personel ID</p>
+                      </div>
+                      <p className="text-white font-mono text-sm break-all">{viewingTransaction.employee_id}</p>
+                    </div>
+                  )}
+
+                  {/* Last Updated */}
+                  {viewingTransaction.updated_at && viewingTransaction.updated_at !== viewingTransaction.created_at && (
+                    <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Calendar className="w-5 h-5 text-yellow-400" />
+                        <p className="text-slate-400 text-sm">Son Güncelleme</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-white font-medium">
+                          {new Date(viewingTransaction.updated_at).toLocaleDateString('tr-TR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-slate-400 text-sm">
+                          {new Date(viewingTransaction.updated_at).toLocaleTimeString('tr-TR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-8 pt-6 border-t border-slate-700/50">
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    onClick={() => {
+                      handleViewDocuments(viewingTransaction.id);
+                      setViewingTransaction(null);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-400 rounded-xl hover:bg-purple-500/30 transition-colors"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                    Belgeleri Görüntüle
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingTransaction(viewingTransaction);
+                      setViewingTransaction(null);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500/30 transition-colors"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Düzenle
+                  </button>
+                  <button
+                    onClick={() => {
+                      setViewingTransaction(null);
+                      handleDeleteTransaction(viewingTransaction.id);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Sil
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-700/50">
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => setViewingTransaction(null)}
+                  className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                >
+                  Kapat
                 </button>
               </div>
             </div>

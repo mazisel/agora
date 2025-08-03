@@ -16,6 +16,7 @@ export interface UserProfile {
   position?: string;
   department?: string;
   address?: string;
+  bio?: string;
   start_date?: string;
   end_date?: string;
   status: 'active' | 'inactive';
@@ -139,6 +140,7 @@ export interface Task {
   creator?: UserProfile;
   comments?: TaskComment[];
   attachments?: TaskAttachment[];
+  expenses?: TaskExpense[];
   // Multiple assignees and informed persons
   assignees?: UserProfile[];
   informed_persons?: UserProfile[];
@@ -190,49 +192,26 @@ export interface TaskAttachment {
   uploader?: UserProfile;
 }
 
-export interface Message {
+export interface TaskExpense {
   id: string;
-  content: string;
-  sender_id: string;
-  channel_id: string;
-  created_at: string;
-  updated_at: string;
-  // Relations
-  sender?: UserProfile;
-  reads?: MessageRead[];
-}
-
-export interface MessageRead {
-  id: string;
-  message_id: string;
-  user_id: string;
-  read_at: string;
-  created_at: string;
-  // Relations
-  user?: UserProfile;
-}
-
-export interface Channel {
-  id: string;
-  name: string;
+  task_id: string;
+  title: string;
   description?: string;
+  amount: number;
+  currency: 'TRY' | 'USD' | 'EUR';
+  category: 'material' | 'service' | 'travel' | 'equipment' | 'software' | 'other';
+  receipt_url?: string;
+  receipt_number?: string;
+  vendor?: string;
+  expense_date: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approved_by?: string;
+  approved_at?: string;
+  rejection_reason?: string;
   created_by: string;
   created_at: string;
   updated_at: string;
   // Relations
-  members?: UserProfile[];
-  lastMessage?: Message;
   creator?: UserProfile;
-  managers?: UserProfile[];
-}
-
-export interface ChannelMember {
-  id: string;
-  channel_id: string;
-  user_id: string;
-  role: 'member' | 'manager';
-  joined_at: string;
-  // Relations
-  user?: UserProfile;
-  channel?: Channel;
+  approver?: UserProfile;
 }

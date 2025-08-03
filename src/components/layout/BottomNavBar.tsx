@@ -2,13 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Briefcase, CheckSquare, MessageSquare, User } from 'lucide-react';
+import { LayoutGrid, Briefcase, CheckSquare, User } from 'lucide-react';
 
 const navItems = [
-  { href: '/', label: 'Anasayfa', icon: LayoutGrid },
+  { href: '/', label: 'Ana Sayfa', icon: LayoutGrid },
   { href: '/projects', label: 'Projeler', icon: Briefcase },
   { href: '/tasks', label: 'Görevler', icon: CheckSquare },
-  { href: '/messages', label: 'Mesajlar', icon: MessageSquare },
 ];
 
 export default function BottomNavBar() {

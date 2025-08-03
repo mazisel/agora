@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import PermissionGuard from '@/components/auth/PermissionGuard';
-import { Users, Building2, DollarSign, Calendar, Building } from 'lucide-react';
+import { Users, Building2, DollarSign, Calendar, Building, Mail, UserCheck } from 'lucide-react';
 
 export default function AdminLayout({
   children,
@@ -74,6 +74,20 @@ export default function AdminLayout({
       icon: Building,
       href: '/admin/companies',
       active: pathname === '/admin/companies'
+    },
+    {
+      id: 'notifications',
+      label: 'Bildirimler',
+      icon: Mail,
+      href: '/admin/notifications',
+      active: pathname === '/admin/notifications'
+    },
+    {
+      id: 'profile-requests',
+      label: 'Profil Talepleri',
+      icon: UserCheck,
+      href: '/admin/profile-requests',
+      active: pathname === '/admin/profile-requests'
     }
   ];
 

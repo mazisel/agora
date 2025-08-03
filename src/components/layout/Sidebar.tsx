@@ -9,7 +9,6 @@ import { supabase } from '@/lib/supabase';
 import { 
   LayoutDashboard, 
   FolderOpen, 
-  MessageSquare, 
   Ticket,
   Settings,
   User,
@@ -17,7 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   DollarSign,
-  Building2
+  Building2,
+  UserCircle
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -40,20 +40,19 @@ const menuItems = [
     href: '/projects'
   },
   {
-    id: 'messages',
-    label: 'Mesajlar',
-    icon: MessageSquare,
-    active: false,
-    href: '/messages',
-    badge: 3
-  },
-  {
     id: 'tasks',
     label: 'Görevler',
     icon: Ticket,
     active: false,
     href: '/tasks',
     badge: 5
+  },
+  {
+    id: 'profile',
+    label: 'Profilim',
+    icon: UserCircle,
+    active: false,
+    href: '/profile'
   }
 ];
 
@@ -81,7 +80,6 @@ const bottomItems = [
 export default function Sidebar({ collapsed: initialCollapsed = false }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [taskCount, setTaskCount] = useState(0);
-  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const pathname = usePathname();
   const { signOut, user, userProfile } = useAuth();
   const { canAccess } = usePermissions();
@@ -102,42 +100,6 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
         if (!tasksError) {
           setTaskCount(tasks?.length || 0);
         }
-
-        // Get unread messages count (messages user hasn't read yet)
-        const { data: memberChannels } = await supabase
-          .from('channel_members')
-          .select('channel_id')
-          .eq('user_id', user.id);
-
-        if (memberChannels && memberChannels.length > 0) {
-          const memberChannelIds = memberChannels.map(m => m.channel_id);
-          
-          // Get all messages from user's channels (except own messages)
-          const { data: allMessages } = await supabase
-            .from('messages')
-            .select('id')
-            .in('channel_id', memberChannelIds)
-            .neq('sender_id', user.id);
-
-          if (allMessages && allMessages.length > 0) {
-            const messageIds = allMessages.map(m => m.id);
-            
-            // Get messages that user has already read
-            const { data: readMessages } = await supabase
-              .from('message_reads')
-              .select('message_id')
-              .eq('user_id', user.id)
-              .in('message_id', messageIds);
-
-            const readMessageIds = readMessages?.map(r => r.message_id) || [];
-            const unreadCount = messageIds.filter(id => !readMessageIds.includes(id)).length;
-            setUnreadMessageCount(unreadCount);
-          } else {
-            setUnreadMessageCount(0);
-          }
-        } else {
-          setUnreadMessageCount(0);
-        }
       } catch (error) {
         console.error('Error loading badge counts:', error);
       }
@@ -145,77 +107,13 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
 
     loadCounts();
 
-    // Subscribe to real-time updates
-    const tasksSubscription = supabase
-      .channel('tasks-count')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'tasks',
-        filter: `assigned_to=eq.${user.id}`
-      }, () => {
-        loadCounts();
-      })
-      .subscribe();
-
-    // Subscribe to new messages (for incrementing unread count)
-    const messagesSubscription = supabase
-      .channel('sidebar-messages')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages'
-      }, async (payload) => {
-        const newMessage = payload.new as any;
-        
-        // Check if this message is in a channel the user is a member of
-        const { data: memberChannels } = await supabase
-          .from('channel_members')
-          .select('channel_id')
-          .eq('user_id', user.id);
-
-        const memberChannelIds = memberChannels?.map(m => m.channel_id) || [];
-        
-        // If message is in user's channel and not from user, increment unread count
-        if (memberChannelIds.includes(newMessage.channel_id) && newMessage.sender_id !== user.id) {
-          setUnreadMessageCount(prev => prev + 1);
-        }
-      })
-      .subscribe();
-
-    // Subscribe to message reads (for decrementing unread count)
-    const messageReadsSubscription = supabase
-      .channel('sidebar-message-reads')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'message_reads',
-        filter: `user_id=eq.${user.id}`
-      }, (payload) => {
-        // Decrement unread count when user reads a message
-        setUnreadMessageCount(prev => Math.max(0, prev - 1));
-      })
-      .subscribe();
-
-    // Subscribe to bulk message reads (when user switches channels)
-    const bulkReadsSubscription = supabase
-      .channel('sidebar-bulk-reads')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'message_reads',
-        filter: `user_id=eq.${user.id}`
-      }, async () => {
-        // Recalculate total unread count when bulk reads happen
-        loadCounts();
-      })
-      .subscribe();
+    // Polling interval for updates
+    const interval = setInterval(() => {
+      loadCounts();
+    }, 30000); // Update every 30 seconds
 
     return () => {
-      tasksSubscription.unsubscribe();
-      messagesSubscription.unsubscribe();
-      messageReadsSubscription.unsubscribe();
-      bulkReadsSubscription.unsubscribe();
+      clearInterval(interval);
     };
   }, [user]);
 
@@ -331,11 +229,6 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
                         {taskCount}
                       </span>
                     )}
-                    {item.id === 'messages' && unreadMessageCount > 0 && (
-                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold min-w-[20px] text-center">
-                        {unreadMessageCount}
-                      </span>
-                    )}
                   </>
                 )}
 
@@ -366,6 +259,11 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
         <div className="space-y-2">
           {bottomItems.map((item) => {
             const Icon = item.icon;
+            
+            // Yönetim menüsünü sadece manager ve üstü yetkiler için göster
+            if (item.id === 'admin' && !canAccess.manager()) {
+              return null;
+            }
             
             if (item.id === 'logout') {
               return (
