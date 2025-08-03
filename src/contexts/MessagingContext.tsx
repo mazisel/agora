@@ -349,10 +349,11 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         try {
           console.log('Attempting WebSocket connection...');
           
-          // Setup WebSocket subscriptions for messages
-          const messagesChannel = supabase.channel(`messages-${user.id}`);
+          // Setup WebSocket subscriptions for messages and channels
+          const realtimeChannel = supabase.channel(`realtime-${user.id}`);
           
-          messagesChannel
+          // Listen to all message inserts
+          realtimeChannel
             .on('postgres_changes',
               { event: 'INSERT', schema: 'public', table: 'messages' },
               async (payload) => {
@@ -360,6 +361,19 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                 console.log('🔥 New message via WebSocket:', payload.new);
                 
                 try {
+                  // Check if user is member of this channel first
+                  const { data: membership } = await supabase
+                    .from('channel_members')
+                    .select('id')
+                    .eq('channel_id', payload.new.channel_id)
+                    .eq('user_id', user.id)
+                    .limit(1);
+
+                  if (!membership || membership.length === 0) {
+                    console.log('User not member of channel, ignoring message');
+                    return;
+                  }
+
                   // Get full message with relations
                   const { data: message } = await supabase
                     .from('messages')
@@ -385,8 +399,10 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                         user_profile: userProfile
                       };
 
+                      console.log('📨 Adding message to UI via WebSocket:', messageWithProfile);
                       dispatch({ type: 'ADD_MESSAGE', payload: messageWithProfile as Message });
                     } else {
+                      console.log('📨 Adding message to UI via WebSocket (no profile):', message);
                       dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
                     }
                     
@@ -395,6 +411,40 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                   }
                 } catch (error) {
                   console.error('Error loading message details:', error);
+                }
+              }
+            )
+            // Listen to channel changes
+            .on('postgres_changes',
+              { event: 'INSERT', schema: 'public', table: 'channels' },
+              async (payload) => {
+                if (!mounted) return;
+                console.log('🆕 New channel via WebSocket:', payload.new);
+                
+                // Check if user is member of this new channel
+                const { data: membership } = await supabase
+                  .from('channel_members')
+                  .select('id')
+                  .eq('channel_id', payload.new.id)
+                  .eq('user_id', user.id)
+                  .limit(1);
+
+                if (membership && membership.length > 0) {
+                  console.log('📢 Adding new channel to UI:', payload.new);
+                  dispatch({ type: 'ADD_CHANNEL', payload: payload.new as Channel });
+                }
+              }
+            )
+            // Listen to channel member changes
+            .on('postgres_changes',
+              { event: 'INSERT', schema: 'public', table: 'channel_members' },
+              async (payload) => {
+                if (!mounted) return;
+                
+                // If this user was added to a channel, reload channels
+                if (payload.new.user_id === user.id) {
+                  console.log('👥 User added to new channel, reloading channels');
+                  setTimeout(() => loadChannels(), 500);
                 }
               }
             )
