@@ -353,22 +353,15 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
     const setupRealtime = async () => {
       try {
-        console.log('Setting up realtime with WebSocket and polling fallback...');
-
         // Try WebSocket first
         let usePolling = false;
 
         try {
-          console.log('Attempting WebSocket connection...');
-          
           // Test basic WebSocket connection first
           const testChannel = supabase.channel('test-connection');
           
           testChannel.subscribe((status) => {
-            console.log('🔌 Test WebSocket status:', status);
-            
             if (status === 'SUBSCRIBED') {
-              console.log('✅ Basic WebSocket connection successful, setting up message listeners...');
               
               // Now setup the actual message listeners
               const messageChannel = supabase.channel(`messages-realtime-${user.id}`);
@@ -382,7 +375,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                   },
                   async (payload) => {
                     if (!mounted) return;
-                    console.log('🔥 Message change via WebSocket:', payload.eventType, payload.new || payload.old);
                     
                     if (payload.eventType === 'INSERT' && payload.new) {
                       try {
@@ -395,7 +387,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                           .limit(1);
 
                         if (!membership || membership.length === 0) {
-                          console.log('User not member of channel, ignoring message');
                           return;
                         }
 
@@ -424,10 +415,8 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                               user_profile: userProfile
                             };
 
-                            console.log('📨 Adding message to UI via WebSocket:', messageWithProfile);
                             dispatch({ type: 'ADD_MESSAGE', payload: messageWithProfile as Message });
                           } else {
-                            console.log('📨 Adding message to UI via WebSocket (no profile):', message);
                             dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
                           }
                           
@@ -441,7 +430,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                               type: 'SET_UNREAD_COUNT',
                               payload: { channelId, count: currentCount + 1 }
                             });
-                            console.log(`📊 Unread count updated for channel ${channelId}: ${currentCount + 1}`);
                           }
                         }
                       } catch (error) {
@@ -459,7 +447,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                   },
                   async (payload) => {
                     if (!mounted) return;
-                    console.log('🏢 Channel change via WebSocket:', payload.eventType, payload.new || payload.old);
                     
                     if (payload.eventType === 'INSERT' && payload.new) {
                       // Check if user is member of this new channel
@@ -471,14 +458,11 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                         .limit(1);
 
                       if (membership && membership.length > 0) {
-                        console.log('📢 Adding new channel to UI via WebSocket:', payload.new);
                         dispatch({ type: 'ADD_CHANNEL', payload: payload.new as Channel });
                       }
                     } else if (payload.eventType === 'UPDATE' && payload.new) {
-                      console.log('📝 Updating channel via WebSocket:', payload.new);
                       dispatch({ type: 'UPDATE_CHANNEL', payload: payload.new as Channel });
                     } else if (payload.eventType === 'DELETE' && payload.old) {
-                      console.log('🗑️ Removing channel via WebSocket:', payload.old);
                       dispatch({ type: 'REMOVE_CHANNEL', payload: payload.old.id });
                     }
                   }
@@ -492,42 +476,35 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                   },
                   async (payload) => {
                     if (!mounted) return;
-                    console.log('👥 Channel member change via WebSocket:', payload.eventType, payload.new || payload.old);
                     
                     if (payload.eventType === 'INSERT' && payload.new) {
                       // If this user was added to a channel, reload channels
                       if (payload.new.user_id === user.id) {
-                        console.log('👤 User added to new channel, reloading channels');
                         setTimeout(() => loadChannels(), 500);
                       }
                     } else if (payload.eventType === 'UPDATE' && payload.new) {
                       // If last_read_at was updated, recalculate unread counts
                       if (payload.new.user_id === user.id && payload.new.last_read_at) {
-                        console.log('📖 Read status updated via WebSocket, recalculating unread counts');
                         setTimeout(() => calculateUnreadCounts(), 100);
                       }
                     } else if (payload.eventType === 'DELETE' && payload.old) {
                       // If this user was removed from a channel, remove from UI
                       if (payload.old.user_id === user.id) {
-                        console.log('👋 User removed from channel, updating UI');
                         dispatch({ type: 'REMOVE_CHANNEL', payload: payload.old.channel_id });
                       }
                     }
                   }
                 )
                 .subscribe((status) => {
-                  console.log('📨 Message channel status:', status);
                   if (status === 'SUBSCRIBED') {
-                    console.log('✅ Message WebSocket listener active');
+                    // WebSocket active
                   } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-                    console.log('❌ Message WebSocket failed, falling back to polling');
                     usePolling = true;
                     setupPolling();
                   }
                 });
                 
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-              console.log('❌ Basic WebSocket failed, falling back to polling immediately');
               usePolling = true;
               setupPolling();
             }
@@ -535,21 +512,14 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
           // Wait a bit to see if WebSocket connects
           await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          if (!usePolling) {
-            console.log('✅ Using WebSocket for realtime updates');
-          }
 
         } catch (wsError) {
-          console.log('❌ WebSocket failed, falling back to polling:', wsError);
           usePolling = true;
         }
 
         if (usePolling) {
           setupPolling();
         }
-
-        console.log('Realtime setup complete');
       } catch (error) {
         console.error('Error setting up realtime:', error);
         console.log('Continuing without realtime features');
