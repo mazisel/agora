@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
   experimental: {
     ppr: false,
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
+    dynamicIO: false,
   },
   eslint: {
     ignoreDuringBuilds: true,
