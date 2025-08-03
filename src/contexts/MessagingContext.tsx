@@ -366,8 +366,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                   { 
                     event: '*', 
                     schema: 'public', 
-                    table: 'messages',
-                    filter: `channel_id=in.(${state.channels.map(c => c.id).join(',')})`
+                    table: 'messages'
                   },
                   async (payload) => {
                     if (!mounted) return;
