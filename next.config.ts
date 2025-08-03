@@ -17,19 +17,20 @@ const nextConfig: NextConfig = {
   webpack: (config: any) => {
     return config;
   },
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https: wss: ws: wss://*.supabase.co https://*.supabase.co wss://riacmnpxjsbrppzfjeur.supabase.co https://riacmnpxjsbrppzfjeur.supabase.co ws://localhost:* https://localhost:*;"
-          }
-        ]
-      }
-    ]
-  },
+  // CSP temporarily disabled to allow WebSocket connections
+  // async headers() {
+  //   return [
+  //     {
+  //       source: '/(.*)',
+  //       headers: [
+  //         {
+  //           key: 'Content-Security-Policy',
+  //           value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https: wss: ws: wss://*.supabase.co https://*.supabase.co wss://riacmnpxjsbrppzfjeur.supabase.co https://riacmnpxjsbrppzfjeur.supabase.co ws://localhost:* https://localhost:*;"
+  //         }
+  //       ]
+  //     }
+  //   ]
+  // },
   serverExternalPackages: ['@supabase/supabase-js']
 };
 
