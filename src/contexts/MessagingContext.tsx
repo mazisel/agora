@@ -480,6 +480,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       console.log('No user, skipping channel load');
       dispatch({ type: 'SET_CHANNELS', payload: [] });
+      dispatch({ type: 'SET_LOADING', payload: false });
       return;
     }
 
@@ -575,7 +576,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, []);
+  }, [user]);
 
   // Load messages for a channel
   const loadMessages = useCallback(async (channelId: string) => {
