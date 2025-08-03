@@ -3,16 +3,16 @@ module.exports = {
     name: 'team-management-system',
     script: 'npm',
     args: 'start',
-    cwd: '/var/www/team-management-system',
-    instances: 'max',
-    exec_mode: 'cluster',
+    cwd: '/opt/agora',
+    instances: 1,
+    exec_mode: 'fork',
     env: {
       NODE_ENV: 'production',
-      PORT: 3000
+      PORT: 3001
     },
     env_production: {
       NODE_ENV: 'production',
-      PORT: 3000
+      PORT: 3001
     },
     error_file: '/var/log/pm2/team-management-system-error.log',
     out_file: '/var/log/pm2/team-management-system-out.log',
