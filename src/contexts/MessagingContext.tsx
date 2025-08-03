@@ -457,16 +457,39 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user]);
 
-  // Load channels
+  // Check if user is member of a channel
+  const isChannelMember = useCallback(async (channelId: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { data, error } = await supabase
+        .from('channel_members')
+        .select('id')
+        .eq('channel_id', channelId)
+        .eq('user_id', user.id)
+        .single();
+
+      return !error && !!data;
+    } catch (error) {
+      return false;
+    }
+  }, [user]);
+
+  // Load channels - only show channels user is member of
   const loadChannels = useCallback(async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       console.log('Loading channels from database...');
 
+      // Sadece kullanıcının üye olduğu kanalları çek
       const { data: channels, error } = await supabase
         .from('channels')
-        .select('*')
+        .select(`
+          *,
+          channel_members!inner(user_id)
+        `)
         .eq('is_archived', false)
+        .eq('channel_members.user_id', user?.id)
         .order('name');
 
       if (error) {
@@ -537,7 +560,18 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Loading messages for channel from database:', channelId);
       
-      // Önce mesajları çek
+      // Önce kullanıcının bu kanalın üyesi olup olmadığını kontrol et
+      const isMember = await isChannelMember(channelId);
+      if (!isMember) {
+        console.warn('User is not a member of this channel:', channelId);
+        dispatch({
+          type: 'SET_MESSAGES',
+          payload: { channelId, messages: [] }
+        });
+        return;
+      }
+      
+      // Mesajları çek
       const { data: messages, error: messagesError } = await supabase
         .from('messages')
         .select(`
@@ -604,6 +638,13 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.log('Sending message to database:', data);
+      
+      // Önce kullanıcının bu kanalın üyesi olup olmadığını kontrol et
+      const isMember = await isChannelMember(data.channel_id);
+      if (!isMember) {
+        console.warn('User is not a member of this channel, cannot send message:', data.channel_id);
+        return null;
+      }
       
       const { data: message, error } = await supabase
         .from('messages')
@@ -720,12 +761,21 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         .eq('user_id', user.id);
 
       if (error) throw error;
+
+      // Kullanıcı kanaldan ayrıldıktan sonra state'den kanalı kaldır
+      dispatch({ type: 'REMOVE_CHANNEL', payload: data.channel_id });
+      
+      // Eğer aktif kanal bu kanaldı, aktif kanalı temizle
+      if (state.activeChannelId === data.channel_id) {
+        dispatch({ type: 'SET_ACTIVE_CHANNEL', payload: '' });
+      }
+
       return true;
     } catch (error) {
       console.error('Error leaving channel:', error);
       return false;
     }
-  }, [user]);
+  }, [user, state.activeChannelId]);
 
   // Edit message
   const editMessage = useCallback(async (data: EditMessageData): Promise<boolean> => {
