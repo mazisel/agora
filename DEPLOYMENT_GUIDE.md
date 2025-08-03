@@ -11,8 +11,103 @@ ssh kullanici@sunucu-ip
 
 ### 2. Proje Dizinine Gidin
 ```bash
-cd /path/to/your/team-management-system
-# Örnek: cd /var/www/team-management-system
+cd /opt/agora
+```
+
+### 3. Domain ve Port Erişim Sorunları
+
+#### A. PM2 Durumunu Kontrol Edin
+```bash
+pm2 status
+pm2 logs team-management-system
+```
+
+#### B. Port 3001 Erişimini Test Edin
+```bash
+# Lokal erişim testi
+curl -I http://localhost:3001
+
+# Port dinleme kontrolü
+sudo netstat -tlnp | grep 3001
+# veya
+sudo ss -tlnp | grep 3001
+```
+
+#### C. Firewall Kontrolü
+```bash
+# UFW durumu
+sudo ufw status
+
+# Port 3001'i açın
+sudo ufw allow 3001
+
+# Nginx için port 80 ve 443
+sudo ufw allow 80
+sudo ufw allow 443
+```
+
+#### D. Nginx Konfigürasyonu
+```bash
+# Nginx durumu
+sudo systemctl status nginx
+
+# Nginx konfigürasyon dosyası oluşturun
+sudo nano /etc/nginx/sites-available/agora.e4labs.com.tr
+```
+
+**Nginx Konfigürasyon İçeriği:**
+```nginx
+server {
+    listen 80;
+    server_name agora.e4labs.com.tr;
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 86400;
+    }
+
+    # WebSocket desteği için
+    location /socket.io/ {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+#### E. Nginx Site'ı Aktifleştirin
+```bash
+# Site'ı etkinleştirin
+sudo ln -s /etc/nginx/sites-available/agora.e4labs.com.tr /etc/nginx/sites-enabled/
+
+# Nginx konfigürasyonunu test edin
+sudo nginx -t
+
+# Nginx'i yeniden başlatın
+sudo systemctl restart nginx
+```
+
+#### F. DNS Kontrolü
+```bash
+# Domain'in IP'ye yönlendirildiğini kontrol edin
+nslookup agora.e4labs.com.tr
+dig agora.e4labs.com.tr
+
+# Hosts dosyasında test (geçici)
+echo "YOUR_SERVER_IP agora.e4labs.com.tr" | sudo tee -a /etc/hosts
 ```
 
 ### 3. Mevcut Sistemi Yedekleyin
