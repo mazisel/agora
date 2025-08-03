@@ -284,8 +284,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
     // Setup polling function first (outside of setupRealtime)
     const setupPolling = () => {
-      console.log('🔄 Setting up polling fallback...');
-      
       const pollForUpdates = async () => {
         if (!mounted) return;
 
@@ -559,7 +557,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
   // Load channels - only show channels user is member of
   const loadChannels = useCallback(async () => {
     if (!user) {
-      console.log('No user, skipping channel load');
       dispatch({ type: 'SET_CHANNELS', payload: [] });
       dispatch({ type: 'SET_LOADING', payload: false });
       return;
@@ -567,7 +564,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      console.log('Loading channels from database for user:', user.id);
 
       // Önce kullanıcının üye olduğu kanal ID'lerini çek
       const { data: memberships, error: membershipError } = await supabase
@@ -581,7 +577,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!memberships || memberships.length === 0) {
-        console.log('User is not a member of any channels');
         dispatch({ type: 'SET_CHANNELS', payload: [] });
         return;
       }
@@ -602,7 +597,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       }
 
       dispatch({ type: 'SET_CHANNELS', payload: channels || [] });
-      console.log('Successfully loaded channels from database:', channels?.length || 0);
 
       // Her kanal için son mesajları yükle (sidebar için)
       if (channels && channels.length > 0) {
@@ -647,7 +641,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
             }
           } catch (error) {
             // Mesaj yoksa hata normal, devam et
-            console.log(`No messages found for channel ${channel.name}`);
           }
         }
       }
@@ -662,12 +655,9 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
   // Load messages for a channel
   const loadMessages = useCallback(async (channelId: string) => {
     try {
-      console.log('Loading messages for channel from database:', channelId);
-      
       // Önce kullanıcının bu kanalın üyesi olup olmadığını kontrol et
       const isMember = await isChannelMember(channelId);
       if (!isMember) {
-        console.warn('User is not a member of this channel:', channelId);
         dispatch({
           type: 'SET_MESSAGES',
           payload: { channelId, messages: [] }
@@ -725,8 +715,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           payload: { channelId, messages: [] }
         });
       }
-      
-      console.log('Successfully loaded messages from database:', messages?.length || 0);
     } catch (error) {
       console.error('Error loading messages:', error);
       dispatch({
@@ -741,12 +729,9 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     if (!user) return null;
 
     try {
-      console.log('Sending message to database:', data);
-      
       // Önce kullanıcının bu kanalın üyesi olup olmadığını kontrol et
       const isMember = await isChannelMember(data.channel_id);
       if (!isMember) {
-        console.warn('User is not a member of this channel, cannot send message:', data.channel_id);
         return null;
       }
       
@@ -783,8 +768,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         ...message,
         user_profile: userProfile
       };
-
-      console.log('Successfully sent message to database:', message.content);
       
       // Mesajı hemen UI'da göster
       dispatch({ type: 'ADD_MESSAGE', payload: messageWithProfile as Message });
@@ -801,8 +784,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     if (!user) return null;
 
     try {
-      console.log('Creating channel in database:', data);
-      
       const { data: channel, error } = await supabase
         .from('channels')
         .insert({
@@ -828,7 +809,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           role: 'admin'
         });
 
-      console.log('Successfully created channel in database:', channel.name);
       return channel as Channel;
     } catch (error) {
       console.error('Error creating channel:', error);
