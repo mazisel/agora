@@ -477,19 +477,41 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
   // Load channels - only show channels user is member of
   const loadChannels = useCallback(async () => {
+    if (!user) {
+      console.log('No user, skipping channel load');
+      dispatch({ type: 'SET_CHANNELS', payload: [] });
+      return;
+    }
+
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      console.log('Loading channels from database...');
+      console.log('Loading channels from database for user:', user.id);
 
-      // Sadece kullanıcının üye olduğu kanalları çek
+      // Önce kullanıcının üye olduğu kanal ID'lerini çek
+      const { data: memberships, error: membershipError } = await supabase
+        .from('channel_members')
+        .select('channel_id')
+        .eq('user_id', user.id);
+
+      if (membershipError) {
+        console.error('Membership error:', membershipError);
+        throw membershipError;
+      }
+
+      if (!memberships || memberships.length === 0) {
+        console.log('User is not a member of any channels');
+        dispatch({ type: 'SET_CHANNELS', payload: [] });
+        return;
+      }
+
+      const channelIds = memberships.map(m => m.channel_id);
+
+      // Şimdi bu kanal ID'lerine ait kanalları çek
       const { data: channels, error } = await supabase
         .from('channels')
-        .select(`
-          *,
-          channel_members!inner(user_id)
-        `)
+        .select('*')
+        .in('id', channelIds)
         .eq('is_archived', false)
-        .eq('channel_members.user_id', user?.id)
         .order('name');
 
       if (error) {
