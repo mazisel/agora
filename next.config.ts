@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https: wss: ws: wss://*.supabase.co https://*.supabase.co ws://localhost:* https://localhost:*;"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https: wss: ws: wss://*.supabase.co https://*.supabase.co wss://riacmnpxjsbrppzfjeur.supabase.co https://riacmnpxjsbrppzfjeur.supabase.co ws://localhost:* https://localhost:*;"
           }
         ]
       }

@@ -277,6 +277,75 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         // Try WebSocket first
         let usePolling = false;
 
+        // Setup polling function first
+        const setupPolling = () => {
+          console.log('🔄 Setting up polling fallback...');
+          
+          const pollForUpdates = async () => {
+            if (!mounted) return;
+
+            try {
+              // Only check for new messages in channels user is member of
+              const { data: memberships } = await supabase
+                .from('channel_members')
+                .select('channel_id')
+                .eq('user_id', user.id);
+
+              if (!memberships || memberships.length === 0) return;
+
+              const channelIds = memberships.map(m => m.channel_id);
+
+              // Check for new messages in user's channels only
+              const { data: newMessages } = await supabase
+                .from('messages')
+                .select(`
+                  *,
+                  attachments:message_attachments(*),
+                  reactions:message_reactions(*)
+                `)
+                .in('channel_id', channelIds)
+                .gte('created_at', new Date(lastMessageCheck).toISOString())
+                .eq('is_deleted', false)
+                .order('created_at', { ascending: true });
+
+              if (newMessages && newMessages.length > 0) {
+                // User profiles bilgilerini çek
+                const userIds = [...new Set(newMessages.map(m => m.user_id).filter(Boolean))];
+                
+                if (userIds.length > 0) {
+                  const { data: userProfiles } = await supabase
+                    .from('user_profiles')
+                    .select('user_id, first_name, last_name, profile_photo_url')
+                    .in('user_id', userIds);
+
+                  // Mesajlara user_profile bilgilerini ekle
+                  const messagesWithProfiles = newMessages.map(message => ({
+                    ...message,
+                    user_profile: userProfiles?.find(profile => profile.user_id === message.user_id)
+                  }));
+
+                  messagesWithProfiles.forEach(message => {
+                    dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
+                  });
+                } else {
+                  newMessages.forEach(message => {
+                    dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
+                  });
+                }
+                
+                // Okunmamış sayıları güncelle
+                setTimeout(() => calculateUnreadCounts(), 100);
+                lastMessageCheck = Date.now();
+              }
+            } catch (error) {
+              console.error('Polling error:', error);
+            }
+          };
+
+          // Start polling every 1 second as fallback
+          pollingInterval = setInterval(pollForUpdates, 1000);
+        };
+
         try {
           console.log('Attempting WebSocket connection...');
           
@@ -351,75 +420,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           console.log('❌ WebSocket failed, falling back to polling:', wsError);
           usePolling = true;
         }
-
-        // Setup polling as fallback
-        const setupPolling = () => {
-          console.log('🔄 Setting up polling fallback...');
-          
-          const pollForUpdates = async () => {
-            if (!mounted) return;
-
-            try {
-              // Only check for new messages in channels user is member of
-              const { data: memberships } = await supabase
-                .from('channel_members')
-                .select('channel_id')
-                .eq('user_id', user.id);
-
-              if (!memberships || memberships.length === 0) return;
-
-              const channelIds = memberships.map(m => m.channel_id);
-
-              // Check for new messages in user's channels only
-              const { data: newMessages } = await supabase
-                .from('messages')
-                .select(`
-                  *,
-                  attachments:message_attachments(*),
-                  reactions:message_reactions(*)
-                `)
-                .in('channel_id', channelIds)
-                .gte('created_at', new Date(lastMessageCheck).toISOString())
-                .eq('is_deleted', false)
-                .order('created_at', { ascending: true });
-
-              if (newMessages && newMessages.length > 0) {
-                // User profiles bilgilerini çek
-                const userIds = [...new Set(newMessages.map(m => m.user_id).filter(Boolean))];
-                
-                if (userIds.length > 0) {
-                  const { data: userProfiles } = await supabase
-                    .from('user_profiles')
-                    .select('user_id, first_name, last_name, profile_photo_url')
-                    .in('user_id', userIds);
-
-                  // Mesajlara user_profile bilgilerini ekle
-                  const messagesWithProfiles = newMessages.map(message => ({
-                    ...message,
-                    user_profile: userProfiles?.find(profile => profile.user_id === message.user_id)
-                  }));
-
-                  messagesWithProfiles.forEach(message => {
-                    dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-                  });
-                } else {
-                  newMessages.forEach(message => {
-                    dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-                  });
-                }
-                
-                // Okunmamış sayıları güncelle
-                setTimeout(() => calculateUnreadCounts(), 100);
-                lastMessageCheck = Date.now();
-              }
-            } catch (error) {
-              console.error('Polling error:', error);
-            }
-          };
-
-          // Start polling every 1 second as fallback
-          pollingInterval = setInterval(pollForUpdates, 1000);
-        };
 
         if (usePolling) {
           setupPolling();
