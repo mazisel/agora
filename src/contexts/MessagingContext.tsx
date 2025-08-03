@@ -363,10 +363,11 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         .select('id')
         .eq('channel_id', channelId)
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
 
-      return !error && !!data;
+      return !error && data && data.length > 0;
     } catch (error) {
+      console.error('Error checking channel membership:', error);
       return false;
     }
   }, [user]);
