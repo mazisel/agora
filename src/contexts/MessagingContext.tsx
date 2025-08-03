@@ -262,182 +262,78 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
     let pollingInterval: NodeJS.Timeout;
     let lastMessageCheck = Date.now();
-    let lastChannelCheck = Date.now();
 
     const setupRealtime = async () => {
       try {
         console.log('Setting up realtime with polling fallback...');
 
-        // Try WebSocket first, fallback to polling
-        let usePolling = false;
+        // Always use polling to avoid CSP issues
+        console.log('Using polling for realtime updates');
+        
+        // Polling function - optimized for better performance
+        const pollForUpdates = async () => {
+          if (!mounted) return;
 
-        try {
-          // Test WebSocket connection
-          const testChannel = supabase.channel('test-connection');
-          await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              reject(new Error('WebSocket timeout'));
-            }, 3000);
+          try {
+            // Only check for new messages in channels user is member of
+            const { data: memberships } = await supabase
+              .from('channel_members')
+              .select('channel_id')
+              .eq('user_id', user.id);
 
-            testChannel.subscribe((status) => {
-              clearTimeout(timeout);
-              if (status === 'SUBSCRIBED') {
-                resolve(status);
-              } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                reject(new Error('WebSocket failed'));
-              }
-            });
-          });
+            if (!memberships || memberships.length === 0) return;
 
-          testChannel.unsubscribe();
-          console.log('WebSocket connection successful, using realtime');
+            const channelIds = memberships.map(m => m.channel_id);
 
-          // Setup WebSocket subscriptions
-          const channelsChannel = supabase.channel(`channels-${user.id}`);
-          const messagesChannel = supabase.channel(`messages-${user.id}`);
+            // Check for new messages in user's channels only
+            const { data: newMessages } = await supabase
+              .from('messages')
+              .select(`
+                *,
+                attachments:message_attachments(*),
+                reactions:message_reactions(*)
+              `)
+              .in('channel_id', channelIds)
+              .gte('created_at', new Date(lastMessageCheck).toISOString())
+              .eq('is_deleted', false)
+              .order('created_at', { ascending: true });
 
-          channelsChannel
-            .on('postgres_changes', 
-              { event: '*', schema: 'public', table: 'channels' },
-              (payload) => {
-                if (!mounted) return;
-                console.log('Channel change:', payload);
-                if (payload.eventType === 'INSERT') {
-                  dispatch({ type: 'ADD_CHANNEL', payload: payload.new as Channel });
-                } else if (payload.eventType === 'UPDATE') {
-                  dispatch({ type: 'UPDATE_CHANNEL', payload: payload.new as Channel });
-                } else if (payload.eventType === 'DELETE') {
-                  dispatch({ type: 'REMOVE_CHANNEL', payload: payload.old.id });
-                }
-              }
-            )
-            .subscribe();
+            if (newMessages && newMessages.length > 0) {
+              // User profiles bilgilerini çek
+              const userIds = [...new Set(newMessages.map(m => m.user_id).filter(Boolean))];
+              
+              if (userIds.length > 0) {
+                const { data: userProfiles } = await supabase
+                  .from('user_profiles')
+                  .select('user_id, first_name, last_name, profile_photo_url')
+                  .in('user_id', userIds);
 
-          messagesChannel
-            .on('postgres_changes',
-              { event: '*', schema: 'public', table: 'messages' },
-              async (payload) => {
-                if (!mounted) return;
-                console.log('Message change:', payload);
-                if (payload.eventType === 'INSERT') {
-                  try {
-                    const { data: message } = await supabase
-                      .from('messages')
-                      .select(`
-                        *,
-                        attachments:message_attachments(*),
-                        reactions:message_reactions(*)
-                      `)
-                      .eq('id', payload.new.id)
-                      .single();
+                // Mesajlara user_profile bilgilerini ekle
+                const messagesWithProfiles = newMessages.map(message => ({
+                  ...message,
+                  user_profile: userProfiles?.find(profile => profile.user_id === message.user_id)
+                }));
 
-                    if (message && mounted) {
-                      // User profile bilgilerini de çek
-                      if (message.user_id) {
-                        const { data: userProfile } = await supabase
-                          .from('user_profiles')
-                          .select('user_id, first_name, last_name, profile_photo_url')
-                          .eq('user_id', message.user_id)
-                          .single();
-
-                        const messageWithProfile = {
-                          ...message,
-                          user_profile: userProfile
-                        };
-
-                        dispatch({ type: 'ADD_MESSAGE', payload: messageWithProfile as Message });
-                        // Okunmamış sayıları güncelle
-                        setTimeout(() => calculateUnreadCounts(), 100);
-                      } else {
-                        dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-                        // Okunmamış sayıları güncelle
-                        setTimeout(() => calculateUnreadCounts(), 100);
-                      }
-                    }
-                  } catch (error) {
-                    console.error('Error loading message details:', error);
-                  }
-                }
-              }
-            )
-            .subscribe();
-
-        } catch (wsError) {
-          console.log('WebSocket failed, falling back to polling:', wsError);
-          usePolling = true;
-        }
-
-        if (usePolling) {
-          console.log('Using polling for realtime updates');
-          
-          // Polling function
-          const pollForUpdates = async () => {
-            if (!mounted) return;
-
-            try {
-              // Check for new messages
-              const { data: newMessages } = await supabase
-                .from('messages')
-                .select(`
-                  *,
-                  attachments:message_attachments(*),
-                  reactions:message_reactions(*)
-                `)
-                .gte('created_at', new Date(lastMessageCheck).toISOString())
-                .eq('is_deleted', false)
-                .order('created_at', { ascending: true });
-
-              if (newMessages && newMessages.length > 0) {
-                // User profiles bilgilerini çek
-                const userIds = [...new Set(newMessages.map(m => m.user_id).filter(Boolean))];
-                
-                if (userIds.length > 0) {
-                  const { data: userProfiles } = await supabase
-                    .from('user_profiles')
-                    .select('user_id, first_name, last_name, profile_photo_url')
-                    .in('user_id', userIds);
-
-                  // Mesajlara user_profile bilgilerini ekle
-                  const messagesWithProfiles = newMessages.map(message => ({
-                    ...message,
-                    user_profile: userProfiles?.find(profile => profile.user_id === message.user_id)
-                  }));
-
-                  messagesWithProfiles.forEach(message => {
-                    dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-                  });
-                } else {
-                  newMessages.forEach(message => {
-                    dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-                  });
-                }
-                
-                // Okunmamış sayıları güncelle
-                setTimeout(() => calculateUnreadCounts(), 100);
-                lastMessageCheck = Date.now();
-              }
-
-              // Check for new channels
-              const { data: newChannels } = await supabase
-                .from('channels')
-                .select('*')
-                .gte('created_at', new Date(lastChannelCheck).toISOString())
-                .eq('is_archived', false);
-
-              if (newChannels && newChannels.length > 0) {
-                newChannels.forEach(channel => {
-                  dispatch({ type: 'ADD_CHANNEL', payload: channel as Channel });
+                messagesWithProfiles.forEach(message => {
+                  dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
                 });
-                lastChannelCheck = Date.now();
+              } else {
+                newMessages.forEach(message => {
+                  dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
+                });
               }
-            } catch (error) {
-              console.error('Polling error:', error);
+              
+              // Okunmamış sayıları güncelle
+              setTimeout(() => calculateUnreadCounts(), 100);
+              lastMessageCheck = Date.now();
             }
-          };
+          } catch (error) {
+            console.error('Polling error:', error);
+          }
+        };
 
-          // Start polling every 2 seconds
-          pollingInterval = setInterval(pollForUpdates, 2000);
-        }
+        // Start polling every 3 seconds (reduced frequency for better performance)
+        pollingInterval = setInterval(pollForUpdates, 3000);
 
         console.log('Realtime setup complete');
       } catch (error) {
@@ -455,7 +351,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       }
       console.log('Realtime cleaned up');
     };
-  }, [user]);
+  }, [user, calculateUnreadCounts]);
 
   // Check if user is member of a channel
   const isChannelMember = useCallback(async (channelId: string): Promise<boolean> => {
@@ -653,7 +549,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         payload: { channelId, messages: [] }
       });
     }
-  }, []);
+  }, [isChannelMember]);
 
   // Send message
   const sendMessage = useCallback(async (data: SendMessageData): Promise<Message | null> => {
@@ -709,7 +605,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       console.error('Error sending message:', error);
       return null;
     }
-  }, [user]);
+  }, [user, isChannelMember]);
 
   // Create channel
   const createChannel = useCallback(async (data: ChannelCreateData): Promise<Channel | null> => {
