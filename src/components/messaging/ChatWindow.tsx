@@ -15,7 +15,6 @@ export default function ChatWindow() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isScrollingToBottom, setIsScrollingToBottom] = useState(false);
 
   const activeChannel = state.channels.find(c => c.id === state.activeChannelId);
   const messages = state.activeChannelId ? state.messages[state.activeChannelId] || [] : [];
@@ -36,20 +35,12 @@ export default function ChatWindow() {
 
   // Scroll to bottom after messages are loaded
   useEffect(() => {
-    if (!isInitialLoad && messages.length > 0 && messagesEndRef.current) {
-      // İlk yükleme sonrası scroll'u en alta götür
-      setIsScrollingToBottom(true);
-      
-      setTimeout(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-          
-          // Scroll animasyonu bitince skeleton'u kapat
-          setTimeout(() => {
-            setIsScrollingToBottom(false);
-          }, 300);
-        }
-      }, 100);
+    if (!isInitialLoad && messages.length > 0 && messagesContainerRef.current) {
+      // İlk yükleme sonrası scroll'u en alta götür - hızlı ve direkt
+      const container = messagesContainerRef.current;
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
     }
   }, [isInitialLoad, messages.length]);
 
@@ -244,15 +235,6 @@ export default function ChatWindow() {
           </div>
         )}
 
-        {/* Scroll Loading Overlay */}
-        {isScrollingToBottom && (
-          <div className="absolute inset-0 bg-slate-800/80 backdrop-blur-sm flex items-center justify-center z-10">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-3" />
-              <p className="text-slate-300 text-sm">Mesajlara gidiliyor...</p>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Message Input */}
