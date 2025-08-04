@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Hash, Users, Lock, Globe, Loader2 } from 'lucide-react';
 import MessageItem from './MessageItem';
 import MessageInput from './MessageInput';
+import { MessageSkeletonList } from './MessageSkeleton';
 
 export default function ChatWindow() {
   const { state, markAsRead, loadMessages, loadOlderMessages } = useMessaging();
@@ -14,6 +15,7 @@ export default function ChatWindow() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isScrollingToBottom, setIsScrollingToBottom] = useState(false);
 
   const activeChannel = state.channels.find(c => c.id === state.activeChannelId);
   const messages = state.activeChannelId ? state.messages[state.activeChannelId] || [] : [];
@@ -36,9 +38,16 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!isInitialLoad && messages.length > 0 && messagesEndRef.current) {
       // İlk yükleme sonrası scroll'u en alta götür
+      setIsScrollingToBottom(true);
+      
       setTimeout(() => {
         if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          
+          // Scroll animasyonu bitince skeleton'u kapat
+          setTimeout(() => {
+            setIsScrollingToBottom(false);
+          }, 300);
         }
       }, 100);
     }
@@ -130,7 +139,7 @@ export default function ChatWindow() {
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800"
+        className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 relative"
         style={{
           scrollBehavior: 'auto',
           overflowAnchor: 'none',
@@ -138,9 +147,23 @@ export default function ChatWindow() {
         }}
       >
         {isInitialLoad ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-4" />
-            <p className="text-slate-400">Mesajlar yükleniyor...</p>
+          <div className="flex flex-col">
+            {/* Channel Welcome Message Skeleton */}
+            <div className="px-6 py-8 border-b border-slate-700/50">
+              <div className="flex items-center gap-4 mb-4 animate-pulse">
+                <div className="w-12 h-12 bg-slate-600 rounded-full"></div>
+                <div className="flex-1">
+                  <div className="h-6 bg-slate-600 rounded w-48 mb-2"></div>
+                  <div className="h-4 bg-slate-700 rounded w-32 mb-2"></div>
+                  <div className="h-3 bg-slate-700 rounded w-24"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages Skeleton */}
+            <div className="flex-1 px-4 py-2">
+              <MessageSkeletonList count={8} />
+            </div>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -218,6 +241,16 @@ export default function ChatWindow() {
               </div>
             </div>
             <div ref={messagesEndRef} className="h-1" />
+          </div>
+        )}
+
+        {/* Scroll Loading Overlay */}
+        {isScrollingToBottom && (
+          <div className="absolute inset-0 bg-slate-800/80 backdrop-blur-sm flex items-center justify-center z-10">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-3" />
+              <p className="text-slate-300 text-sm">Mesajlara gidiliyor...</p>
+            </div>
           </div>
         )}
       </div>
