@@ -28,17 +28,34 @@ export default function ChatWindow() {
       
       loadMessages(state.activeChannelId).finally(() => {
         setIsInitialLoad(false);
+        // İlk yükleme sonrası scroll'u en alta g��tür
+        setTimeout(() => {
+          if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
+          }
+        }, 100);
       });
     }
   }, [state.activeChannelId, activeChannel, loadMessages]);
 
   // Scroll to bottom when new messages arrive or when should scroll
   useEffect(() => {
-    if (shouldScrollToBottom && messagesEndRef.current) {
+    if (shouldScrollToBottom && messagesEndRef.current && !isInitialLoad) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
       setShouldScrollToBottom(false);
     }
-  }, [messages, shouldScrollToBottom]);
+  }, [messages, shouldScrollToBottom, isInitialLoad]);
+
+  // İlk mesajlar yüklendiğinde scroll'u en alta götür
+  useEffect(() => {
+    if (!isInitialLoad && messages.length > 0 && messagesEndRef.current) {
+      setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
+        }
+      }, 50);
+    }
+  }, [isInitialLoad, messages.length]);
 
   // Check if user is near bottom to decide auto-scroll and load older messages
   const handleScroll = () => {
@@ -103,27 +120,6 @@ export default function ChatWindow() {
 
   return (
     <div className="flex-1 flex flex-col bg-slate-800 min-h-0 overflow-hidden">
-      {/* Channel Header */}
-      <div className="flex-shrink-0 px-6 py-4 bg-slate-900 border-b border-slate-700">
-        <div className="flex items-center gap-3">
-          <div className="text-slate-400">
-            {getChannelIcon()}
-          </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold text-white">
-              {activeChannel.type === 'direct' ? activeChannel.name : `#${activeChannel.name}`}
-            </h2>
-            {activeChannel.description && (
-              <p className="text-sm text-slate-400 mt-1">{activeChannel.description}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 text-sm text-slate-400">
-            <Users className="w-4 h-4" />
-            <span>{activeChannel.member_count || 0}</span>
-          </div>
-        </div>
-      </div>
-
       {/* Messages Area */}
       <div 
         ref={messagesContainerRef}
