@@ -78,9 +78,13 @@ export default function MessageInput() {
 
   const handleEmojiSelect = (emoji: string) => {
     setMessage(prev => prev + emoji);
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
+    // Trigger height adjustment after emoji is added
+    setTimeout(() => {
+      adjustTextareaHeight();
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 0);
   };
 
   const toggleEmojiPicker = () => {
