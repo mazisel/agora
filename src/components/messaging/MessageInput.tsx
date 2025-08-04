@@ -103,10 +103,13 @@ export default function MessageInput() {
 
   return (
     <div className="bg-slate-800 border-t border-slate-700 px-4 py-3">
-      <div className="flex items-end gap-3">
+      <div className="flex items-stretch gap-3">
         {/* Input Container */}
         <div className="flex-1">
-          <div className="flex items-end bg-slate-700 rounded-lg border border-slate-600 px-4 py-2">
+          <div 
+            className="flex items-end bg-slate-700 rounded-lg border border-slate-600 px-4 py-2"
+            style={{ minHeight: `${textareaHeight}px` }}
+          >
             <textarea
               ref={textareaRef}
               value={message}
@@ -156,7 +159,7 @@ export default function MessageInput() {
           </div>
         </div>
 
-        {/* Send Button - matches textarea height */}
+        {/* Send Button - matches input container height exactly */}
         <button
           type="submit"
           onClick={handleSubmit}
