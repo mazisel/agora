@@ -3,11 +3,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMessaging } from '@/contexts/MessagingContext';
 import { Send, Paperclip, Smile } from 'lucide-react';
+import EmojiPicker from './EmojiPicker';
 
 export default function MessageInput() {
   const { state, sendMessage } = useMessaging();
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -74,6 +76,17 @@ export default function MessageInput() {
     setMessage(e.target.value);
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    setMessage(prev => prev + emoji);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
+
+  const toggleEmojiPicker = () => {
+    setIsEmojiPickerOpen(!isEmojiPickerOpen);
+  };
+
   if (!state.activeChannelId) {
     return null;
   }
@@ -108,12 +121,26 @@ export default function MessageInput() {
             />
             
             {/* Emoji Button */}
-            <button
-              type="button"
-              className="flex-shrink-0 ml-2 p-1 text-slate-400 hover:text-slate-300 transition-colors"
-            >
-              <Smile className="w-5 h-5" />
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={toggleEmojiPicker}
+                className={`flex-shrink-0 ml-2 p-1 transition-colors ${
+                  isEmojiPickerOpen 
+                    ? 'text-blue-400' 
+                    : 'text-slate-400 hover:text-slate-300'
+                }`}
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+              
+              {/* Emoji Picker */}
+              <EmojiPicker
+                isOpen={isEmojiPickerOpen}
+                onEmojiSelect={handleEmojiSelect}
+                onClose={() => setIsEmojiPickerOpen(false)}
+              />
+            </div>
           </div>
         </div>
 
