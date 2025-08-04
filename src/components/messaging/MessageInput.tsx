@@ -82,26 +82,26 @@ export default function MessageInput() {
   const hasMessage = message.trim().length > 0;
 
   return (
-    <div className="bg-white border-t border-gray-200 px-4 py-2">
-      <div className="flex items-end space-x-2">
+    <div className="bg-slate-800 border-t border-slate-700 px-4 py-3">
+      <div className="flex items-center gap-3">
         {/* Attachment Button */}
         <button
           type="button"
-          className="flex-shrink-0 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+          className="flex-shrink-0 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"
         >
           <Paperclip className="w-5 h-5" />
         </button>
 
         {/* Input Container */}
-        <div className="flex-1 relative">
-          <div className="flex items-end bg-gray-50 rounded-2xl border border-gray-200 px-3 py-1">
+        <div className="flex-1">
+          <div className="flex items-center bg-slate-700 rounded-lg border border-slate-600 px-4 py-2">
             <textarea
               ref={textareaRef}
               value={message}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
-              placeholder="Mesaj yazın..."
-              className="flex-1 bg-transparent text-gray-900 placeholder-gray-500 resize-none border-0 outline-none py-2 px-1 text-sm leading-5 max-h-24"
+              placeholder={`${activeChannel?.type === 'direct' ? activeChannel.name : `#${activeChannel?.name || 'kanal'}`} kanalına mesaj yazın...`}
+              className="flex-1 bg-transparent text-white placeholder-slate-400 resize-none border-0 outline-none text-sm leading-5 max-h-24 py-1"
               disabled={isLoading}
               rows={1}
               style={{ height: '20px' }}
@@ -110,7 +110,7 @@ export default function MessageInput() {
             {/* Emoji Button */}
             <button
               type="button"
-              className="flex-shrink-0 p-1 text-gray-500 hover:text-gray-700 transition-colors"
+              className="flex-shrink-0 ml-2 p-1 text-slate-400 hover:text-slate-300 transition-colors"
             >
               <Smile className="w-5 h-5" />
             </button>
@@ -122,10 +122,10 @@ export default function MessageInput() {
           type="submit"
           onClick={handleSubmit}
           disabled={!hasMessage || isLoading}
-          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+          className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
             hasMessage && !isLoading
-              ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-md'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-slate-600 text-slate-400 cursor-not-allowed'
           }`}
         >
           {isLoading ? (
