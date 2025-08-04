@@ -2,22 +2,21 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useMessaging } from '@/contexts/MessagingContext';
-import { Send, Paperclip, Smile, Mic } from 'lucide-react';
+import { Send, Paperclip, Smile } from 'lucide-react';
 
 export default function MessageInput() {
   const { state, sendMessage } = useMessaging();
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
-      textarea.style.height = 'auto';
+      textarea.style.height = '20px';
       const scrollHeight = textarea.scrollHeight;
-      const maxHeight = 120; // Max 5 lines approximately
+      const maxHeight = 100;
       textarea.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
     }
   };
@@ -52,16 +51,10 @@ export default function MessageInput() {
 
       if (result) {
         setMessage('');
-        // Reset textarea height
         if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = '20px';
+          textareaRef.current.focus();
         }
-        // Focus back to textarea after sending
-        setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.focus();
-          }
-        }, 100);
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -81,9 +74,6 @@ export default function MessageInput() {
     setMessage(e.target.value);
   };
 
-  const handleFocus = () => setIsFocused(true);
-  const handleBlur = () => setIsFocused(false);
-
   if (!state.activeChannelId) {
     return null;
   }
@@ -92,72 +82,59 @@ export default function MessageInput() {
   const hasMessage = message.trim().length > 0;
 
   return (
-    <div className="px-4 py-3 bg-slate-800 border-t border-slate-700/50">
-      <div className="flex items-center gap-3">
+    <div className="bg-white border-t border-gray-200 px-4 py-2">
+      <div className="flex items-end space-x-2">
         {/* Attachment Button */}
         <button
           type="button"
-          className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-full transition-all duration-200"
-          title="Dosya ekle"
+          className="flex-shrink-0 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
         >
           <Paperclip className="w-5 h-5" />
         </button>
 
-        {/* Message Input */}
-        <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-3">
-          <div className="flex-1 relative">
+        {/* Input Container */}
+        <div className="flex-1 relative">
+          <div className="flex items-end bg-gray-50 rounded-2xl border border-gray-200 px-3 py-1">
             <textarea
               ref={textareaRef}
               value={message}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              placeholder={`${activeChannel?.type === 'direct' ? activeChannel.name : `#${activeChannel?.name || 'kanal'}`} kanalına mesaj yazın...`}
-              className={`w-full px-4 py-3 bg-slate-700/50 border rounded-full text-white placeholder-slate-400 focus:outline-none resize-none overflow-hidden min-h-[44px] max-h-[120px] transition-all duration-200 ${
-                isFocused ? 'border-blue-500 bg-slate-700' : 'border-slate-600/50'
-              }`}
+              placeholder="Mesaj yazın..."
+              className="flex-1 bg-transparent text-gray-900 placeholder-gray-500 resize-none border-0 outline-none py-2 px-1 text-sm leading-5 max-h-24"
               disabled={isLoading}
               rows={1}
-              style={{ height: 'auto' }}
+              style={{ height: '20px' }}
             />
+            
+            {/* Emoji Button */}
+            <button
+              type="button"
+              className="flex-shrink-0 p-1 text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              <Smile className="w-5 h-5" />
+            </button>
           </div>
+        </div>
 
-          {/* Send Button */}
-          <button
-            type="submit"
-            disabled={!hasMessage || isLoading}
-            className={`p-2.5 rounded-full transition-all duration-200 ${
-              hasMessage && !isLoading
-                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-                : 'bg-slate-600/50 text-slate-400 cursor-not-allowed'
-            }`}
-            title="Mesaj gönder"
-          >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
-          </button>
-        </form>
-
-        {/* Emoji Button */}
+        {/* Send Button */}
         <button
-          type="button"
-          className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-full transition-all duration-200"
-          title="Emoji ekle"
+          type="submit"
+          onClick={handleSubmit}
+          disabled={!hasMessage || isLoading}
+          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+            hasMessage && !isLoading
+              ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-md'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
-          <Smile className="w-5 h-5" />
+          {isLoading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Send className="w-4 h-4" />
+          )}
         </button>
       </div>
-      
-      {/* Keyboard hint */}
-      {!hasMessage && (
-        <div className="mt-2 text-xs text-slate-500 text-center">
-          Enter: gönder • Shift+Enter: yeni satır
-        </div>
-      )}
     </div>
   );
 }
