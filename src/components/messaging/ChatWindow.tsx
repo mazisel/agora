@@ -28,34 +28,34 @@ export default function ChatWindow() {
       
       loadMessages(state.activeChannelId).finally(() => {
         setIsInitialLoad(false);
-        // İlk yükleme sonrası scroll'u en alta g��tür
-        setTimeout(() => {
+        // İlk yükleme sonrası scroll'u en alta götür
+        requestAnimationFrame(() => {
           if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
+            messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
           }
-        }, 100);
+        });
       });
     }
   }, [state.activeChannelId, activeChannel, loadMessages]);
 
-  // Scroll to bottom when new messages arrive or when should scroll
+  // Scroll to bottom when new messages arrive
   useEffect(() => {
-    if (shouldScrollToBottom && messagesEndRef.current && !isInitialLoad) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      setShouldScrollToBottom(false);
-    }
-  }, [messages, shouldScrollToBottom, isInitialLoad]);
-
-  // İlk mesajlar yüklendiğinde scroll'u en alta götür
-  useEffect(() => {
-    if (!isInitialLoad && messages.length > 0 && messagesEndRef.current) {
-      setTimeout(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
+    if (!isInitialLoad && messages.length > 0) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+        
+        if (isNearBottom) {
+          requestAnimationFrame(() => {
+            if (messagesEndRef.current) {
+              messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }
+          });
         }
-      }, 50);
+      }
     }
-  }, [isInitialLoad, messages.length]);
+  }, [messages.length, isInitialLoad]);
 
   // Check if user is near bottom to decide auto-scroll and load older messages
   const handleScroll = () => {
@@ -125,6 +125,11 @@ export default function ChatWindow() {
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800"
+        style={{
+          scrollBehavior: 'auto',
+          overflowAnchor: 'none',
+          scrollbarWidth: 'thin'
+        }}
       >
         {isInitialLoad ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
