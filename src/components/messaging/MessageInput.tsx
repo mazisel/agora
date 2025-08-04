@@ -92,22 +92,13 @@ export default function MessageInput() {
   const hasMessage = message.trim().length > 0;
 
   return (
-    <div className="px-4 py-3 bg-slate-900/50 backdrop-blur-sm border-t border-slate-700/50">
-      <div className={`bg-slate-800 rounded-2xl border transition-all duration-200 ${
-        isFocused ? 'border-blue-500/50 shadow-lg shadow-blue-500/10' : 'border-slate-600/50'
-      }`}>
-        <form onSubmit={handleSubmit} className="flex items-end gap-2 p-3">
-          {/* Attachment Button */}
-          <button
-            type="button"
-            className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 rounded-full transition-all duration-200 flex-shrink-0"
-            title="Dosya ekle"
-          >
-            <Paperclip className="w-5 h-5" />
-          </button>
-
-          {/* Message Input Container */}
-          <div className="flex-1 relative">
+    <div className="p-4 bg-slate-800 border-t border-slate-700">
+      <form onSubmit={handleSubmit} className="flex items-end gap-3">
+        {/* Message Input Container */}
+        <div className="flex-1 relative">
+          <div className={`bg-slate-700 rounded-lg border transition-colors ${
+            isFocused ? 'border-blue-500' : 'border-slate-600'
+          }`}>
             <textarea
               ref={textareaRef}
               value={message}
@@ -116,61 +107,54 @@ export default function MessageInput() {
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder={`${activeChannel?.type === 'direct' ? activeChannel.name : `#${activeChannel?.name || 'kanal'}`} kanalına mesaj yazın...`}
-              className="w-full px-4 py-3 bg-transparent text-white placeholder-slate-400 focus:outline-none resize-none overflow-hidden min-h-[44px] max-h-[120px] text-sm leading-5"
+              className="w-full px-4 py-3 bg-transparent text-white placeholder-slate-400 focus:outline-none resize-none overflow-hidden min-h-[48px] max-h-[120px]"
               disabled={isLoading}
               rows={1}
               style={{ height: 'auto' }}
             />
-            
-            {/* Placeholder hint */}
-            {!hasMessage && !isFocused && (
-              <div className="absolute bottom-1 right-3 text-xs text-slate-500 pointer-events-none">
-                Enter: gönder • Shift+Enter: yeni satır
-              </div>
-            )}
           </div>
+          
+          {/* Keyboard hint */}
+          {!hasMessage && (
+            <div className="mt-1 text-xs text-slate-500">
+              Enter: gönder • Shift+Enter: yeni satır
+            </div>
+          )}
+        </div>
 
-          {/* Emoji Button */}
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          {/* Attachment Button */}
           <button
             type="button"
-            className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 rounded-full transition-all duration-200 flex-shrink-0"
-            title="Emoji ekle"
+            className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"
+            title="Dosya ekle"
           >
-            <Smile className="w-5 h-5" />
+            <Paperclip className="w-5 h-5" />
           </button>
 
-          {/* Send/Voice Button */}
-          {hasMessage ? (
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`p-3 rounded-full transition-all duration-200 flex-shrink-0 ${
-                isLoading 
-                  ? 'bg-slate-600 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95 shadow-lg shadow-blue-600/25'
-              }`}
-              title="Mesaj gönder"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Send className="w-5 h-5 text-white" />
-              )}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="p-3 text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 rounded-full transition-all duration-200 flex-shrink-0"
-              title="Sesli mesaj"
-            >
-              <Mic className="w-5 h-5" />
-            </button>
-          )}
-        </form>
-      </div>
+          {/* Send Button */}
+          <button
+            type="submit"
+            disabled={!hasMessage || isLoading}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+              hasMessage && !isLoading
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-slate-600 text-slate-400 cursor-not-allowed'
+            }`}
+          >
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            <span className="hidden sm:inline">Gönder</span>
+          </button>
+        </div>
+      </form>
       
       {/* Typing indicator */}
-      <div className="mt-2 px-2 text-xs text-slate-500 min-h-[16px]">
+      <div className="mt-2 text-xs text-slate-500 min-h-[16px]">
         {/* Typing indicators will be shown here */}
       </div>
     </div>
