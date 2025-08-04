@@ -28,15 +28,21 @@ export default function ChatWindow() {
       
       loadMessages(state.activeChannelId).finally(() => {
         setIsInitialLoad(false);
-        // İlk yükleme sonrası scroll'u en alta götür
-        requestAnimationFrame(() => {
-          if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
-          }
-        });
       });
     }
   }, [state.activeChannelId, activeChannel, loadMessages]);
+
+  // Scroll to bottom after messages are loaded
+  useEffect(() => {
+    if (!isInitialLoad && messages.length > 0 && messagesEndRef.current) {
+      // İlk yükleme sonrası scroll'u en alta götür
+      setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+        }
+      }, 100);
+    }
+  }, [isInitialLoad, messages.length]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -47,11 +53,11 @@ export default function ChatWindow() {
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
         
         if (isNearBottom) {
-          requestAnimationFrame(() => {
+          setTimeout(() => {
             if (messagesEndRef.current) {
               messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
             }
-          });
+          }, 50);
         }
       }
     }
