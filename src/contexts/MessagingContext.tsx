@@ -274,268 +274,299 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  // Realtime subscriptions with polling fallback
+  // Pure WebSocket-based realtime subscriptions
   useEffect(() => {
     if (!user) return;
 
     let mounted = true;
-    let pollingInterval: NodeJS.Timeout;
-    let lastMessageCheck = Date.now();
+    let realtimeChannel: any = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    let reconnectTimeout: NodeJS.Timeout;
 
-    // Setup polling function first (outside of setupRealtime)
-    const setupPolling = () => {
-      const pollForUpdates = async () => {
-        if (!mounted) return;
-
-        try {
-          // Only check for new messages in channels user is member of
-          const { data: memberships } = await supabase
-            .from('channel_members')
-            .select('channel_id')
-            .eq('user_id', user.id);
-
-          if (!memberships || memberships.length === 0) return;
-
-          const channelIds = memberships.map(m => m.channel_id);
-
-          // Check for new messages in user's channels only
-          const { data: newMessages } = await supabase
-            .from('messages')
-            .select(`
-              *,
-              attachments:message_attachments(*),
-              reactions:message_reactions(*)
-            `)
-            .in('channel_id', channelIds)
-            .gte('created_at', new Date(lastMessageCheck).toISOString())
-            .eq('is_deleted', false)
-            .order('created_at', { ascending: true });
-
-          if (newMessages && newMessages.length > 0) {
-            // User profiles bilgilerini çek
-            const userIds = [...new Set(newMessages.map(m => m.user_id).filter(Boolean))];
-            
-            if (userIds.length > 0) {
-              const { data: userProfiles } = await supabase
-                .from('user_profiles')
-                .select('user_id, first_name, last_name, profile_photo_url')
-                .in('user_id', userIds);
-
-              // Mesajlara user_profile bilgilerini ekle
-              const messagesWithProfiles = newMessages.map(message => ({
-                ...message,
-                user_profile: userProfiles?.find(profile => profile.user_id === message.user_id)
-              }));
-
-              messagesWithProfiles.forEach(message => {
-                dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-              });
-            } else {
-              newMessages.forEach(message => {
-                dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-              });
-            }
-            
-            // Okunmamış sayıları güncelle
-            setTimeout(() => calculateUnreadCounts(), 100);
-            lastMessageCheck = Date.now();
-          }
-        } catch (error) {
-          console.error('Polling error:', error);
-        }
-      };
-
-      // Start polling every 1 second as fallback
-      pollingInterval = setInterval(pollForUpdates, 1000);
-    };
-
-    const setupRealtime = async () => {
+    const setupRealtime = () => {
       try {
-        // Try WebSocket first
-        let usePolling = false;
+        console.log(`🔌 Setting up realtime for user: ${user.id}`);
+        
+        // Create a unique channel name for this user session
+        const channelName = `realtime-${user.id}-${Date.now()}`;
+        realtimeChannel = supabase.channel(channelName, {
+          config: {
+            presence: {
+              key: user.id,
+            },
+          },
+        });
 
-        try {
-          // Test basic WebSocket connection first
-          const testChannel = supabase.channel('test-connection');
-          
-          testChannel.subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
+        // Listen to messages table changes
+        realtimeChannel
+          .on('postgres_changes',
+            { 
+              event: 'INSERT', 
+              schema: 'public', 
+              table: 'messages'
+            },
+            async (payload: any) => {
+              if (!mounted) return;
               
-              // Now setup the actual message listeners with timestamp for uniqueness
-              const messageChannel = supabase.channel(`messages-realtime-${user.id}-${Date.now()}`);
+              console.log('📨 New message received:', payload.new.id);
               
-              messageChannel
-                .on('postgres_changes',
-                  { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'messages'
-                  },
-                  async (payload) => {
-                    if (!mounted) return;
-                    
-                    if (payload.eventType === 'INSERT' && payload.new) {
-                      try {
-                        // Check if user is member of this channel first
-                        const { data: membership } = await supabase
-                          .from('channel_members')
-                          .select('id')
-                          .eq('channel_id', payload.new.channel_id)
-                          .eq('user_id', user.id)
-                          .limit(1);
+              try {
+                // Check if user is member of this channel first
+                const { data: membership } = await supabase
+                  .from('channel_members')
+                  .select('id')
+                  .eq('channel_id', payload.new.channel_id)
+                  .eq('user_id', user.id)
+                  .limit(1);
 
-                        if (!membership || membership.length === 0) {
-                          return;
-                        }
+                if (!membership || membership.length === 0) {
+                  console.log('❌ User not member of channel:', payload.new.channel_id);
+                  return;
+                }
 
-                        // Get full message with relations
-                        const { data: message } = await supabase
-                          .from('messages')
-                          .select(`
-                            *,
-                            attachments:message_attachments(*),
-                            reactions:message_reactions(*)
-                          `)
-                          .eq('id', payload.new.id)
-                          .single();
+                // Get full message with relations
+                const { data: message } = await supabase
+                  .from('messages')
+                  .select(`
+                    *,
+                    attachments:message_attachments(*),
+                    reactions:message_reactions(*)
+                  `)
+                  .eq('id', payload.new.id)
+                  .single();
 
-                        if (message && mounted) {
-                          // Get user profile
-                          if (message.user_id) {
-                            const { data: userProfile } = await supabase
-                              .from('user_profiles')
-                              .select('user_id, first_name, last_name, profile_photo_url')
-                              .eq('user_id', message.user_id)
-                              .single();
+                if (message && mounted) {
+                  // Get user profile
+                  let messageWithProfile = message;
+                  if (message.user_id) {
+                    const { data: userProfile } = await supabase
+                      .from('user_profiles')
+                      .select('user_id, first_name, last_name, profile_photo_url')
+                      .eq('user_id', message.user_id)
+                      .single();
 
-                            const messageWithProfile = {
-                              ...message,
-                              user_profile: userProfile
-                            };
-
-                            dispatch({ type: 'ADD_MESSAGE', payload: messageWithProfile as Message });
-                          } else {
-                            dispatch({ type: 'ADD_MESSAGE', payload: message as Message });
-                          }
-                          
-                          // Update unread counts immediately for realtime
-                          const channelId = message.channel_id;
-                          
-                          // Eğer mesaj aktif kanalda değilse unread count'u artır
-                          if (channelId !== state.activeChannelId && message.user_id !== user.id) {
-                            const currentCount = state.unreadCounts[channelId] || 0;
-                            dispatch({
-                              type: 'SET_UNREAD_COUNT',
-                              payload: { channelId, count: currentCount + 1 }
-                            });
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Error loading message details:', error);
-                      }
-                    }
+                    messageWithProfile = {
+                      ...message,
+                      user_profile: userProfile
+                    };
                   }
-                )
-                // Listen to channel changes
-                .on('postgres_changes',
-                  { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'channels'
-                  },
-                  async (payload) => {
-                    if (!mounted) return;
-                    
-                    if (payload.eventType === 'INSERT' && payload.new) {
-                      // Check if user is member of this new channel
-                      const { data: membership } = await supabase
+
+                  console.log('✅ Adding message to UI:', message.id);
+                  dispatch({ type: 'ADD_MESSAGE', payload: messageWithProfile as Message });
+                  
+                  // Update unread counts immediately for realtime
+                  const channelId = message.channel_id;
+                  
+                  // Eğer mesaj aktif kanalda değilse unread count'u artır
+                  if (channelId !== state.activeChannelId && message.user_id !== user.id) {
+                    const currentCount = state.unreadCounts[channelId] || 0;
+                    dispatch({
+                      type: 'SET_UNREAD_COUNT',
+                      payload: { channelId, count: currentCount + 1 }
+                    });
+                  }
+                }
+              } catch (error) {
+                console.error('❌ Error processing realtime message:', error);
+              }
+            }
+          )
+          // Listen to message updates (edits, deletions)
+          .on('postgres_changes',
+            { 
+              event: 'UPDATE', 
+              schema: 'public', 
+              table: 'messages'
+            },
+            async (payload: any) => {
+              if (!mounted) return;
+              
+              console.log('📝 Message updated:', payload.new.id);
+              
+              try {
+                // Check if user is member of this channel
+                const { data: membership } = await supabase
+                  .from('channel_members')
+                  .select('id')
+                  .eq('channel_id', payload.new.channel_id)
+                  .eq('user_id', user.id)
+                  .limit(1);
+
+                if (!membership || membership.length === 0) {
+                  return;
+                }
+
+                // Get full updated message
+                const { data: message } = await supabase
+                  .from('messages')
+                  .select(`
+                    *,
+                    attachments:message_attachments(*),
+                    reactions:message_reactions(*)
+                  `)
+                  .eq('id', payload.new.id)
+                  .single();
+
+                if (message && mounted) {
+                  // Get user profile
+                  let messageWithProfile = message;
+                  if (message.user_id) {
+                    const { data: userProfile } = await supabase
+                      .from('user_profiles')
+                      .select('user_id, first_name, last_name, profile_photo_url')
+                      .eq('user_id', message.user_id)
+                      .single();
+
+                    messageWithProfile = {
+                      ...message,
+                      user_profile: userProfile
+                    };
+                  }
+
+                  dispatch({ type: 'UPDATE_MESSAGE', payload: messageWithProfile as Message });
+                }
+              } catch (error) {
+                console.error('❌ Error processing message update:', error);
+              }
+            }
+          )
+          // Listen to channel changes
+          .on('postgres_changes',
+            { 
+              event: '*', 
+              schema: 'public', 
+              table: 'channels'
+            },
+            async (payload: any) => {
+              if (!mounted) return;
+              
+              if (payload.eventType === 'INSERT' && payload.new) {
+                // Check if user is member of this new channel
+                const { data: membership } = await supabase
+                  .from('channel_members')
+                  .select('id')
+                  .eq('channel_id', payload.new.id)
+                  .eq('user_id', user.id)
+                  .limit(1);
+
+                if (membership && membership.length > 0) {
+                  dispatch({ type: 'ADD_CHANNEL', payload: payload.new as Channel });
+                }
+              } else if (payload.eventType === 'UPDATE' && payload.new) {
+                dispatch({ type: 'UPDATE_CHANNEL', payload: payload.new as Channel });
+              } else if (payload.eventType === 'DELETE' && payload.old) {
+                dispatch({ type: 'REMOVE_CHANNEL', payload: payload.old.id });
+              }
+            }
+          )
+          // Listen to channel member changes
+          .on('postgres_changes',
+            { 
+              event: '*', 
+              schema: 'public', 
+              table: 'channel_members'
+            },
+            async (payload: any) => {
+              if (!mounted) return;
+              
+              if (payload.eventType === 'INSERT' && payload.new) {
+                // If this user was added to a channel, reload channels
+                if (payload.new.user_id === user.id) {
+                  // Use a ref to avoid dependency issues
+                  setTimeout(async () => {
+                    try {
+                      if (!user) return;
+                      
+                      const { data: memberships } = await supabase
                         .from('channel_members')
-                        .select('id')
-                        .eq('channel_id', payload.new.id)
-                        .eq('user_id', user.id)
-                        .limit(1);
+                        .select('channel_id')
+                        .eq('user_id', user.id);
 
-                      if (membership && membership.length > 0) {
-                        dispatch({ type: 'ADD_CHANNEL', payload: payload.new as Channel });
+                      if (!memberships || memberships.length === 0) {
+                        dispatch({ type: 'SET_CHANNELS', payload: [] });
+                        return;
                       }
-                    } else if (payload.eventType === 'UPDATE' && payload.new) {
-                      dispatch({ type: 'UPDATE_CHANNEL', payload: payload.new as Channel });
-                    } else if (payload.eventType === 'DELETE' && payload.old) {
-                      dispatch({ type: 'REMOVE_CHANNEL', payload: payload.old.id });
+
+                      const channelIds = memberships.map(m => m.channel_id);
+                      const { data: channels } = await supabase
+                        .from('channels')
+                        .select('*')
+                        .in('id', channelIds)
+                        .eq('is_archived', false)
+                        .order('name');
+
+                      dispatch({ type: 'SET_CHANNELS', payload: channels || [] });
+                    } catch (error) {
+                      console.error('Error reloading channels:', error);
                     }
-                  }
-                )
-                // Listen to channel member changes (for read status updates)
-                .on('postgres_changes',
-                  { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'channel_members'
-                  },
-                  async (payload) => {
-                    if (!mounted) return;
-                    
-                    if (payload.eventType === 'INSERT' && payload.new) {
-                      // If this user was added to a channel, reload channels
-                      if (payload.new.user_id === user.id) {
-                        setTimeout(() => loadChannels(), 500);
-                      }
-                    } else if (payload.eventType === 'UPDATE' && payload.new) {
-                      // If last_read_at was updated, recalculate unread counts
-                      if (payload.new.user_id === user.id && payload.new.last_read_at) {
-                        setTimeout(() => calculateUnreadCounts(), 100);
-                      }
-                    } else if (payload.eventType === 'DELETE' && payload.old) {
-                      // If this user was removed from a channel, remove from UI
-                      if (payload.old.user_id === user.id) {
-                        dispatch({ type: 'REMOVE_CHANNEL', payload: payload.old.channel_id });
-                      }
-                    }
-                  }
-                )
-                .subscribe((status) => {
-                  if (status === 'SUBSCRIBED') {
-                    // WebSocket active - force a small test to ensure it's working
-                    console.log('✅ WebSocket subscribed for user:', user.id);
-                  } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-                    console.log('❌ WebSocket failed for user:', user.id, 'Status:', status);
-                    usePolling = true;
-                    setupPolling();
-                  }
-                });
-                
+                  }, 500);
+                }
+              } else if (payload.eventType === 'UPDATE' && payload.new) {
+                // If last_read_at was updated, recalculate unread counts
+                if (payload.new.user_id === user.id && payload.new.last_read_at) {
+                  setTimeout(() => calculateUnreadCounts(), 100);
+                }
+              } else if (payload.eventType === 'DELETE' && payload.old) {
+                // If this user was removed from a channel, remove from UI
+                if (payload.old.user_id === user.id) {
+                  dispatch({ type: 'REMOVE_CHANNEL', payload: payload.old.channel_id });
+                }
+              }
+            }
+          )
+          .subscribe((status: any) => {
+            console.log(`🔄 Realtime status for ${user.id}:`, status);
+            
+            if (status === 'SUBSCRIBED') {
+              console.log('✅ WebSocket connected successfully for user:', user.id);
+              reconnectAttempts = 0; // Reset reconnect attempts on successful connection
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-              usePolling = true;
-              setupPolling();
+              console.log('❌ WebSocket connection failed for user:', user.id, 'Status:', status);
+              
+              // Attempt to reconnect with exponential backoff
+              if (reconnectAttempts < maxReconnectAttempts && mounted) {
+                reconnectAttempts++;
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Max 30 seconds
+                console.log(`🔄 Attempting reconnect ${reconnectAttempts}/${maxReconnectAttempts} in ${delay}ms`);
+                
+                reconnectTimeout = setTimeout(() => {
+                  if (mounted) {
+                    cleanup();
+                    setupRealtime();
+                  }
+                }, delay);
+              } else {
+                console.log('❌ Max reconnection attempts reached for user:', user.id);
+              }
             }
           });
 
-          // Wait a bit to see if WebSocket connects
-          await new Promise(resolve => setTimeout(resolve, 2000));
-
-        } catch (wsError) {
-          usePolling = true;
-        }
-
-        if (usePolling) {
-          setupPolling();
-        }
       } catch (error) {
-        console.error('Error setting up realtime:', error);
-        console.log('Continuing without realtime features');
+        console.error('❌ Error setting up realtime:', error);
       }
     };
 
+    const cleanup = () => {
+      if (realtimeChannel) {
+        console.log('🧹 Cleaning up realtime channel for user:', user.id);
+        realtimeChannel.unsubscribe();
+        realtimeChannel = null;
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+    };
+
+    // Initial setup
     setupRealtime();
 
     return () => {
       mounted = false;
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
-      console.log('Realtime cleaned up');
+      cleanup();
+      console.log('🔌 Realtime completely cleaned up for user:', user.id);
     };
-  }, [user, calculateUnreadCounts]);
+  }, [user, state.activeChannelId, state.unreadCounts, calculateUnreadCounts]);
 
   // Check if user is member of a channel
   const isChannelMember = useCallback(async (channelId: string): Promise<boolean> => {
