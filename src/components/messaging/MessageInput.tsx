@@ -103,81 +103,77 @@ export default function MessageInput() {
 
   return (
     <div className="bg-slate-800 border-t border-slate-700 px-4 py-3">
-      <div className="flex items-stretch gap-3">
-        {/* Input Container */}
-        <div className="flex-1">
-          <div 
-            className="flex items-end bg-slate-700 rounded-lg border border-slate-600 px-4 py-2"
-            style={{ minHeight: `${textareaHeight}px` }}
-          >
-            <textarea
-              ref={textareaRef}
-              value={message}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              placeholder={`${activeChannel?.type === 'direct' ? activeChannel.name : `#${activeChannel?.name || 'kanal'}`} kanalına mesaj yazın...`}
-              className="flex-1 bg-transparent text-white placeholder-slate-400 resize-none border-0 outline-none text-sm leading-5 max-h-24 py-1"
-              disabled={isLoading}
-              rows={1}
-              style={{ height: '20px' }}
-            />
-            
-            {/* Action Buttons Container */}
-            <div className="flex items-center gap-1 ml-2">
-              {/* File Picker Button */}
+      <form onSubmit={handleSubmit}>
+        <div 
+          className="flex items-end bg-slate-700 rounded-lg border border-slate-600 px-4 py-2"
+          style={{ minHeight: `${textareaHeight}px` }}
+        >
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={`${activeChannel?.type === 'direct' ? activeChannel.name : `#${activeChannel?.name || 'kanal'}`} kanalına mesaj yazın...`}
+            className="flex-1 bg-transparent text-white placeholder-slate-400 resize-none border-0 outline-none text-sm leading-5 max-h-24 py-1"
+            disabled={isLoading}
+            rows={1}
+            style={{ height: '20px' }}
+          />
+          
+          {/* Action Buttons Container */}
+          <div className="flex items-center gap-1 ml-2">
+            {/* File Picker Button */}
+            <button
+              type="button"
+              className="flex-shrink-0 p-1 text-slate-400 hover:text-slate-300 transition-colors"
+              title="Dosya ekle"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
+
+            {/* Emoji Button */}
+            <div className="relative">
               <button
                 type="button"
-                className="flex-shrink-0 p-1 text-slate-400 hover:text-slate-300 transition-colors"
-                title="Dosya ekle"
+                onClick={toggleEmojiPicker}
+                className={`flex-shrink-0 p-1 transition-colors ${
+                  isEmojiPickerOpen 
+                    ? 'text-blue-400' 
+                    : 'text-slate-400 hover:text-slate-300'
+                }`}
+                title="Emoji ekle"
               >
-                <Paperclip className="w-5 h-5" />
+                <Smile className="w-5 h-5" />
               </button>
-
-              {/* Emoji Button */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={toggleEmojiPicker}
-                  className={`flex-shrink-0 p-1 transition-colors ${
-                    isEmojiPickerOpen 
-                      ? 'text-blue-400' 
-                      : 'text-slate-400 hover:text-slate-300'
-                  }`}
-                  title="Emoji ekle"
-                >
-                  <Smile className="w-5 h-5" />
-                </button>
-                
-                {/* Emoji Picker */}
-                <EmojiPicker
-                  isOpen={isEmojiPickerOpen}
-                  onEmojiSelect={handleEmojiSelect}
-                  onClose={() => setIsEmojiPickerOpen(false)}
-                />
-              </div>
+              
+              {/* Emoji Picker */}
+              <EmojiPicker
+                isOpen={isEmojiPickerOpen}
+                onEmojiSelect={handleEmojiSelect}
+                onClose={() => setIsEmojiPickerOpen(false)}
+              />
             </div>
+
+            {/* Send Button - integrated inside input */}
+            <button
+              type="submit"
+              disabled={!hasMessage || isLoading}
+              className={`flex-shrink-0 p-2 rounded-full transition-all ml-1 ${
+                hasMessage && !isLoading
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'
+                  : 'bg-slate-600 text-slate-400 cursor-not-allowed'
+              }`}
+              title="Mesaj gönder"
+            >
+              {isLoading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </button>
           </div>
         </div>
-
-        {/* Send Button - matches input container height exactly */}
-        <button
-          type="submit"
-          onClick={handleSubmit}
-          disabled={!hasMessage || isLoading}
-          className={`flex-shrink-0 px-4 rounded-lg flex items-center justify-center transition-all ${
-            hasMessage && !isLoading
-              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-              : 'bg-slate-600 text-slate-400 cursor-not-allowed'
-          }`}
-          style={{ height: `${textareaHeight}px` }}
-        >
-          {isLoading ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </button>
-      </div>
+      </form>
     </div>
   );
 }
