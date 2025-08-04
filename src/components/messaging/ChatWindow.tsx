@@ -1,26 +1,52 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useMessaging } from '@/contexts/MessagingContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Send, Hash } from 'lucide-react';
+import { Hash, Users, Lock, Globe, Loader2 } from 'lucide-react';
 import MessageItem from './MessageItem';
 import MessageInput from './MessageInput';
 
 export default function ChatWindow() {
-  const { state, markAsRead } = useMessaging();
+  const { state, markAsRead, loadMessages } = useMessaging();
   const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
 
   const activeChannel = state.channels.find(c => c.id === state.activeChannelId);
   const messages = state.activeChannelId ? state.messages[state.activeChannelId] || [] : [];
 
-  // Scroll to bottom when new messages arrive
+  // Load messages when channel changes
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (state.activeChannelId && activeChannel) {
+      setIsLoadingMessages(true);
+      setShouldScrollToBottom(true);
+      
+      loadMessages(state.activeChannelId).finally(() => {
+        setIsLoadingMessages(false);
+      });
     }
-  }, [messages]);
+  }, [state.activeChannelId, activeChannel, loadMessages]);
+
+  // Scroll to bottom when new messages arrive or when should scroll
+  useEffect(() => {
+    if (shouldScrollToBottom && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      setShouldScrollToBottom(false);
+    }
+  }, [messages, shouldScrollToBottom]);
+
+  // Check if user is near bottom to decide auto-scroll
+  const handleScroll = () => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setShouldScrollToBottom(isNearBottom);
+    }
+  };
 
   // Mark messages as read when channel changes
   useEffect(() => {
@@ -28,6 +54,20 @@ export default function ChatWindow() {
       markAsRead({ channel_id: state.activeChannelId });
     }
   }, [state.activeChannelId, markAsRead]);
+
+  // Scroll to bottom when new message is added and user is near bottom
+  useEffect(() => {
+    if (messages.length > 0) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+        if (isNearBottom) {
+          setShouldScrollToBottom(true);
+        }
+      }
+    }
+  }, [messages.length]);
 
   if (!activeChannel) {
     return (
@@ -41,31 +81,116 @@ export default function ChatWindow() {
     );
   }
 
+  const getChannelIcon = () => {
+    switch (activeChannel.type) {
+      case 'private':
+        return <Lock className="w-4 h-4" />;
+      case 'direct':
+        return <Users className="w-4 h-4" />;
+      default:
+        return <Hash className="w-4 h-4" />;
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-slate-800 min-h-0 overflow-hidden">
+      {/* Channel Header */}
+      <div className="flex-shrink-0 px-6 py-4 bg-slate-900 border-b border-slate-700">
+        <div className="flex items-center gap-3">
+          <div className="text-slate-400">
+            {getChannelIcon()}
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-white">
+              {activeChannel.type === 'direct' ? activeChannel.name : `#${activeChannel.name}`}
+            </h2>
+            {activeChannel.description && (
+              <p className="text-sm text-slate-400 mt-1">{activeChannel.description}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Users className="w-4 h-4" />
+            <span>{activeChannel.member_count || 0}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
-        {messages.length === 0 ? (
+      <div 
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800"
+      >
+        {isLoadingMessages ? (
+          <div className="flex flex-col items-center justify-center h-full text-center p-8">
+            <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-4" />
+            <p className="text-slate-400">Mesajlar yükleniyor...</p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
             <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mb-4">
-              <Hash className="w-8 h-8 text-slate-400" />
+              {getChannelIcon()}
             </div>
             <h3 className="text-lg font-medium text-slate-300 mb-2">
-              #{activeChannel.name} kanalına hoş geldiniz!
+              {activeChannel.type === 'direct' 
+                ? `${activeChannel.name} ile konuşmaya başlayın!`
+                : `#${activeChannel.name} kanalına hoş geldiniz!`
+              }
             </h3>
-            <p className="text-slate-500">Bu kanalın başlangıcı. İlk mesajı gönderin!</p>
+            <p className="text-slate-500">
+              {activeChannel.type === 'direct' 
+                ? 'Bu konuşmanın başlangıcı. İlk mesajı gönderin!'
+                : 'Bu kanalın başlangıcı. İlk mesajı gönderin!'
+              }
+            </p>
           </div>
         ) : (
           <div className="flex flex-col">
+            {/* Channel Welcome Message */}
+            <div className="px-6 py-8 border-b border-slate-700/50">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center">
+                  {getChannelIcon()}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    {activeChannel.type === 'direct' 
+                      ? activeChannel.name 
+                      : `#${activeChannel.name} kanalının başlangıcı`
+                    }
+                  </h3>
+                  {activeChannel.description && (
+                    <p className="text-slate-400 mt-1">{activeChannel.description}</p>
+                  )}
+                  <p className="text-sm text-slate-500 mt-2">
+                    {new Date(activeChannel.created_at).toLocaleDateString('tr-TR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })} tarihinde oluşturuldu
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages */}
             <div className="flex-1 px-4 py-2">
               <div className="space-y-1">
-                {messages.map((message) => (
-                  <MessageItem
-                    key={message.id}
-                    message={message}
-                    isOwn={message.user_id === user?.id}
-                  />
-                ))}
+                {messages.map((message, index) => {
+                  const prevMessage = index > 0 ? messages[index - 1] : null;
+                  const showAvatar = !prevMessage || 
+                    prevMessage.user_id !== message.user_id ||
+                    new Date(message.created_at).getTime() - new Date(prevMessage.created_at).getTime() > 300000; // 5 minutes
+
+                  return (
+                    <MessageItem
+                      key={message.id}
+                      message={message}
+                      isOwn={message.user_id === user?.id}
+                      showAvatar={showAvatar}
+                    />
+                  );
+                })}
               </div>
             </div>
             <div ref={messagesEndRef} className="h-1" />
@@ -74,7 +199,7 @@ export default function ChatWindow() {
       </div>
 
       {/* Message Input */}
-      <div className="flex-shrink-0 border-t border-slate-700/50">
+      <div className="flex-shrink-0">
         <MessageInput />
       </div>
     </div>

@@ -8,9 +8,10 @@ import { useAuth } from '@/contexts/AuthContext';
 interface MessageItemProps {
   message: Message;
   isOwn: boolean;
+  showAvatar?: boolean;
 }
 
-export default function MessageItem({ message, isOwn }: MessageItemProps) {
+export default function MessageItem({ message, isOwn, showAvatar = true }: MessageItemProps) {
   const { user } = useAuth();
 
   const getUserDisplayName = () => {
@@ -101,27 +102,39 @@ export default function MessageItem({ message, isOwn }: MessageItemProps) {
   }
 
   return (
-    <div className={`flex gap-3 py-2 px-2 hover:bg-slate-700/10 rounded-lg transition-colors ${isOwn ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex gap-3 hover:bg-slate-700/10 rounded-lg transition-colors ${
+      isOwn ? 'flex-row-reverse' : ''
+    } ${showAvatar ? 'py-2 px-2' : 'py-1 px-2'}`}>
       {/* Avatar */}
       <div className="flex-shrink-0">
-        {getUserAvatar(displayName)}
+        {showAvatar ? (
+          getUserAvatar(displayName)
+        ) : (
+          <div className="w-10 h-10 flex items-center justify-center">
+            <span className="text-xs text-slate-500">
+              {formatTime(message.created_at)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Message Content */}
       <div className={`flex-1 min-w-0 ${isOwn ? 'text-right' : ''}`}>
-        {/* Header */}
-        <div className={`flex items-center gap-2 mb-1 ${isOwn ? 'justify-end' : ''}`}>
-          <span className="font-medium text-white text-sm">
-            {displayName}
-          </span>
-          <span className="text-xs text-slate-400">
-            {formatTime(message.created_at)}
-          </span>
-        </div>
+        {/* Header - only show when avatar is shown */}
+        {showAvatar && (
+          <div className={`flex items-center gap-2 mb-1 ${isOwn ? 'justify-end' : ''}`}>
+            <span className="font-medium text-white text-sm">
+              {displayName}
+            </span>
+            <span className="text-xs text-slate-400">
+              {formatTime(message.created_at)}
+            </span>
+          </div>
+        )}
 
         {/* Message Bubble */}
         {message.content && (
-          <div className={`inline-block max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl px-3 py-2 rounded-2xl text-sm leading-relaxed break-words ${
+          <div className={`inline-block max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl px-3 py-2 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap ${
             isOwn 
               ? 'bg-blue-600 text-white ml-auto' 
               : 'bg-slate-700 text-slate-100'
