@@ -109,6 +109,8 @@ export interface ChatState {
   isLoading: boolean;
   searchResults: MessageSearchResult[];
   searchQuery: string;
+  messagesLoading: Record<string, boolean>;
+  hasMoreMessages: Record<string, boolean>;
 }
 
 export interface SendMessageData {

@@ -27,6 +27,7 @@ type MessagingAction =
   | { type: 'REMOVE_CHANNEL'; payload: string }
   | { type: 'SET_ACTIVE_CHANNEL'; payload: string }
   | { type: 'SET_MESSAGES'; payload: { channelId: string; messages: Message[] } }
+  | { type: 'PREPEND_MESSAGES'; payload: { channelId: string; messages: Message[] } }
   | { type: 'ADD_MESSAGE'; payload: Message }
   | { type: 'UPDATE_MESSAGE'; payload: Message }
   | { type: 'REMOVE_MESSAGE'; payload: string }
@@ -35,6 +36,8 @@ type MessagingAction =
   | { type: 'SET_UNREAD_COUNT'; payload: { channelId: string; count: number } }
   | { type: 'SET_SEARCH_RESULTS'; payload: MessageSearchResult[] }
   | { type: 'SET_SEARCH_QUERY'; payload: string }
+  | { type: 'SET_MESSAGES_LOADING'; payload: { channelId: string; loading: boolean } }
+  | { type: 'SET_HAS_MORE_MESSAGES'; payload: { channelId: string; hasMore: boolean } }
   | { type: 'CLEAR_SEARCH' };
 
 const initialState: ChatState = {
@@ -46,7 +49,9 @@ const initialState: ChatState = {
   unreadCounts: {},
   isLoading: false,
   searchResults: [],
-  searchQuery: ''
+  searchQuery: '',
+  messagesLoading: {},
+  hasMoreMessages: {}
 };
 
 function messagingReducer(state: ChatState, action: MessagingAction): ChatState {
@@ -182,6 +187,43 @@ function messagingReducer(state: ChatState, action: MessagingAction): ChatState 
     case 'SET_SEARCH_QUERY':
       return { ...state, searchQuery: action.payload };
 
+    case 'SET_MESSAGES_LOADING':
+      return {
+        ...state,
+        messagesLoading: {
+          ...state.messagesLoading,
+          [action.payload.channelId]: action.payload.loading
+        }
+      };
+
+    case 'SET_HAS_MORE_MESSAGES':
+      return {
+        ...state,
+        hasMoreMessages: {
+          ...state.hasMoreMessages,
+          [action.payload.channelId]: action.payload.hasMore
+        }
+      };
+
+    case 'PREPEND_MESSAGES':
+      const prependChannelId = action.payload.channelId;
+      const existingMessages = state.messages[prependChannelId] || [];
+      
+      // Duplicate kontrolü ile eski mesajları başa ekle
+      const newMessages = action.payload.messages.filter(newMsg => 
+        !existingMessages.some(existingMsg => existingMsg.id === newMsg.id)
+      );
+      
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [prependChannelId]: [...newMessages, ...existingMessages].sort((a, b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          )
+        }
+      };
+
     case 'CLEAR_SEARCH':
       return { ...state, searchResults: [], searchQuery: '' };
 
@@ -202,6 +244,7 @@ interface MessagingContextType {
   
   // Message operations
   loadMessages: (channelId: string) => Promise<void>;
+  loadOlderMessages: (channelId: string) => Promise<void>;
   sendMessage: (data: SendMessageData) => Promise<Message | null>;
   editMessage: (data: EditMessageData) => Promise<boolean>;
   deleteMessage: (messageId: string) => Promise<boolean>;
@@ -685,7 +728,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  // Load messages for a channel
+  // Load messages for a channel (initial load)
   const loadMessages = useCallback(async (channelId: string) => {
     try {
       // Önce kullanıcının bu kanalın üyesi olup olmadığını kontrol et
@@ -695,10 +738,14 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           type: 'SET_MESSAGES',
           payload: { channelId, messages: [] }
         });
+        dispatch({
+          type: 'SET_HAS_MORE_MESSAGES',
+          payload: { channelId, hasMore: false }
+        });
         return;
       }
       
-      // Mesajları çek
+      // Son 30 mesajı çek (initial load)
       const { data: messages, error: messagesError } = await supabase
         .from('messages')
         .select(`
@@ -708,17 +755,20 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         `)
         .eq('channel_id', channelId)
         .eq('is_deleted', false)
-        .order('created_at', { ascending: true })
-        .limit(50);
+        .order('created_at', { ascending: false })
+        .limit(30);
 
       if (messagesError) {
         console.error('Database error loading messages:', messagesError);
         throw messagesError;
       }
 
+      // Mesajları ters çevir (eskiden yeniye)
+      const sortedMessages = (messages || []).reverse();
+
       // Eğer mesajlar varsa, user_profiles bilgilerini çek
-      if (messages && messages.length > 0) {
-        const userIds = [...new Set(messages.map(m => m.user_id).filter(Boolean))];
+      if (sortedMessages.length > 0) {
+        const userIds = [...new Set(sortedMessages.map(m => m.user_id).filter(Boolean))];
         
         if (userIds.length > 0) {
           const { data: userProfiles } = await supabase
@@ -727,7 +777,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
             .in('user_id', userIds);
 
           // Mesajlara user_profile bilgilerini ekle
-          const messagesWithProfiles = messages.map(message => ({
+          const messagesWithProfiles = sortedMessages.map(message => ({
             ...message,
             user_profile: userProfiles?.find(profile => profile.user_id === message.user_id)
           }));
@@ -739,13 +789,23 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         } else {
           dispatch({
             type: 'SET_MESSAGES',
-            payload: { channelId, messages }
+            payload: { channelId, messages: sortedMessages }
           });
         }
+
+        // Daha eski mesaj var mı kontrol et
+        dispatch({
+          type: 'SET_HAS_MORE_MESSAGES',
+          payload: { channelId, hasMore: messages?.length === 30 }
+        });
       } else {
         dispatch({
           type: 'SET_MESSAGES',
           payload: { channelId, messages: [] }
+        });
+        dispatch({
+          type: 'SET_HAS_MORE_MESSAGES',
+          payload: { channelId, hasMore: false }
         });
       }
     } catch (error) {
@@ -754,8 +814,101 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         type: 'SET_MESSAGES',
         payload: { channelId, messages: [] }
       });
+      dispatch({
+        type: 'SET_HAS_MORE_MESSAGES',
+        payload: { channelId, hasMore: false }
+      });
     }
   }, [isChannelMember]);
+
+  // Load older messages (pagination)
+  const loadOlderMessages = useCallback(async (channelId: string) => {
+    try {
+      const currentMessages = state.messages[channelId] || [];
+      if (currentMessages.length === 0) return;
+
+      // Loading durumunu set et
+      dispatch({
+        type: 'SET_MESSAGES_LOADING',
+        payload: { channelId, loading: true }
+      });
+
+      // En eski mesajın tarihini al
+      const oldestMessage = currentMessages[0];
+      const oldestDate = oldestMessage.created_at;
+
+      // Bu tarihten daha eski 30 mesajı çek
+      const { data: olderMessages, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          attachments:message_attachments(*),
+          reactions:message_reactions(*)
+        `)
+        .eq('channel_id', channelId)
+        .eq('is_deleted', false)
+        .lt('created_at', oldestDate)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) {
+        console.error('Error loading older messages:', error);
+        return;
+      }
+
+      if (olderMessages && olderMessages.length > 0) {
+        // Mesajları ters çevir (eskiden yeniye)
+        const sortedOlderMessages = olderMessages.reverse();
+
+        // User profiles bilgilerini çek
+        const userIds = [...new Set(sortedOlderMessages.map(m => m.user_id).filter(Boolean))];
+        
+        if (userIds.length > 0) {
+          const { data: userProfiles } = await supabase
+            .from('user_profiles')
+            .select('user_id, first_name, last_name, profile_photo_url')
+            .in('user_id', userIds);
+
+          // Mesajlara user_profile bilgilerini ekle
+          const messagesWithProfiles = sortedOlderMessages.map(message => ({
+            ...message,
+            user_profile: userProfiles?.find(profile => profile.user_id === message.user_id)
+          }));
+
+          // Eski mesajları başa ekle
+          dispatch({
+            type: 'PREPEND_MESSAGES',
+            payload: { channelId, messages: messagesWithProfiles }
+          });
+        } else {
+          dispatch({
+            type: 'PREPEND_MESSAGES',
+            payload: { channelId, messages: sortedOlderMessages }
+          });
+        }
+
+        // Daha eski mesaj var mı kontrol et
+        dispatch({
+          type: 'SET_HAS_MORE_MESSAGES',
+          payload: { channelId, hasMore: olderMessages.length === 30 }
+        });
+      } else {
+        // Daha eski mesaj yok
+        dispatch({
+          type: 'SET_HAS_MORE_MESSAGES',
+          payload: { channelId, hasMore: false }
+        });
+      }
+    } catch (error) {
+      console.error('Error loading older messages:', error);
+    } finally {
+      // Loading durumunu kapat
+      dispatch({
+        type: 'SET_MESSAGES_LOADING',
+        payload: { channelId, loading: false }
+      });
+    }
+  }, [state.messages]);
 
   // Send message
   const sendMessage = useCallback(async (data: SendMessageData): Promise<Message | null> => {
@@ -1091,6 +1244,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     leaveChannel,
     setActiveChannel,
     loadMessages,
+    loadOlderMessages,
     sendMessage,
     editMessage,
     deleteMessage,

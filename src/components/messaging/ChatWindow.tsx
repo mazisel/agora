@@ -8,24 +8,26 @@ import MessageItem from './MessageItem';
 import MessageInput from './MessageInput';
 
 export default function ChatWindow() {
-  const { state, markAsRead, loadMessages } = useMessaging();
+  const { state, markAsRead, loadMessages, loadOlderMessages } = useMessaging();
   const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const activeChannel = state.channels.find(c => c.id === state.activeChannelId);
   const messages = state.activeChannelId ? state.messages[state.activeChannelId] || [] : [];
+  const isLoadingOlderMessages = state.activeChannelId ? state.messagesLoading[state.activeChannelId] || false : false;
+  const hasMoreMessages = state.activeChannelId ? state.hasMoreMessages[state.activeChannelId] || false : false;
 
   // Load messages when channel changes
   useEffect(() => {
     if (state.activeChannelId && activeChannel) {
-      setIsLoadingMessages(true);
+      setIsInitialLoad(true);
       setShouldScrollToBottom(true);
       
       loadMessages(state.activeChannelId).finally(() => {
-        setIsLoadingMessages(false);
+        setIsInitialLoad(false);
       });
     }
   }, [state.activeChannelId, activeChannel, loadMessages]);
@@ -38,13 +40,20 @@ export default function ChatWindow() {
     }
   }, [messages, shouldScrollToBottom]);
 
-  // Check if user is near bottom to decide auto-scroll
+  // Check if user is near bottom to decide auto-scroll and load older messages
   const handleScroll = () => {
     const container = messagesContainerRef.current;
     if (container) {
       const { scrollTop, scrollHeight, clientHeight } = container;
       const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      const isNearTop = scrollTop < 100;
+      
       setShouldScrollToBottom(isNearBottom);
+      
+      // Load older messages when scrolling near top
+      if (isNearTop && hasMoreMessages && !isLoadingOlderMessages && !isInitialLoad && state.activeChannelId) {
+        loadOlderMessages(state.activeChannelId);
+      }
     }
   };
 
@@ -121,7 +130,7 @@ export default function ChatWindow() {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800"
       >
-        {isLoadingMessages ? (
+        {isInitialLoad ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
             <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-4" />
             <p className="text-slate-400">Mesajlar yükleniyor...</p>
@@ -172,6 +181,14 @@ export default function ChatWindow() {
                 </div>
               </div>
             </div>
+
+            {/* Loading indicator for older messages */}
+            {isLoadingOlderMessages && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
+                <span className="text-sm text-slate-400">Eski mesajlar yükleniyor...</span>
+              </div>
+            )}
 
             {/* Messages */}
             <div className="flex-1 px-4 py-2">
