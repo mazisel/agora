@@ -10,6 +10,7 @@ export default function MessageInput() {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [textareaHeight, setTextareaHeight] = useState(44);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -19,7 +20,9 @@ export default function MessageInput() {
       textarea.style.height = '20px';
       const scrollHeight = textarea.scrollHeight;
       const maxHeight = 100;
-      textarea.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+      const newHeight = Math.min(scrollHeight, maxHeight);
+      textarea.style.height = `${newHeight}px`;
+      setTextareaHeight(newHeight + 16); // Add padding for container
     }
   };
 
@@ -100,18 +103,10 @@ export default function MessageInput() {
 
   return (
     <div className="bg-slate-800 border-t border-slate-700 px-4 py-3">
-      <div className="flex items-center gap-3">
-        {/* Attachment Button */}
-        <button
-          type="button"
-          className="flex-shrink-0 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
-
+      <div className="flex items-end gap-3">
         {/* Input Container */}
         <div className="flex-1">
-          <div className="flex items-center bg-slate-700 rounded-lg border border-slate-600 px-4 py-2">
+          <div className="flex items-end bg-slate-700 rounded-lg border border-slate-600 px-4 py-2">
             <textarea
               ref={textareaRef}
               value={message}
@@ -124,40 +119,54 @@ export default function MessageInput() {
               style={{ height: '20px' }}
             />
             
-            {/* Emoji Button */}
-            <div className="relative">
+            {/* Action Buttons Container */}
+            <div className="flex items-center gap-1 ml-2">
+              {/* File Picker Button */}
               <button
                 type="button"
-                onClick={toggleEmojiPicker}
-                className={`flex-shrink-0 ml-2 p-1 transition-colors ${
-                  isEmojiPickerOpen 
-                    ? 'text-blue-400' 
-                    : 'text-slate-400 hover:text-slate-300'
-                }`}
+                className="flex-shrink-0 p-1 text-slate-400 hover:text-slate-300 transition-colors"
+                title="Dosya ekle"
               >
-                <Smile className="w-5 h-5" />
+                <Paperclip className="w-5 h-5" />
               </button>
-              
-              {/* Emoji Picker */}
-              <EmojiPicker
-                isOpen={isEmojiPickerOpen}
-                onEmojiSelect={handleEmojiSelect}
-                onClose={() => setIsEmojiPickerOpen(false)}
-              />
+
+              {/* Emoji Button */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={toggleEmojiPicker}
+                  className={`flex-shrink-0 p-1 transition-colors ${
+                    isEmojiPickerOpen 
+                      ? 'text-blue-400' 
+                      : 'text-slate-400 hover:text-slate-300'
+                  }`}
+                  title="Emoji ekle"
+                >
+                  <Smile className="w-5 h-5" />
+                </button>
+                
+                {/* Emoji Picker */}
+                <EmojiPicker
+                  isOpen={isEmojiPickerOpen}
+                  onEmojiSelect={handleEmojiSelect}
+                  onClose={() => setIsEmojiPickerOpen(false)}
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Send Button */}
+        {/* Send Button - matches textarea height */}
         <button
           type="submit"
           onClick={handleSubmit}
           disabled={!hasMessage || isLoading}
-          className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+          className={`flex-shrink-0 px-4 rounded-lg flex items-center justify-center transition-all ${
             hasMessage && !isLoading
               ? 'bg-blue-600 hover:bg-blue-700 text-white'
               : 'bg-slate-600 text-slate-400 cursor-not-allowed'
           }`}
+          style={{ height: `${textareaHeight}px` }}
         >
           {isLoading ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
