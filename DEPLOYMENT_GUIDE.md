@@ -1,6 +1,6 @@
 # Ubuntu Sunucu Deployment Rehberi
 
-Bu rehber, Ubuntu sunucunuzda çalışan mevcut sistemi yeni mesajlaşma özellikli sürüme güncellemek için hazırlanmıştır.
+Bu rehber, Ubuntu sunucunuzda çalışan mevcut sistemi güncellemek için hazırlanmıştır.
 
 ## 🚀 Güncelleme Adımları
 
@@ -177,7 +177,7 @@ npm install
 
 ### 6. Veritabanı Tablolarını Oluşturun
 ```bash
-# Mesajlaşma sistemi için gerekli tabloları oluşturun
+# Sistem için gerekli tabloları oluşturun
 # Supabase dashboard'dan veya API endpoint'i ile:
 curl -X POST http://localhost:3001/api/setup-db
 ```
@@ -295,21 +295,18 @@ curl -I http://localhost:3001
 # http://your-domain.com
 ```
 
-### 3. Mesajlaşma Özelliklerini Test Edin
-- `/messages` sayfasına gidin
-- Kanal oluşturmayı test edin
-- Mesaj göndermeyi test edin
-- Badge sistemini kontrol edin
+### 3. Sistem Özelliklerini Test Edin
+- Ana sayfaya gidin
+- Görev yönetimini test edin
+- Bildirim sistemini kontrol edin
 
 ### 4. Veritabanı Tablolarını Kontrol Edin
 Supabase dashboard'dan şu tabloların oluştuğunu kontrol edin:
-- `channels`
-- `channel_members`
-- `messages`
-- `message_attachments`
-- `message_reactions`
-- `user_presence`
-- `typing_indicators`
+- `notifications`
+- `support_tickets`
+- `tasks`
+- `projects`
+- `user_profiles`
 
 ## 🚨 Sorun Giderme
 
@@ -381,7 +378,7 @@ pm2 start ecosystem.config.js
 - [ ] PM2/Systemd servisi yeniden başlatıldı
 - [ ] Nginx konfigürasyonu kontrol edildi
 - [ ] Web sitesi erişimi test edildi
-- [ ] Mesajlaşma özellikleri test edildi
+- [ ] Sistem özellikleri test edildi
 - [ ] Log dosyaları kontrol edildi
 
 ## 📞 Destek

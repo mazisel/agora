@@ -293,16 +293,7 @@ export interface SupportTicket {
   user?: UserProfile;
   category?: SupportCategory;
   assigned_agent?: UserProfile;
-  messages?: SupportTicketMessage[];
 }
-
-export interface SupportTicketMessage {
-  id: string;
-  ticket_id: string;
-  user_id: string;
-  message: string;
-  is_internal: boolean;
-  created_at: string;
   // Relations
   user?: UserProfile;
   ticket?: SupportTicket;

@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  team-management-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.simple
+    container_name: team-management-system
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.team-management.rule=Host(`team.yourdomain.com`)"
+      - "traefik.http.routers.team-management.entrypoints=websecure"
+      - "traefik.http.routers.team-management.tls.certresolver=letsencrypt"
+      - "traefik.http.services.team-management.loadbalancer.server.port=3001"
+    networks:
+      - traefik
+      - team-management-network
+
+networks:
+  traefik:
+    external: true
+  team-management-network:
+    driver: bridge

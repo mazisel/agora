@@ -95,7 +95,7 @@ Sistem aşağıdaki durumlarda otomatik e-posta gönderir:
 ### 1. Yeni Kullanıcı Oluşturma
 - **Tetikleyici**: Admin panelinden yeni kullanıcı oluşturulduğunda
 - **Alıcı**: Yeni kullanıcı
-- **İçerik**: Hoş geldin mesajı ve geçici şifre
+- **İçerik**: Hoş geldin e-postası ve geçici şifre
 
 ### 2. Şifre Sıfırlama
 - **Tetikleyici**: Admin tarafından kullanıcı şifresi sıfırlandığında
@@ -163,7 +163,7 @@ export const emailTemplates = {
 
 ### Debug Modu
 
-Detaylı hata mesajları için konsol loglarını kontrol edin:
+Detaylı hata bilgileri için konsol loglarını kontrol edin:
 
 ```bash
 npm run dev

@@ -10,7 +10,7 @@ import {
   FileText,
   Users,
   BarChart3,
-  MessageSquare,
+
   Bell,
   Search,
   Plus,
@@ -30,7 +30,7 @@ import {
   UserCheck,
   Plane,
   FileCheck,
-  MessageCircle,
+
   HandHeart,
   Baby,
   Percent,
@@ -57,14 +57,7 @@ const quickMenuItems: QuickMenuItem[] = [
     color: 'bg-blue-500',
     href: '/tasks'
   },
-  {
-    id: 'messages',
-    title: 'Mesajlar',
-    description: 'Anlık mesajlaşma',
-    icon: MessageSquare,
-    color: 'bg-green-500',
-    href: '/messages'
-  },
+
   {
     id: 'projects',
     title: 'Projeler',
@@ -213,7 +206,7 @@ const quickMenuItems: QuickMenuItem[] = [
     id: 'meeting-request',
     title: 'Görüşme Talebi',
     description: '1:1 görüşme talep sistemi',
-    icon: MessageCircle,
+    icon: Users,
     color: 'bg-orange-600',
     badge: 1, // Dump indicator
     onClick: () => alert('Bu modül henüz geliştirme aşamasındadır.')
@@ -269,7 +262,7 @@ export default function QuickMenuPage() {
       setFavorites(JSON.parse(savedFavorites));
     } else {
       // Default favorites
-      setFavorites(['tasks', 'messages', 'support']);
+      setFavorites(['tasks', 'support']);
     }
   }, []);
 

@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS support_tickets (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Destek Talep Mesajları Tablosu (gelecekte kullanılmak üzere)
+-- Destek Talep Detayları Tablosu (gelecekte kullanılmak üzere)
 CREATE TABLE IF NOT EXISTS support_ticket_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     ticket_id UUID NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,

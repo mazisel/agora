@@ -26,24 +26,24 @@ export default function TestRealtimePage() {
       if (status === 'SUBSCRIBED') {
         addLog('✅ Basic WebSocket connection successful!');
         
-        // Test message table subscription
-        const messageTestChannel = supabase.channel('test-messages');
+        // Test notifications table subscription
+        const notificationTestChannel = supabase.channel('test-notifications');
         
-        messageTestChannel
+        notificationTestChannel
           .on('postgres_changes',
-            { event: '*', schema: 'public', table: 'messages' },
+            { event: '*', schema: 'public', table: 'notifications' },
             (payload) => {
-              addLog(`🔥 Message event received: ${payload.eventType}`);
+              addLog(`🔥 Notification event received: ${payload.eventType}`);
               addLog(`📄 Payload: ${JSON.stringify(payload, null, 2)}`);
             }
           )
-          .subscribe((messageStatus) => {
-            addLog(`📨 Message subscription status: ${messageStatus}`);
+          .subscribe((notificationStatus) => {
+            addLog(`📨 Notification subscription status: ${notificationStatus}`);
             
-            if (messageStatus === 'SUBSCRIBED') {
-              addLog('✅ Message table subscription successful!');
-            } else if (messageStatus === 'CHANNEL_ERROR') {
-              addLog('❌ Message table subscription failed!');
+            if (notificationStatus === 'SUBSCRIBED') {
+              addLog('✅ Notification table subscription successful!');
+            } else if (notificationStatus === 'CHANNEL_ERROR') {
+              addLog('❌ Notification table subscription failed!');
             }
           });
           
@@ -78,20 +78,21 @@ export default function TestRealtimePage() {
       const channelId = channels[0].id;
       addLog(`📍 Using channel: ${channelId}`);
       
-      const { data: message, error } = await supabase
-        .from('messages')
+      const { data: notification, error } = await supabase
+        .from('notifications')
         .insert({
-          channel_id: channelId,
-          content: `Test message from realtime test - ${new Date().toISOString()}`,
-          message_type: 'text'
+          recipient_id: user?.id,
+          title: 'Test Notification',
+          message: `Test notification from realtime test - ${new Date().toISOString()}`,
+          type: 'general'
         })
         .select()
         .single();
         
       if (error) {
-        addLog(`❌ Error sending test message: ${error.message}`);
+        addLog(`❌ Error sending test notification: ${error.message}`);
       } else {
-        addLog(`✅ Test message sent successfully: ${message.id}`);
+        addLog(`✅ Test notification sent successfully: ${notification.id}`);
         addLog('⏳ Waiting for WebSocket event... (should appear in 1-2 seconds)');
       }
     } catch (error) {
@@ -105,7 +106,7 @@ export default function TestRealtimePage() {
       
       // Test if we can get realtime info
       const { data, error } = await supabase
-        .from('messages')
+        .from('notifications')
         .select('id')
         .limit(1);
         
@@ -120,19 +121,19 @@ export default function TestRealtimePage() {
       
       testChannel2
         .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'messages' },
+          { event: '*', schema: 'public', table: 'notifications' },
           (payload) => {
-            addLog(`🎯 Direct message event: ${payload.eventType}`);
+            addLog(`🎯 Direct notification event: ${payload.eventType}`);
           }
         )
         .subscribe((status) => {
           addLog(`🔧 Settings test channel status: ${status}`);
           
           if (status === 'SUBSCRIBED') {
-            addLog('✅ Realtime subscription working for messages table');
+            addLog('✅ Realtime subscription working for notifications table');
           } else if (status === 'CHANNEL_ERROR') {
-            addLog('❌ Realtime NOT enabled for messages table in Supabase dashboard!');
-            addLog('💡 Go to Supabase Dashboard > Database > Replication and enable realtime for messages table');
+            addLog('❌ Realtime NOT enabled for notifications table in Supabase dashboard!');
+            addLog('💡 Go to Supabase Dashboard > Database > Replication and enable realtime for notifications table');
           }
         });
         
@@ -188,8 +189,8 @@ export default function TestRealtimePage() {
       
       <div className="mt-4 text-sm text-gray-600">
         <p>Bu sayfa Supabase Realtime bağlantısını test eder.</p>
-        <p>WebSocket bağlantısı başarılı olursa, test mesajı gönderebilirsiniz.</p>
-        <p>Eğer realtime çalışıyorsa, gönderilen mesaj logda görünecektir.</p>
+        <p>WebSocket bağlantısı başarılı olursa, test verisi gönderebilirsiniz.</p>
+        <p>Eğer realtime çalışıyorsa, gönderilen veri logda görünecektir.</p>
       </div>
     </div>
   );

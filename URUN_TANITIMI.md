@@ -52,12 +52,7 @@
 - **Maliyet Analizi**: Detaylı maliyet raporları
 - **Onay Süreçleri**: Çok aşamalı finansal onay mekanizmaları
 
-### 💬 **İç İletişim Platformu**
-- **Anlık Mesajlaşma**: Slack benzeri takım iletişimi
-- **Kanal Sistemi**: Departman ve proje bazlı iletişim kanalları
-- **Dosya Paylaşımı**: Güvenli dosya transfer sistemi
-- **Emoji ve Reaksiyonlar**: Eğlenceli iletişim araçları
-- **Arama Özelliği**: Mesaj geçmişinde hızlı arama
+
 
 ### 🏢 **Operasyonel Modüller**
 - **Toplantı Odası Rezervasyonu**: Akıllı oda rezervasyon sistemi
@@ -172,7 +167,7 @@
 - **Best practice rehberleri**: En iyi uygulama örnekleri
 
 ### 🛠️ **7/24 Teknik Destek**
-- **Canlı chat desteği**: Anlık problem çözümü
+- **Canlı destek**: Anlık problem çözümü
 - **Telefon desteği**: Acil durumlar için direkt iletişim
 - **E-posta desteği**: Detaylı teknik sorular için
 - **Uzaktan erişim**: Gerektiğinde sistem üzerinde destek
@@ -222,7 +217,7 @@
 - **Akıllı görev önerileri**: AI destekli görev dağıtımı
 - **Predictive analytics**: Gelecek trend tahminleri
 - **Otomatik raporlama**: AI ile rapor oluşturma
-- **Chatbot desteği**: 7/24 AI asistan
+- **AI asistan**: 7/24 otomatik destek
 
 ### 🌍 **Global Genişleme**
 - **Çoklu dil desteği**: 20+ dil seçeneği

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useMessaging } from '@/contexts/MessagingContext';
+
 import { supabase } from '@/lib/supabase';
 import { 
   LayoutDashboard, 
@@ -19,7 +19,7 @@ import {
   DollarSign,
   Building2,
   UserCircle,
-  MessageSquare,
+
   HelpCircle,
   Grid3X3,
   Puzzle
@@ -44,13 +44,7 @@ const menuItems = [
     active: false,
     href: '/quick-menu'
   },
-  {
-    id: 'messages',
-    label: 'Mesajlar',
-    icon: MessageSquare,
-    active: false,
-    href: '/messages'
-  },
+
   {
     id: 'projects',
     label: 'Projeler',
@@ -110,15 +104,8 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
   const pathname = usePathname();
   const { signOut, user, userProfile } = useAuth();
   const { canAccess } = usePermissions();
-  const { state: messagingState } = useMessaging();
 
-  // Toplam okunmamış mesaj sayısını hesapla
-  const getTotalUnreadMessages = () => {
-    if (!messagingState.unreadCounts) return 0;
-    return Object.values(messagingState.unreadCounts).reduce((total, count) => total + count, 0);
-  };
 
-  const totalUnreadMessages = getTotalUnreadMessages();
 
   // Load badge counts and check modules
   useEffect(() => {
@@ -289,11 +276,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
                         {taskCount}
                       </span>
                     )}
-                    {item.id === 'messages' && totalUnreadMessages > 0 && (
-                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold min-w-[20px] text-center">
-                        {totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}
-                      </span>
-                    )}
+
                   </>
                 )}
 
@@ -311,11 +294,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
                         {taskCount}
                       </span>
                     )}
-                    {item.id === 'messages' && totalUnreadMessages > 0 && (
-                      <span className="ml-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                        {totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}
-                      </span>
-                    )}
+
                   </div>
                 )}
               </Link>

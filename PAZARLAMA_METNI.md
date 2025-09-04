@@ -12,7 +12,7 @@
 - **Personel Yönetimi**: Kapsamlı çalışan profilleri ve HR süreçleri
 - **Proje Yönetimi**: Baştan sona proje takibi ve yönetimi
 - **Görev Dağılımı**: Akıllı görev atama ve takip sistemi
-- **İletişim Merkezi**: Entegre mesajlaşma ve bildirim sistemi
+- **İletişim Merkezi**: Entegre bildirim sistemi
 - **Finansal Takip**: Bütçe yönetimi ve maliyet analizi
 
 ### 🔒 **Güvenlik ve Gizlilik Önceliği**
@@ -77,15 +77,7 @@
 - **Zaman Takibi**: Teslim tarihleri ve süre yönetimi
 - **Bildirimler**: Otomatik hatırlatmalar
 
-### 💬 **İletişim Modülü**
-
-#### **Entegre Mesajlaşma**
-- **Kanal Sistemi**: Departman ve proje bazlı kanallar
-- **Özel Mesajlar**: Birebir iletişim
-- **Grup Yönetimi**: Kanal üyeleri ve yöneticileri
-- **Mesaj Takibi**: Okundu bilgisi ve zaman damgası
-
-#### **Bildirim Sistemi**
+### 🔔 **Bildirim Sistemi**
 - **Gerçek Zamanlı**: Anlık bildirimler
 - **Özelleştirilebilir**: Kişisel bildirim tercihleri
 - **Çoklu Kanal**: E-posta, push, in-app bildirimleri
