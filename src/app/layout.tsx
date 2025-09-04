@@ -4,7 +4,6 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LoadingProvider } from "@/contexts/LoadingContext";
 import { ProgressProvider } from "@/components/providers/ProgressProvider";
-import { MessagingProvider } from "@/contexts/MessagingContext";
 
 // Debug utilities (development only)
 if (process.env.NODE_ENV === 'development') {
@@ -40,11 +39,9 @@ export default function RootLayout({
       >
         <AuthProvider>
           <LoadingProvider>
-            <MessagingProvider>
-              <ProgressProvider>
-                {children}
-              </ProgressProvider>
-            </MessagingProvider>
+            <ProgressProvider>
+              {children}
+            </ProgressProvider>
           </LoadingProvider>
         </AuthProvider>
       </body>
