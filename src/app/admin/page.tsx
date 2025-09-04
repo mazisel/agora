@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/supabase';
 import { UserProfile, Department, Position } from '@/types';
 import { 
@@ -36,7 +37,9 @@ export default function AdminPage() {
   const [viewingUser, setViewingUser] = useState<UserProfile | null>(null);
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [visibleSensitiveFields, setVisibleSensitiveFields] = useState<Set<string>>(new Set());
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   const { user, loading } = useAuth();
+  const { canAccess } = usePermissions();
   const router = useRouter();
 
   const [newUser, setNewUser] = useState({
@@ -121,6 +124,39 @@ export default function AdminPage() {
     }
   }, [user, loading, router]);
 
+  // Check if user has modules and redirect if not manager
+  useEffect(() => {
+    const checkModulesAndRedirect = async () => {
+      if (!user || !canAccess) return;
+
+      try {
+        // If not manager, check if user has modules
+        if (!canAccess.manager()) {
+          const response = await fetch(`/api/modules/user?userId=${user.id}`);
+          const data = await response.json();
+
+          if (data.success && data.modules && data.modules.length > 0) {
+            // User has modules, redirect to modules page
+            router.push('/admin/modules');
+            return; // Don't set isCheckingAccess to false, let redirect happen
+          } else {
+            // User has no modules and is not manager, redirect to dashboard
+            router.push('/');
+            return; // Don't set isCheckingAccess to false, let redirect happen
+          }
+        } else {
+          // User is manager, can stay on this page
+          setIsCheckingAccess(false);
+        }
+      } catch (error) {
+        console.error('Error checking modules:', error);
+        router.push('/');
+      }
+    };
+
+    checkModulesAndRedirect();
+  }, [user, canAccess, router]);
+
   // Fetch data on component mount
   useEffect(() => {
     if (user) {
@@ -128,13 +164,15 @@ export default function AdminPage() {
     }
   }, [user]);
 
-  // Show loading while checking authentication
-  if (loading) {
+  // Show loading while checking authentication or access
+  if (loading || isCheckingAccess) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Yükleniyor...</p>
+          <p className="text-slate-400">
+            {loading ? 'Yükleniyor...' : 'Erişim kontrol ediliyor...'}
+          </p>
         </div>
       </div>
     );

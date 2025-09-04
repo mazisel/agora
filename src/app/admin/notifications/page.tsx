@@ -1,12 +1,79 @@
 'use client';
 
-import { useState } from 'react';
-import { Mail, Send, Settings, CheckCircle, XCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Mail, Send, Settings, CheckCircle, XCircle, Bell, Calendar, User, Clock } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  data: any;
+  read: boolean;
+  created_at: string;
+  read_at?: string;
+}
 
 export default function NotificationsPage() {
   const [testEmail, setTestEmail] = useState('');
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/notifications/', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data);
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/notifications/', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          notification_id: notificationId,
+          read: true
+        })
+      });
+
+      if (response.ok) {
+        setNotifications(prev => 
+          prev.map(notif => 
+            notif.id === notificationId 
+              ? { ...notif, read: true, read_at: new Date().toISOString() }
+              : notif
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
 
   const handleTestEmail = async () => {
     if (!testEmail) {
@@ -132,6 +199,136 @@ export default function NotificationsPage() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Gelen Bildirimler */}
+      <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Bell className="h-5 w-5 text-blue-600" />
+            Gelen Bildirimler ({notifications.filter(n => !n.read).length} okunmamış)
+          </h2>
+          <button
+            onClick={loadNotifications}
+            className="text-sm text-blue-600 hover:text-blue-700"
+          >
+            Yenile
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="text-center py-8">
+            <Bell className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500">Henüz bildiriminiz yok</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`p-4 rounded-lg border transition-colors ${
+                  notification.read 
+                    ? 'bg-gray-50 border-gray-200' 
+                    : 'bg-blue-50 border-blue-200'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      {notification.type === 'leave_request' && (
+                        <Calendar className="h-4 w-4 text-green-600" />
+                      )}
+                      <h3 className={`font-medium ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
+                        {notification.title}
+                      </h3>
+                      {!notification.read && (
+                        <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                      )}
+                    </div>
+                    <p className={`text-sm mb-2 ${notification.read ? 'text-gray-600' : 'text-gray-700'}`}>
+                      {notification.message}
+                    </p>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {new Date(notification.created_at).toLocaleDateString('tr-TR', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                      {notification.read_at && (
+                        <span>
+                          Okundu: {new Date(notification.read_at).toLocaleDateString('tr-TR', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* İzin talebi detayları */}
+                    {notification.type === 'leave_request' && notification.data && (
+                      <div className="mt-3 p-3 bg-white rounded border border-gray-200">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="font-medium text-gray-700">Çalışan:</span>
+                            <span className="ml-1 text-gray-600">{notification.data.user_name}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">İzin Türü:</span>
+                            <span className="ml-1 text-gray-600">
+                              {notification.data.leave_type === 'annual' ? 'Yıllık İzin' :
+                               notification.data.leave_type === 'sick' ? 'Hastalık İzni' :
+                               notification.data.leave_type === 'personal' ? 'Kişisel İzin' :
+                               notification.data.leave_type === 'maternity' ? 'Doğum İzni' : 'Diğer İzin'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Başlangıç:</span>
+                            <span className="ml-1 text-gray-600">
+                              {new Date(notification.data.start_date).toLocaleDateString('tr-TR')}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Bitiş:</span>
+                            <span className="ml-1 text-gray-600">
+                              {new Date(notification.data.end_date).toLocaleDateString('tr-TR')}
+                            </span>
+                          </div>
+                          {notification.data.reason && (
+                            <div className="col-span-2">
+                              <span className="font-medium text-gray-700">Sebep:</span>
+                              <span className="ml-1 text-gray-600">{notification.data.reason}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-col gap-2 ml-4">
+                    {!notification.read && (
+                      <button
+                        onClick={() => markAsRead(notification.id)}
+                        className="text-xs text-blue-600 hover:text-blue-700 px-2 py-1 border border-blue-200 rounded hover:bg-blue-50"
+                      >
+                        Okundu İşaretle
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Bildirim Türleri */}

@@ -25,7 +25,10 @@ export function middleware(request: NextRequest) {
   // Rate limiting for API routes
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const ip = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? '127.0.0.1';
-    const limit = request.nextUrl.pathname.includes('/login') ? 5 : 20; // 5 for login, 20 for other APIs
+    // Admin API'leri için daha yüksek limit
+    const limit = request.nextUrl.pathname.includes('/login') ? 5 : 
+                 request.nextUrl.pathname.startsWith('/api/admin/') ? 300 : 
+                 150; // 5 for login, 300 for admin APIs, 150 for other APIs
     const windowMs = 60 * 1000; // 1 minute
 
     if (!rateLimitMap.has(ip)) {

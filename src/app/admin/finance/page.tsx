@@ -31,8 +31,13 @@ import {
   Paperclip,
   Download,
   Image,
-  File
+  File,
+  FolderTree,
+  Building2,
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
+import AccountsManagement from './accounts-management';
 
 interface FinanceTransaction {
   id: string;
@@ -48,6 +53,13 @@ interface FinanceTransaction {
   created_at: string;
   created_by: string;
   updated_at?: string;
+  task_id?: string;
+  task_title?: string;
+  project_id?: string;
+  project_name?: string;
+  approved_by_id?: string;
+  approved_by_name?: string;
+  account_id?: string;
 }
 
 interface FinanceCategory {
@@ -76,10 +88,30 @@ interface FinanceDocument {
   public_url?: string;
 }
 
+interface FinanceAccount {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  account_type: 'asset' | 'liability' | 'equity' | 'income' | 'expense';
+  parent_account_id?: string;
+  parent_account?: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  sub_accounts?: FinanceAccount[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function FinancePage() {
+  const [activeTab, setActiveTab] = useState<'transactions' | 'accounts'>('transactions');
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [categories, setCategories] = useState<FinanceCategory[]>([]);
   const [employees, setEmployees] = useState<FinanceEmployee[]>([]);
+  const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = useState('');
@@ -97,6 +129,23 @@ export default function FinancePage() {
   const [viewingDocuments, setViewingDocuments] = useState<string | null>(null);
   const [viewingTransaction, setViewingTransaction] = useState<FinanceTransaction | null>(null);
   
+  // Account linking states
+  const [linkingAccountTransaction, setLinkingAccountTransaction] = useState<FinanceTransaction | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  
+  // Account management states
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<FinanceAccount | null>(null);
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  const [accountFilter, setAccountFilter] = useState<'all' | 'asset' | 'liability' | 'equity' | 'income' | 'expense'>('all');
+  const [newAccount, setNewAccount] = useState({
+    code: '',
+    name: '',
+    description: '',
+    account_type: 'expense' as 'asset' | 'liability' | 'equity' | 'income' | 'expense',
+    parent_account_id: ''
+  });
+  
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -108,7 +157,8 @@ export default function FinancePage() {
     date: new Date().toISOString().split('T')[0],
     employee_id: '',
     payment_method: 'bank_transfer' as 'cash' | 'bank_transfer' | 'credit_card' | 'check',
-    reference_number: ''
+    reference_number: '',
+    account_id: ''
   });
 
   // Default categories
@@ -161,6 +211,27 @@ export default function FinancePage() {
     }
   };
 
+  // Fetch accounts from API
+  const fetchAccounts = async () => {
+    try {
+      console.log('Fetching accounts...');
+      const response = await fetch('/api/admin/finance-accounts/');
+      console.log('Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Accounts data:', data);
+        setAccounts(data.accounts || []);
+        console.log('Accounts set:', data.accounts?.length || 0, 'accounts');
+      } else {
+        const errorData = await response.json();
+        console.error('Error response:', errorData);
+      }
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+    }
+  };
+
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!loading && !user) {
@@ -172,8 +243,16 @@ export default function FinancePage() {
   useEffect(() => {
     if (user) {
       fetchData();
+      fetchAccounts(); // Her zaman hesapları yükle
     }
   }, [user]);
+
+  // Fetch accounts when switching to accounts tab or opening create modal
+  useEffect(() => {
+    if (user && (activeTab === 'accounts' || isCreating)) {
+      fetchAccounts();
+    }
+  }, [activeTab, isCreating]);
 
   // Show loading while checking authentication
   if (loading) {
@@ -265,6 +344,7 @@ export default function FinancePage() {
           employee_name: employeeName,
           payment_method: newTransaction.payment_method,
           reference_number: newTransaction.reference_number || null,
+          account_id: newTransaction.account_id || null,
           created_by: user.id
         }])
         .select()
@@ -311,7 +391,8 @@ export default function FinancePage() {
         date: new Date().toISOString().split('T')[0],
         employee_id: '',
         payment_method: 'bank_transfer',
-        reference_number: ''
+        reference_number: '',
+        account_id: ''
       });
       setUploadingFiles([]);
       setUploadError('');
@@ -457,6 +538,40 @@ export default function FinancePage() {
     }
   };
 
+  // Link transaction to account
+  const handleLinkToAccount = async () => {
+    if (!linkingAccountTransaction) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('finance_transactions')
+        .update({
+          account_id: selectedAccountId || null
+        })
+        .eq('id', linkingAccountTransaction.id);
+
+      if (error) throw error;
+
+      await fetchData();
+      setLinkingAccountTransaction(null);
+      setSelectedAccountId('');
+      setIsLoading(false);
+      
+      alert(selectedAccountId ? 'İşlem hesaba başarıyla bağlandı!' : 'İşlem hesap bağlantısı kaldırıldı!');
+    } catch (error) {
+      console.error('Error linking transaction to account:', error);
+      setError('İşlem hesaba bağlanırken hata oluştu.');
+      setIsLoading(false);
+    }
+  };
+
+  // Get account name by ID
+  const getAccountName = (accountId: string) => {
+    const account = accounts.find(a => a.id === accountId);
+    return account ? `${account.code} - ${account.name}` : '';
+  };
+
   return (
     <div>
       {/* Header */}
@@ -475,12 +590,52 @@ export default function FinancePage() {
               {showAmounts ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               {showAmounts ? 'Gizle' : 'Göster'}
             </button>
+            {activeTab === 'transactions' ? (
+              <button
+                onClick={() => setIsCreating(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-200 font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                Yeni İşlem
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsCreatingAccount(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-200 font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                Yeni Hesap
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="mb-8">
+        <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-2">
+          <div className="flex gap-2">
             <button
-              onClick={() => setIsCreating(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-200 font-medium"
+              onClick={() => setActiveTab('transactions')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                activeTab === 'transactions'
+                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+              }`}
             >
-              <Plus className="w-4 h-4" />
-              Yeni İşlem
+              <DollarSign className="w-4 h-4" />
+              İşlemler
+            </button>
+            <button
+              onClick={() => setActiveTab('accounts')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                activeTab === 'accounts'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <FolderTree className="w-4 h-4" />
+              Hesap Planı
             </button>
           </div>
         </div>
@@ -644,8 +799,10 @@ export default function FinancePage() {
         )}
       </div>
 
-      {/* Transactions Table */}
-      <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 overflow-hidden">
+      {/* Content based on active tab */}
+      {activeTab === 'transactions' ? (
+        /* Transactions Table */
+        <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -678,6 +835,47 @@ export default function FinancePage() {
                         <div className="text-white font-medium">{transaction.description}</div>
                         {transaction.reference_number && (
                           <div className="text-slate-400 text-sm">Ref: {transaction.reference_number}</div>
+                        )}
+                        
+                        {/* Account Information */}
+                        <div className="mt-1">
+                          {transaction.account_id ? (
+                            <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded text-xs">
+                              <Building2 className="w-3 h-3" />
+                              {getAccountName(transaction.account_id)}
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-xs">
+                              <Building2 className="w-3 h-3" />
+                              Hesap Atanmamış
+                            </div>
+                          )}
+                        </div>
+
+                        {transaction.category.includes('Görev Harcaması') && (
+                          <div className="mt-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded text-xs">
+                                <FileText className="w-3 h-3" />
+                                Görev Harcaması
+                              </span>
+                              {transaction.task_title && (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-xs">
+                                  📋 {transaction.task_title}
+                                </span>
+                              )}
+                            </div>
+                            {transaction.project_name && (
+                              <div className="text-xs text-slate-400">
+                                🏢 Proje: {transaction.project_name}
+                              </div>
+                            )}
+                            {transaction.approved_by_name && (
+                              <div className="text-xs text-green-400">
+                                ✅ Onaylayan: {transaction.approved_by_name}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -730,6 +928,16 @@ export default function FinancePage() {
                           <Edit3 className="w-4 h-4 text-slate-400 hover:text-blue-400" />
                         </button>
                         <button
+                          onClick={() => {
+                            setLinkingAccountTransaction(transaction);
+                            setSelectedAccountId(transaction.account_id || '');
+                          }}
+                          className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                          title="Hesaba Bağla"
+                        >
+                          <Building2 className="w-4 h-4 text-slate-400 hover:text-green-400" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteTransaction(transaction.id)}
                           className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
                           title="Sil"
@@ -771,7 +979,11 @@ export default function FinancePage() {
             )}
           </div>
         )}
-      </div>
+        </div>
+      ) : (
+        /* Accounts Management */
+        <AccountsManagement />
+      )}
 
       {/* Create Transaction Modal */}
       {isCreating && (
@@ -916,6 +1128,28 @@ export default function FinancePage() {
                     className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                     placeholder="Fatura no, dekont no vb."
                   />
+                </div>
+
+                {/* Account Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Hesap</label>
+                  <select
+                    value={newTransaction.account_id}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, account_id: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                  >
+                    <option value="">Hesap Seçiniz (Opsiyonel)</option>
+                    {accounts
+                      .filter(account => 
+                        (newTransaction.type === 'income' && account.account_type === 'income') ||
+                        (newTransaction.type === 'expense' && account.account_type === 'expense')
+                      )
+                      .map(account => (
+                        <option key={account.id} value={account.id}>
+                          {account.code} - {account.name}
+                        </option>
+                      ))}
+                  </select>
                 </div>
 
                 {/* Description */}
@@ -1342,6 +1576,7 @@ export default function FinancePage() {
         </div>
       )}
 
+
       {/* View Transaction Details Modal */}
       {viewingTransaction && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1642,6 +1877,109 @@ export default function FinancePage() {
                   className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
                 >
                   Kapat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link to Account Modal */}
+      {linkingAccountTransaction && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-md w-full">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white">Hesaba Bağla</h3>
+                <button
+                  onClick={() => {
+                    setLinkingAccountTransaction(null);
+                    setSelectedAccountId('');
+                  }}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-slate-300 mb-2">İşlem:</p>
+                <div className="bg-slate-700/30 rounded-lg p-3 border border-slate-600/50">
+                  <p className="text-white font-medium">{linkingAccountTransaction.description}</p>
+                  <p className="text-slate-400 text-sm">
+                    {formatAmount(linkingAccountTransaction.amount)} • {new Date(linkingAccountTransaction.date).toLocaleDateString('tr-TR')}
+                  </p>
+                  {linkingAccountTransaction.account_id && (
+                    <p className="text-green-400 text-sm mt-1">
+                      Mevcut: {getAccountName(linkingAccountTransaction.account_id)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Hesap Seçin
+                </label>
+                <select
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50"
+                >
+                  <option value="">Hesap bağlantısını kaldır</option>
+                  {accounts
+                    .filter(account => 
+                      (linkingAccountTransaction.type === 'income' && account.account_type === 'income') ||
+                      (linkingAccountTransaction.type === 'expense' && account.account_type === 'expense')
+                    )
+                    .map(account => (
+                      <option key={account.id} value={account.id}>
+                        {account.code} - {account.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-700/50">
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setLinkingAccountTransaction(null);
+                    setSelectedAccountId('');
+                  }}
+                  className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleLinkToAccount}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Bağlanıyor...
+                    </>
+                  ) : (
+                    <>
+                      <Building2 className="w-4 h-4" />
+                      {selectedAccountId ? 'Hesaba Bağla' : 'Bağlantıyı Kaldır'}
+                    </>
+                  )}
                 </button>
               </div>
             </div>

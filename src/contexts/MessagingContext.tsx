@@ -317,29 +317,20 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  // Pure WebSocket-based realtime subscriptions
+  // Simplified realtime subscriptions
   useEffect(() => {
     if (!user) return;
 
     let mounted = true;
     let realtimeChannel: any = null;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    let reconnectTimeout: NodeJS.Timeout;
 
     const setupRealtime = () => {
       try {
         console.log(`🔌 Setting up realtime for user: ${user.id}`);
         
-        // Create a unique channel name for this user session
-        const channelName = `realtime-${user.id}-${Date.now()}`;
-        realtimeChannel = supabase.channel(channelName, {
-          config: {
-            presence: {
-              key: user.id,
-            },
-          },
-        });
+        // Benzersiz kanal adı
+        const channelName = `user-${user.id}-${Date.now()}`;
+        realtimeChannel = supabase.channel(channelName);
 
         // Listen to messages table changes
         realtimeChannel
@@ -503,6 +494,66 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
               }
             }
           )
+          // Listen to message attachments changes
+          .on('postgres_changes',
+            { 
+              event: 'INSERT', 
+              schema: 'public', 
+              table: 'message_attachments'
+            },
+            async (payload: any) => {
+              if (!mounted) return;
+              
+              console.log('📎 New attachment added:', payload.new.id);
+              
+              try {
+                // Get the message this attachment belongs to
+                const { data: message } = await supabase
+                  .from('messages')
+                  .select(`
+                    *,
+                    attachments:message_attachments(*),
+                    reactions:message_reactions(*)
+                  `)
+                  .eq('id', payload.new.message_id)
+                  .single();
+
+                if (message && mounted) {
+                  // Check if user is member of this channel
+                  const { data: membership } = await supabase
+                    .from('channel_members')
+                    .select('id')
+                    .eq('channel_id', message.channel_id)
+                    .eq('user_id', user.id)
+                    .limit(1);
+
+                  if (!membership || membership.length === 0) {
+                    return;
+                  }
+
+                  // Get user profile
+                  let messageWithProfile = message;
+                  if (message.user_id) {
+                    const { data: userProfile } = await supabase
+                      .from('user_profiles')
+                      .select('user_id, first_name, last_name, profile_photo_url')
+                      .eq('user_id', message.user_id)
+                      .single();
+
+                    messageWithProfile = {
+                      ...message,
+                      user_profile: userProfile
+                    };
+                  }
+
+                  console.log('✅ Updating message with new attachment:', message.id);
+                  dispatch({ type: 'UPDATE_MESSAGE', payload: messageWithProfile as Message });
+                }
+              } catch (error) {
+                console.error('❌ Error processing attachment update:', error);
+              }
+            }
+          )
           // Listen to channel member changes
           .on('postgres_changes',
             { 
@@ -563,25 +614,8 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
             
             if (status === 'SUBSCRIBED') {
               console.log('✅ WebSocket connected successfully for user:', user.id);
-              reconnectAttempts = 0; // Reset reconnect attempts on successful connection
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
               console.log('❌ WebSocket connection failed for user:', user.id, 'Status:', status);
-              
-              // Attempt to reconnect with exponential backoff
-              if (reconnectAttempts < maxReconnectAttempts && mounted) {
-                reconnectAttempts++;
-                const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Max 30 seconds
-                console.log(`🔄 Attempting reconnect ${reconnectAttempts}/${maxReconnectAttempts} in ${delay}ms`);
-                
-                reconnectTimeout = setTimeout(() => {
-                  if (mounted) {
-                    cleanup();
-                    setupRealtime();
-                  }
-                }, delay);
-              } else {
-                console.log('❌ Max reconnection attempts reached for user:', user.id);
-              }
             }
           });
 
@@ -596,9 +630,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         realtimeChannel.unsubscribe();
         realtimeChannel = null;
       }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
     };
 
     // Initial setup
@@ -609,7 +640,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       cleanup();
       console.log('🔌 Realtime completely cleaned up for user:', user.id);
     };
-  }, [user, state.activeChannelId, state.unreadCounts, calculateUnreadCounts]);
+  }, [user?.id]); // Sadece user ID değiştiğinde yeniden bağlan
 
   // Check if user is member of a channel
   const isChannelMember = useCallback(async (channelId: string): Promise<boolean> => {
@@ -1235,6 +1266,23 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       setTimeout(() => calculateUnreadCounts(), 1000);
     }
   }, [user]);
+
+  // Listen for manual message updates from MessageInput
+  useEffect(() => {
+    const handleMessageUpdate = (event: CustomEvent) => {
+      const updatedMessage = event.detail;
+      if (updatedMessage) {
+        console.log('📨 Manual message update received:', updatedMessage.id);
+        dispatch({ type: 'UPDATE_MESSAGE', payload: updatedMessage });
+      }
+    };
+
+    window.addEventListener('messageUpdated', handleMessageUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('messageUpdated', handleMessageUpdate as EventListener);
+    };
+  }, []);
 
   const value: MessagingContextType = {
     state,

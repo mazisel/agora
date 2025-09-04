@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Message } from '@/types/messaging';
 import { useAuth } from '@/contexts/AuthContext';
+import { Download, FileText, Image, Video, Music } from 'lucide-react';
 
 interface MessageItemProps {
   message: Message;
@@ -88,6 +89,111 @@ export default function MessageItem({ message, isOwn, showAvatar = true }: Messa
     return format(new Date(date), 'HH:mm');
   };
 
+  // Dosya boyutunu formatla
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Dosya türü ikonu
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) return <Image className="w-5 h-5" />;
+    if (fileType.startsWith('video/')) return <Video className="w-5 h-5" />;
+    if (fileType.startsWith('audio/')) return <Music className="w-5 h-5" />;
+    return <FileText className="w-5 h-5" />;
+  };
+
+  // Dosya indirme
+  const handleDownload = (url: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Dosya ekleri render
+  const renderAttachments = () => {
+    if (!message.attachments || message.attachments.length === 0) return null;
+
+    return (
+      <div className={`mt-2 space-y-2 ${isOwn ? 'flex flex-col items-end' : ''}`}>
+        {message.attachments.map((attachment) => {
+          const isImage = attachment.file_type?.startsWith('image/');
+          
+          if (isImage) {
+            // Resim önizlemesi
+            return (
+              <div
+                key={attachment.id}
+                className="relative max-w-xs rounded-lg overflow-hidden bg-slate-700 border border-slate-600"
+              >
+                <img
+                  src={attachment.thumbnail_url || attachment.file_url}
+                  alt={attachment.file_name}
+                  className="w-full h-auto max-h-64 object-cover cursor-pointer"
+                  onClick={() => window.open(attachment.file_url, '_blank')}
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs truncate flex-1">
+                      {attachment.file_name}
+                    </span>
+                    <button
+                      onClick={() => handleDownload(attachment.file_url, attachment.file_name)}
+                      className="ml-2 p-1 hover:bg-white hover:bg-opacity-20 rounded"
+                      title="İndir"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          } else {
+            // Diğer dosya türleri
+            return (
+              <div
+                key={attachment.id}
+                className={`flex items-center gap-3 p-3 rounded-lg border max-w-xs ${
+                  isOwn 
+                    ? 'bg-blue-700 border-blue-600 text-white' 
+                    : 'bg-slate-700 border-slate-600 text-slate-100'
+                }`}
+              >
+                <div className="flex-shrink-0 text-slate-300">
+                  {getFileIcon(attachment.file_type || '')}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {attachment.file_name}
+                  </p>
+                  {attachment.file_size && (
+                    <p className="text-xs opacity-75">
+                      {formatFileSize(attachment.file_size)}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDownload(attachment.file_url, attachment.file_name)}
+                  className="flex-shrink-0 p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
+                  title="İndir"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          }
+        })}
+      </div>
+    );
+  };
+
   const displayName = getUserDisplayName();
 
   if (message.is_deleted) {
@@ -142,6 +248,9 @@ export default function MessageItem({ message, isOwn, showAvatar = true }: Messa
             {message.content}
           </div>
         )}
+
+        {/* File Attachments */}
+        {renderAttachments()}
       </div>
     </div>
   );

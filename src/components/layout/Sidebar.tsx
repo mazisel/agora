@@ -19,7 +19,10 @@ import {
   DollarSign,
   Building2,
   UserCircle,
-  MessageSquare
+  MessageSquare,
+  HelpCircle,
+  Grid3X3,
+  Puzzle
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -33,6 +36,13 @@ const menuItems = [
     icon: LayoutDashboard,
     active: true,
     href: '/'
+  },
+  {
+    id: 'quick-menu',
+    label: 'Hızlı Menü',
+    icon: Grid3X3,
+    active: false,
+    href: '/quick-menu'
   },
   {
     id: 'messages',
@@ -62,6 +72,13 @@ const menuItems = [
     icon: UserCircle,
     active: false,
     href: '/profile'
+  },
+  {
+    id: 'support',
+    label: 'Destek',
+    icon: HelpCircle,
+    active: false,
+    href: '/support'
   }
 ];
 
@@ -89,6 +106,7 @@ const bottomItems = [
 export default function Sidebar({ collapsed: initialCollapsed = false }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [taskCount, setTaskCount] = useState(0);
+  const [hasModules, setHasModules] = useState(false);
   const pathname = usePathname();
   const { signOut, user, userProfile } = useAuth();
   const { canAccess } = usePermissions();
@@ -102,9 +120,9 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
 
   const totalUnreadMessages = getTotalUnreadMessages();
 
-  // Load badge counts
+  // Load badge counts and check modules
   useEffect(() => {
-    if (!user) return;
+    if (!user || !userProfile) return;
 
     const loadCounts = async () => {
       try {
@@ -117,6 +135,14 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
 
         if (!tasksError) {
           setTaskCount(tasks?.length || 0);
+        }
+
+        // Check if user has assigned modules
+        const response = await fetch(`/api/modules/user?userId=${user?.id}`);
+        const data = await response.json();
+
+        if (data.success) {
+          setHasModules((data.modules?.length || 0) > 0);
         }
       } catch (error) {
         console.error('Error loading badge counts:', error);
@@ -133,7 +159,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
     return () => {
       clearInterval(interval);
     };
-  }, [user]);
+  }, [user, userProfile]);
 
   const handleLogout = async () => {
     await signOut();
@@ -143,6 +169,20 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
     if (href === '/') {
       return pathname === '/';
     }
+    
+    // Özel durum: /modules path'i için
+    if (href === '/modules') {
+      // Sadece tam olarak /modules veya /modules/ ise aktif
+      return pathname === '/modules' || pathname === '/modules/';
+    }
+    
+    // Özel durum: /quick-menu path'i için
+    if (href === '/quick-menu') {
+      // /quick-menu ile başlayan veya /modules/[moduleId] pattern'i ile eşleşen path'ler
+      return pathname.startsWith('/quick-menu') || 
+             (pathname.startsWith('/modules/') && pathname.split('/').length === 3);
+    }
+    
     return pathname.startsWith(href);
   };
 
@@ -220,6 +260,8 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
           {menuItems.map((item) => {
             const Icon = item.icon;
             const itemIsActive = isActive(item.href);
+            
+            
             return (
               <Link
                 key={item.id}
@@ -288,8 +330,8 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
           {bottomItems.map((item) => {
             const Icon = item.icon;
             
-            // Yönetim menüsünü sadece manager ve üstü yetkiler için göster
-            if (item.id === 'admin' && !canAccess.manager()) {
+            // Yönetim menüsünü manager ve üstü yetkiler veya modül sorumluları için göster
+            if (item.id === 'admin' && !canAccess.manager() && !hasModules) {
               return null;
             }
             

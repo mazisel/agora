@@ -66,13 +66,20 @@ export default function TasksPage() {
     expense_date: new Date().toISOString().split('T')[0]
   });
 
-  // Fetch data from Supabase
+  // Fetch data from Supabase and API
   const fetchData = async () => {
     try {
       setIsLoading(true);
       
-      // Fetch tasks with relations
-      let query = supabase
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const authHeaders: HeadersInit = session?.access_token ? {
+        'Authorization': `Bearer ${session.access_token}`
+      } : {};
+
+      // Fetch normal tasks from Supabase directly
+      let tasksQuery = supabase
         .from('tasks')
         .select(`
           *,
@@ -90,13 +97,42 @@ export default function TasksPage() {
           console.error('User not authenticated');
           return;
         }
-        query = query.or(`assigned_to.eq.${user.id},created_by.eq.${user.id},informed_person.eq.${user.id}`);
+        tasksQuery = tasksQuery.or(`assigned_to.eq.${user.id},created_by.eq.${user.id},informed_person.eq.${user.id}`);
       }
 
-      const { data: tasksData, error: tasksError } = await query
+      const { data: normalTasks, error: tasksError } = await tasksQuery
         .order('created_at', { ascending: false });
 
-      if (tasksError) throw tasksError;
+      if (tasksError) {
+        console.error('Error fetching normal tasks:', tasksError);
+      }
+
+      // Fetch request tasks from API
+      let requestTasks = [];
+      try {
+        const tasksResponse = await fetch('/api/tasks', { headers: authHeaders });
+        if (tasksResponse.ok) {
+          const allTasks = await tasksResponse.json();
+          // Filter only request tasks (not normal tasks)
+          requestTasks = allTasks.filter((task: any) => 
+            task.id.startsWith('leave_') || 
+            task.id.startsWith('advance_') || 
+            task.id.startsWith('suggestion_')
+          );
+        } else {
+          console.error('Error fetching request tasks:', await tasksResponse.text());
+        }
+      } catch (error) {
+        console.error('Error fetching request tasks:', error);
+      }
+
+      // Combine normal tasks and request tasks
+      const allTasks = [
+        ...(normalTasks || []),
+        ...requestTasks
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setTasks(allTasks);
 
       // Fetch projects
       const { data: projectsData, error: projectsError } = await supabase
@@ -116,7 +152,6 @@ export default function TasksPage() {
 
       if (usersError) throw usersError;
 
-      setTasks(tasksData || []);
       setProjects(projectsData || []);
       setUsers(usersData || []);
       
@@ -231,6 +266,14 @@ export default function TasksPage() {
 
   const fetchTaskDetails = async (taskId: string) => {
     try {
+      // Talep görevleri için detay getirme işlemini atla
+      if (taskId.startsWith('leave_') || taskId.startsWith('advance_') || taskId.startsWith('suggestion_')) {
+        setTaskComments([]);
+        setTaskAttachments([]);
+        setTaskExpenses([]);
+        return;
+      }
+
       // Fetch comments
       const { data: commentsData, error: commentsError } = await supabase
         .from('task_comments')
@@ -1144,19 +1187,21 @@ export default function TasksPage() {
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="p-6 border-t border-slate-700/50">
-              <div className="flex items-center justify-end gap-3">
+            {/* Fixed Modal Footer */}
+            <div className="sticky bottom-0 bg-slate-800/95 backdrop-blur-sm border-t border-slate-700/50 p-4">
+              <div className="flex flex-wrap gap-3 justify-center">
                 <button
                   onClick={() => setIsCreating(false)}
-                  className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                  className="flex items-center gap-2 px-6 py-3 bg-slate-500/20 text-slate-400 border border-slate-500/30 rounded-xl hover:bg-slate-500/30 transition-all text-sm font-medium min-w-[120px] justify-center"
                 >
+                  <X className="w-4 h-4" />
                   İptal
                 </button>
                 <button
                   onClick={handleCreateTask}
-                  className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200"
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-xl hover:bg-blue-500/30 transition-all text-sm font-medium min-w-[120px] justify-center"
                 >
+                  <Plus className="w-4 h-4" />
                   Görev Oluştur
                 </button>
               </div>

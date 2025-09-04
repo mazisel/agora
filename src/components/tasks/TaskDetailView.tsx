@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, User, Calendar, MessageSquare, Paperclip, CheckCircle2, Eye, X, Send, Download, AlertCircle, FileText, Users, Image, Smile, Save, XCircle, Edit3, DollarSign, Plus } from 'lucide-react';
+import { ArrowLeft, Clock, User, Calendar, MessageSquare, Paperclip, CheckCircle2, Eye, X, Send, Download, AlertCircle, FileText, Users, Image, Smile, Save, XCircle, Edit3, DollarSign, Plus, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Task, UserProfile, TaskComment, TaskAttachment, TaskExpense } from '@/types';
+import TaskTransferModal from './TaskTransferModal';
 
 interface TaskDetailViewProps {
   task: Task;
@@ -48,12 +49,28 @@ export default function TaskDetailView({
     expense_date: new Date().toISOString().split('T')[0]
   });
 
+  // Transfer modal state
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+
   useEffect(() => {
     fetchTaskDetailsWithExpenses(task.id);
   }, [task.id]);
 
   const fetchTaskDetailsWithExpenses = async (taskId: string) => {
     try {
+      // Talep görevleri için detay getirme işlemini atla
+      if (taskId.startsWith('leave_') || taskId.startsWith('advance_') || taskId.startsWith('suggestion_')) {
+        setTaskExpenses([]);
+        return;
+      }
+
+      // Check if taskId is a valid UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(taskId)) {
+        setTaskExpenses([]);
+        return;
+      }
+
       // Fetch task details with project info
       await fetchTaskDetails(taskId);
       
@@ -164,7 +181,17 @@ export default function TaskDetailView({
     if (!user) return;
 
     try {
-      const { error } = await supabase
+      // First get the expense details
+      const { data: expense, error: expenseError } = await supabase
+        .from('task_expenses')
+        .select('*')
+        .eq('id', expenseId)
+        .single();
+
+      if (expenseError) throw expenseError;
+
+      // Update task expense status
+      const { error: updateError } = await supabase
         .from('task_expenses')
         .update({
           status: 'approved',
@@ -173,12 +200,51 @@ export default function TaskDetailView({
         })
         .eq('id', expenseId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // Get employee name for finance transaction
+      const { data: employeeData } = await supabase
+        .from('user_profiles')
+        .select('first_name, last_name')
+        .eq('id', expense.created_by)
+        .single();
+
+      const employeeName = employeeData ? `${employeeData.first_name} ${employeeData.last_name}` : 'Bilinmeyen Personel';
+
+      // Create finance transaction
+      const { error: financeError } = await supabase
+        .from('finance_transactions')
+        .insert({
+          type: 'expense',
+          category: `Görev Harcaması - ${getCategoryLabel(expense.category)}`,
+          amount: expense.amount,
+          description: `${task.title} - ${expense.title}${expense.description ? ': ' + expense.description : ''}`,
+          date: expense.expense_date,
+          employee_id: expense.created_by,
+          employee_name: employeeName,
+          payment_method: 'bank_transfer', // Default payment method
+          reference_number: expense.receipt_number || `${task.title.slice(0, 20)}-${expense.title.slice(0, 15)}`,
+          created_by: user.id,
+          task_id: task.id,
+          task_title: task.title,
+          project_id: task.project?.id || null,
+          project_name: task.project?.name || null,
+          approved_by_id: user.id,
+          approved_by_name: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim()
+        });
+
+      if (financeError) {
+        console.error('Finance transaction error:', financeError);
+        // Don't throw here, just log the error so the expense approval still works
+      }
 
       // Refresh expenses
       await fetchTaskDetailsWithExpenses(task.id);
+      
+      alert('Harcama onaylandı ve finans sistemine kaydedildi!');
     } catch (error) {
       console.error('Error approving expense:', error);
+      alert('Harcama onaylanırken hata oluştu.');
     }
   };
 
@@ -331,10 +397,10 @@ export default function TaskDetailView({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-      <div className="bg-slate-800/95 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-2 sm:p-4">
+      <div className="bg-slate-800/95 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-6xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl">
         {/* Enhanced Modal Header */}
-        <div className="relative p-6 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
+        <div className="relative p-3 sm:p-6 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
               <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${getStatusColor(task.status).replace('text-', 'bg-').replace('/20', '/10')} border ${getStatusColor(task.status).split(' ')[2]}`}>
@@ -394,47 +460,40 @@ export default function TaskDetailView({
           </div>
           
           {/* Status and Priority Row */}
-          <div className="flex items-center gap-3 mt-4">
-            {isEditing ? (
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-slate-300">Durum:</label>
-                <select
-                  value={editingTask.status}
-                  onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
-                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
-                >
-                  <option value="todo">Yeni</option>
-                  <option value="in_progress">Devam Ediyor</option>
-                  <option value="review">İnceleme</option>
-                  <option value="done">Tamamlandı</option>
-                  <option value="cancelled">İptal</option>
-                </select>
-              </div>
-            ) : (
-              <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium ${getStatusColor(task.status)}`}>
-                {getStatusIcon(task.status)}
-                {getStatusLabel(task.status)}
+          <div className="mt-4 space-y-3">
+            {/* Status ve Priority Badges */}
+            <div className="flex flex-wrap items-center gap-3">
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-slate-300">Durum:</label>
+                  <select
+                    value={editingTask.status}
+                    onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
+                    className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                  >
+                    <option value="todo">Yeni</option>
+                    <option value="in_progress">Devam Ediyor</option>
+                    <option value="review">İnceleme</option>
+                    <option value="done">Tamamlandı</option>
+                    <option value="cancelled">İptal</option>
+                  </select>
+                </div>
+              ) : (
+                <span className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium ${getStatusColor(task.status)}`}>
+                  {getStatusIcon(task.status)}
+                  {getStatusLabel(task.status)}
+                </span>
+              )}
+              <span className={`inline-flex items-center px-3 py-2 rounded-xl border text-sm font-medium ${getPriorityColor(task.priority)}`}>
+                {getPriorityLabel(task.priority)}
               </span>
-            )}
-            <span className={`inline-flex items-center px-4 py-2 rounded-xl border text-sm font-medium ${getPriorityColor(task.priority)}`}>
-              {getPriorityLabel(task.priority)}
-            </span>
-            {!isEditing && task.status !== 'done' && task.status !== 'cancelled' && (
-              <button
-                onClick={async () => {
-                  await onUpdateTaskStatus(task.id, 'done');
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-xl hover:bg-green-500/30 transition-all text-sm font-medium"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Tamamla
-              </button>
-            )}
+            </div>
+            
           </div>
         </div>
 
         {/* Enhanced Modal Content */}
-        <div className="p-6 overflow-y-auto max-h-[70vh]">
+        <div className="p-3 sm:p-6 overflow-y-auto max-h-[70vh]">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Content */}
             <div className="lg:col-span-2 space-y-8">
@@ -696,13 +755,19 @@ export default function TaskDetailView({
                     <span className="px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-lg text-sm font-medium">
                       {taskExpenses.length} Harcama
                     </span>
-                    <button
-                      onClick={() => setIsAddingExpense(true)}
-                      className="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all text-sm font-medium flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Ekle
-                    </button>
+                    {/* Only show add button for valid UUID tasks */}
+                    {(() => {
+                      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                      return uuidRegex.test(task.id) && (
+                        <button
+                          onClick={() => setIsAddingExpense(true)}
+                          className="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all text-sm font-medium flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Ekle
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -852,13 +917,19 @@ export default function TaskDetailView({
                       </div>
                       <h5 className="text-lg font-semibold text-white mb-2">Henüz Harcama Yok</h5>
                       <p className="text-slate-400 mb-4">Bu görev için ilk harcamayı ekleyin</p>
-                      <button
-                        onClick={() => setIsAddingExpense(true)}
-                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all flex items-center gap-2 mx-auto"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Harcama Ekle
-                      </button>
+                      {/* Only show add button for valid UUID tasks */}
+                      {(() => {
+                        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                        return uuidRegex.test(task.id) && (
+                          <button
+                            onClick={() => setIsAddingExpense(true)}
+                            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all flex items-center gap-2 mx-auto"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Harcama Ekle
+                          </button>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1121,7 +1192,45 @@ export default function TaskDetailView({
             </div>
           </div>
         </div>
+
+        {/* Fixed Footer with Action Buttons */}
+        {!isEditing && task.status !== 'done' && task.status !== 'cancelled' && (
+          <div className="sticky bottom-0 bg-slate-800/95 backdrop-blur-sm border-t border-slate-700/50 p-4">
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button
+                onClick={() => setIsTransferModalOpen(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-xl hover:bg-purple-500/30 transition-all text-sm font-medium min-w-[120px] justify-center"
+              >
+                <ArrowRight className="w-4 h-4" />
+                Yönlendir
+              </button>
+              <button
+                onClick={async () => {
+                  await onUpdateTaskStatus(task.id, 'done');
+                  onClose(); // Modal'ı kapat
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-green-500/20 text-green-400 border border-green-500/30 rounded-xl hover:bg-green-500/30 transition-all text-sm font-medium min-w-[120px] justify-center"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Tamamla
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Task Transfer Modal */}
+      {isTransferModalOpen && (
+        <TaskTransferModal
+          task={task}
+          isOpen={isTransferModalOpen}
+          onClose={() => setIsTransferModalOpen(false)}
+          onTransferSuccess={() => {
+            setIsTransferModalOpen(false);
+            fetchTaskDetailsWithExpenses(task.id);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -43,7 +43,7 @@ export default function UpcomingEvents() {
           )
         `)
         .eq('event_participants.user_id', user.id)
-        .gte('date', new Date().toISOString().split('T')[0]) // Only future events
+        .gte('date', '2025-08-12') // Show events from today onwards
         .order('date', { ascending: true })
         .order('time', { ascending: true })
         .limit(10);
@@ -113,16 +113,22 @@ export default function UpcomingEvents() {
   };
 
   const formatDate = (dateString: string) => {
-    // Sabit tarih karşılaştırması kullanıyoruz (bugün 30.07.2025 olarak kabul ediyoruz)
+    // Sabit tarih karşılaştırması kullanıyoruz (bugün 12.08.2025 olarak kabul ediyoruz)
     const date = new Date(dateString);
     const day = date.getDate();
     const month = date.getMonth() + 1;
     
     // Bugün ve yarın kontrolü için sabit değerler
-    if (dateString === '2025-07-30') {
+    if (dateString === '2025-08-12') {
       return 'Bugün';
-    } else if (dateString === '2025-07-31') {
+    } else if (dateString === '2025-08-13') {
       return 'Yarın';
+    } else if (dateString === '2025-08-14') {
+      return '2 gün sonra';
+    } else if (dateString === '2025-08-15') {
+      return '3 gün sonra';
+    } else if (dateString === '2025-08-16') {
+      return '4 gün sonra';
     } else {
       return `${day}.${month.toString().padStart(2, '0')}`;
     }

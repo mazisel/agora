@@ -215,3 +215,95 @@ export interface TaskExpense {
   creator?: UserProfile;
   approver?: UserProfile;
 }
+
+export interface TaskTransfer {
+  id: string;
+  task_id: string;
+  from_user_id: string;
+  to_user_id: string;
+  reason: string;
+  transfer_type: 'reassign' | 'delegate' | 'escalate';
+  status: 'pending' | 'accepted' | 'rejected';
+  requested_by: string;
+  approved_by?: string;
+  approved_at?: string;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+  // Relations
+  from_user?: UserProfile;
+  to_user?: UserProfile;
+  requester?: UserProfile;
+  approver?: UserProfile;
+  task?: Task;
+}
+
+export interface TaskTransferHistory {
+  id: string;
+  task_id: string;
+  from_user_id: string;
+  to_user_id: string;
+  reason: string;
+  transfer_type: 'reassign' | 'delegate' | 'escalate';
+  transferred_by: string;
+  transferred_at: string;
+  // Relations
+  from_user?: UserProfile;
+  to_user?: UserProfile;
+  transferrer?: UserProfile;
+  task?: Task;
+}
+
+// Support System Types
+export interface SupportCategory {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupportAgent {
+  id: string;
+  user_id: string;
+  category_id: string;
+  created_at: string;
+  updated_at: string;
+  // Relations
+  user?: UserProfile;
+  category?: SupportCategory;
+  // For API responses
+  user_name?: string;
+  user_email?: string;
+  category_name?: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  user_id: string;
+  category_id: string;
+  assigned_agent_id?: string;
+  title: string;
+  description: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  created_at: string;
+  updated_at: string;
+  // Relations
+  user?: UserProfile;
+  category?: SupportCategory;
+  assigned_agent?: UserProfile;
+  messages?: SupportTicketMessage[];
+}
+
+export interface SupportTicketMessage {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  message: string;
+  is_internal: boolean;
+  created_at: string;
+  // Relations
+  user?: UserProfile;
+  ticket?: SupportTicket;
+}

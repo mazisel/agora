@@ -7,7 +7,20 @@ export async function POST(request: NextRequest) {
   try {
     const setupFiles = [
       'profile-update-requests.sql',
-      'finance-documents.sql'
+      'finance-documents.sql',
+      'support-system.sql',
+      'support-tickets.sql',
+      'request-system.sql',
+      'task-transfer-system.sql',
+      'messaging-system.sql',
+      'request-assignments.sql',
+      'add-is-system-column.sql',
+      'add-assigned-to-columns.sql',
+      'modules-system.sql',
+      'service-routes.sql',
+      'vehicle-request-system.sql',
+      'office-supplies-system.sql',
+      'meeting-room-system.sql'
     ];
 
     for (const fileName of setupFiles) {

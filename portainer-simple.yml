@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  team-management-app:
+    image: node:18-alpine
+    container_name: team-management-system
+    working_dir: /app
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      # Supabase Configuration
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      # Email Configuration
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+    volumes:
+      - .:/app
+    command: sh -c "npm ci && npm run build && npm start"
+    restart: unless-stopped
+    networks:
+      - team-management-network
+
+networks:
+  team-management-network:
+    driver: bridge

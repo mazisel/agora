@@ -271,7 +271,8 @@ export default function EventsPage() {
       alert('Etkinlik başarıyla oluşturuldu!');
     } catch (error) {
       console.error('Error creating event:', error);
-      setError('Etkinlik oluşturulurken hata oluştu.');
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      setError(`Etkinlik oluşturulurken hata oluştu: ${(error as any)?.message || 'Bilinmeyen hata'}`);
       setIsLoading(false);
     }
   };

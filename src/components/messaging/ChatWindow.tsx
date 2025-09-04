@@ -13,67 +13,66 @@ export default function ChatWindow() {
   const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   const activeChannel = state.channels.find(c => c.id === state.activeChannelId);
   const messages = state.activeChannelId ? state.messages[state.activeChannelId] || [] : [];
   const isLoadingOlderMessages = state.activeChannelId ? state.messagesLoading[state.activeChannelId] || false : false;
   const hasMoreMessages = state.activeChannelId ? state.hasMoreMessages[state.activeChannelId] || false : false;
 
+  // Güçlü scroll to bottom function
+  const scrollToBottom = () => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      // Birden fazla scroll denemesi
+      container.scrollTop = container.scrollHeight;
+      
+      // Biraz bekleyip tekrar dene
+      setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+      }, 50);
+      
+      // Son olarak bir kez daha
+      setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+      }, 200);
+    }
+  };
+
   // Load messages when channel changes
   useEffect(() => {
     if (state.activeChannelId && activeChannel) {
       setIsInitialLoad(true);
-      setShouldScrollToBottom(true);
+      setIsAtBottom(true);
       
       loadMessages(state.activeChannelId).finally(() => {
         setIsInitialLoad(false);
+        // İlk yükleme sonrası en alta scroll
+        setTimeout(scrollToBottom, 100);
       });
     }
   }, [state.activeChannelId, activeChannel, loadMessages]);
 
-  // Scroll to bottom after messages are loaded
+  // Yeni mesaj geldiğinde - sadece en alttaysak scroll yap
   useEffect(() => {
-    if (!isInitialLoad && messages.length > 0 && messagesContainerRef.current) {
-      // İlk yükleme sonrası scroll'u en alta götür - hızlı ve direkt
-      const container = messagesContainerRef.current;
-      requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight;
-      });
+    if (!isInitialLoad && messages.length > 0 && isAtBottom) {
+      setTimeout(scrollToBottom, 100);
     }
-  }, [isInitialLoad, messages.length]);
+  }, [messages.length, isInitialLoad, isAtBottom]);
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (!isInitialLoad && messages.length > 0) {
-      const container = messagesContainerRef.current;
-      if (container) {
-        const { scrollTop, scrollHeight, clientHeight } = container;
-        const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
-        
-        if (isNearBottom) {
-          setTimeout(() => {
-            if (messagesEndRef.current) {
-              messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }
-          }, 50);
-        }
-      }
-    }
-  }, [messages.length, isInitialLoad]);
-
-  // Check if user is near bottom to decide auto-scroll and load older messages
+  // Scroll event handler - basit
   const handleScroll = () => {
     const container = messagesContainerRef.current;
     if (container) {
       const { scrollTop, scrollHeight, clientHeight } = container;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
       const isNearTop = scrollTop < 100;
       
-      setShouldScrollToBottom(isNearBottom);
+      // Kullanıcının pozisyonunu takip et
+      setIsAtBottom(isNearBottom);
       
-      // Load older messages when scrolling near top
+      // Eski mesajları yükle
       if (isNearTop && hasMoreMessages && !isLoadingOlderMessages && !isInitialLoad && state.activeChannelId) {
         loadOlderMessages(state.activeChannelId);
       }
@@ -87,19 +86,24 @@ export default function ChatWindow() {
     }
   }, [state.activeChannelId, markAsRead]);
 
-  // Scroll to bottom when new message is added and user is near bottom
+  // Manual scroll to bottom event - güçlendirilmiş
   useEffect(() => {
-    if (messages.length > 0) {
-      const container = messagesContainerRef.current;
-      if (container) {
-        const { scrollTop, scrollHeight, clientHeight } = container;
-        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-        if (isNearBottom) {
-          setShouldScrollToBottom(true);
-        }
-      }
-    }
-  }, [messages.length]);
+    const handleScrollToBottom = () => {
+      setIsAtBottom(true);
+      // Birden fazla scroll denemesi
+      scrollToBottom();
+      
+      // Biraz daha bekleyip tekrar dene
+      setTimeout(scrollToBottom, 300);
+      setTimeout(scrollToBottom, 600);
+    };
+
+    window.addEventListener('scrollToBottom', handleScrollToBottom);
+    
+    return () => {
+      window.removeEventListener('scrollToBottom', handleScrollToBottom);
+    };
+  }, []);
 
   if (!activeChannel) {
     return (
@@ -130,11 +134,10 @@ export default function ChatWindow() {
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 relative"
+        className="flex-1 overflow-y-auto min-h-0 chat-scrollbar relative"
         style={{
           scrollBehavior: 'auto',
-          overflowAnchor: 'none',
-          scrollbarWidth: 'thin'
+          overflowAnchor: 'none'
         }}
       >
         {isInitialLoad ? (

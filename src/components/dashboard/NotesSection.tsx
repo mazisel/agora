@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Search, StickyNote } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import NoteModal from './NoteModal';
 
 interface Note {
   id: string;
@@ -29,6 +30,8 @@ export default function NotesSection() {
   const [isCreating, setIsCreating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [newNote, setNewNote] = useState({
     title: '',
     content: '',
@@ -131,6 +134,15 @@ export default function NotesSection() {
 
       if (error) throw error;
       await fetchNotes();
+      
+      // Eğer modal açıksa ve bu not seçiliyse, selectedNote'u da güncelle
+      if (selectedNote && selectedNote.id === id) {
+        setSelectedNote({
+          ...selectedNote,
+          pinned: !selectedNote.pinned,
+          updated_at: new Date().toISOString()
+        });
+      }
     } catch (error) {
       console.error('Error toggling pin:', error);
       alert('Not sabitleme durumu değiştirilirken hata oluştu.');
@@ -142,6 +154,36 @@ export default function NotesSection() {
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     return `${day}.${month}`;
+  };
+
+  const handleNoteClick = (note: Note) => {
+    setSelectedNote(note);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedNote(null);
+  };
+
+  const handleModalUpdate = async () => {
+    await fetchNotes();
+    // Modal'daki seçili notu da güncelle
+    if (selectedNote) {
+      const { data, error } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('id', selectedNote.id)
+        .single();
+      
+      if (!error && data) {
+        setSelectedNote(data);
+      }
+    }
+  };
+
+  const handleModalDelete = (id: string) => {
+    setNotes(notes.filter(note => note.id !== id));
   };
 
   return (
@@ -282,7 +324,8 @@ export default function NotesSection() {
               filteredNotes.map((note) => (
                 <div
                 key={note.id}
-                className="group p-3 bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300"
+                onClick={() => handleNoteClick(note)}
+                className="group p-3 bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -301,13 +344,19 @@ export default function NotesSection() {
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => togglePin(note.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePin(note.id);
+                      }}
                       className="p-1 rounded hover:bg-slate-700 transition-colors"
                     >
                       <StickyNote className={`w-3 h-3 ${note.pinned ? 'text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`} />
                     </button>
                     <button
-                      onClick={() => deleteNote(note.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNote(note.id);
+                      }}
                       className="p-1 rounded hover:bg-slate-700 transition-colors"
                     >
                       <Trash2 className="w-3 h-3 text-red-400" />
@@ -338,6 +387,15 @@ export default function NotesSection() {
           </div>
         </div>
       </div>
+
+      {/* Note Modal */}
+      <NoteModal
+        note={selectedNote}
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onUpdate={handleModalUpdate}
+        onDelete={handleModalDelete}
+      />
     </div>
   );
 }
