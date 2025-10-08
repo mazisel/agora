@@ -22,7 +22,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Agora - e4 Labs",
+  title: "Li Teknoloji",
   description: "Basit. Hızlı. İletişim.",
 };
 
