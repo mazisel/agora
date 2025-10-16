@@ -32,6 +32,8 @@ PORT=3001
 # Telegram Notifications
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 TELEGRAM_WEBHOOK_SECRET=your_webhook_secret
+TELEGRAM_BOT_USERNAME=your_bot_username_without_at
+NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=your_bot_username_without_at
 ```
 
 ## 2. Portainer Stack Oluşturma
@@ -96,6 +98,8 @@ services:
       # Telegram
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET}
+      - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
+      - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME}
     restart: unless-stopped
     networks:
       - team-management-network
@@ -141,6 +145,8 @@ NODE_ENV=production
 PORT=3001
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
+TELEGRAM_BOT_USERNAME=your-bot-username
+NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=your-bot-username
 ```
 
 ## 4. Deployment Sonrası Kontroller
@@ -169,7 +175,7 @@ CPU, Memory, Network kullanımını **Stats** sekmesinden takip edin
 
 ## 5. Telegram Bot Kurulumu
 
-1. Telegram'da **@BotFather** üzerinden bir bot oluşturun ve verdiği token'ı `TELEGRAM_BOT_TOKEN` olarak kaydedin.
+1. Telegram'da **@BotFather** üzerinden bir bot oluşturun. Token'ı `TELEGRAM_BOT_TOKEN` olarak, bot kullanıcı adını (başında `@` olmadan) hem `TELEGRAM_BOT_USERNAME` hem de `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` değişkenlerine kaydedin.
 2. Bot isteğinin yalnızca sizden gelmesi için rastgele bir değer belirleyin ve `TELEGRAM_WEBHOOK_SECRET` değişkenine girin.
 3. Stack'i redeploy ettikten sonra webhook'u aşağıdaki gibi ayarlayın (alan adınızı ve secret değerini güncelleyin):
 
@@ -185,8 +191,8 @@ curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
 curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getWebhookInfo"
 ```
 
-5. Admin panelindeki kullanıcı düzenleme ekranından her kullanıcı için Telegram kullanıcı adını girin (başında `@` olmadan).
-6. Kullanıcılar botu Telegram üzerinden başlattığında sistem otomatik olarak chat ID'yi eşleştirir ve bildirimleri aktive eder; kullanıcı adı değişirse bağlantıyı yenilemek için botla tekrar konuşmaları gerekir.
+5. Admin panelinde kullanıcı düzenleme moduna girip "Telegram" bölümündeki **Bağlantı Oluştur** butonuyla derin link üretin ve ilgili kullanıcıya gönderin. Kullanıcı linke tıklayıp botta `/start` komutunu çalıştırdığında bağlantı otomatik olarak tamamlanır.
+6. Bağlantı sonrası kartta "Bağlı" durumu görünecek; gerekirse yeni bağlantı oluşturup eskisini geçersiz kılabilirsiniz.
 
 ## 5. Güncelleme Süreci
 

@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { sanitizeTelegramUsername, isValidTelegramUsername } from '@/lib/telegram-utils';
 import { sendTelegramMessage } from '@/lib/telegram';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 type TelegramUser = {
   username?: string;
@@ -74,28 +63,116 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    const chatId = chat.id;
+    const chatId = chat.id.toString();
     const rawUsername: string | undefined = from.username;
-
-    if (!rawUsername) {
-      await sendTelegramMessage(chatId, {
-        text: 'Telegram kullanıcı adınız bulunamadı. Lütfen Telegram uygulamasında Ayarlar > Kullanıcı Adı bölümünden bir kullanıcı adı belirleyin ve tekrar deneyin.',
-        disable_web_page_preview: true,
-      });
-      return NextResponse.json({ ok: true });
-    }
-
-    if (!isValidTelegramUsername(rawUsername)) {
-      await sendTelegramMessage(chatId, {
-        text: 'Geçersiz kullanıcı adı algılandı. Kullanıcı adları yalnızca harf, sayı ve alt çizgi içerebilir ve en az 5 karakter olmalıdır.',
-        disable_web_page_preview: true,
-      });
-      return NextResponse.json({ ok: true });
-    }
-
     const sanitizedUsername = sanitizeTelegramUsername(rawUsername);
 
+    const messageText =
+      update.message?.text ||
+      update.callback_query?.message?.text ||
+      update.callback_query?.data ||
+      update.edited_message?.text;
+
+    const nowIso = new Date().toISOString();
+
+    const respond = async (text: string) => {
+      await sendTelegramMessage(chatId, {
+        text,
+        disable_web_page_preview: true,
+      });
+    };
+
+    const linkWithToken = async (token: string) => {
+      const { data: linkRecord, error: linkError } = await supabaseAdmin
+        .from('telegram_link_tokens')
+        .select('id, user_id, expires_at, consumed_at')
+        .eq('token', token)
+        .maybeSingle();
+
+      if (linkError) {
+        console.error('Telegram webhook token lookup error:', linkError);
+        await respond('Sistem hatası nedeniyle bağlantı kurulamadı. Lütfen daha sonra tekrar deneyin.');
+        return true;
+      }
+
+      if (!linkRecord) {
+        await respond('Bu bağlantı kodu geçersiz veya süresi dolmuş görünüyor. Yöneticiyle iletişime geçin.');
+        return true;
+      }
+
+      if (linkRecord.consumed_at) {
+        await respond('Bu bağlantı kodu daha önce kullanılmış. Yöneticiyle iletişime geçip yeni bir kod isteyebilirsiniz.');
+        return true;
+      }
+
+      if (linkRecord.expires_at && new Date(linkRecord.expires_at) < new Date()) {
+        await respond('Bu bağlantı kodunun süresi dolmuş. Lütfen yeni bir kod isteyin.');
+        return true;
+      }
+
+      const { error: linkUpdateError } = await supabaseAdmin
+        .from('telegram_link_tokens')
+        .update({
+          chat_id: chatId,
+          consumed_at: nowIso,
+          last_used_at: nowIso,
+        })
+        .eq('id', linkRecord.id);
+
+      if (linkUpdateError) {
+        console.error('Telegram link token update error:', linkUpdateError);
+        await respond('Bağlantı sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+        return true;
+      }
+
+      const profileUpdate = {
+        telegram_chat_id: chatId,
+        telegram_username: sanitizedUsername ?? null,
+        telegram_notifications_enabled: true,
+        telegram_linked_at: nowIso,
+      };
+
+      const { data: updatedProfile, error: profileUpdateError } = await supabaseAdmin
+        .from('user_profiles')
+        .update(profileUpdate)
+        .eq('id', linkRecord.user_id)
+        .select('first_name, last_name')
+        .maybeSingle();
+
+      if (profileUpdateError) {
+        console.error('Telegram profile update error:', profileUpdateError);
+        await respond('Profiliniz güncellenirken bir sorun oluştu. Lütfen yöneticinize haber verin.');
+        return true;
+      }
+
+      const displayName =
+        [updatedProfile?.first_name, updatedProfile?.last_name].filter(Boolean).join(' ') || 'Kullanıcı';
+
+      await respond(
+        `Merhaba ${displayName}, bağlantınız tamamlandı. Bundan sonra önemli duyuruları Telegram üzerinden de alacaksınız.`
+      );
+      return true;
+    };
+
+    const startMatch = messageText?.trim().match(/^\/start\s+([A-Za-z0-9_-]+)/);
+
+    if (startMatch) {
+      const token = startMatch[1];
+      await linkWithToken(token);
+      return NextResponse.json({ ok: true });
+    }
+
     if (!sanitizedUsername) {
+      await respond(
+        'Telegram kullanıcı adınız bulunamadı. Ayarlar > Kullanıcı Adı bölümünden bir kullanıcı adı belirledikten sonra yöneticiye haber verin.'
+      );
+      return NextResponse.json({ ok: true });
+    }
+
+    if (!isValidTelegramUsername(sanitizedUsername)) {
+      await respond(
+        'Geçersiz kullanıcı adı algılandı. Kullanıcı adları yalnızca harf, sayı ve alt çizgi içerebilir ve en az 5 karakter olmalıdır.'
+      );
       return NextResponse.json({ ok: true });
     }
 
@@ -109,26 +186,22 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Telegram webhook lookup error:', error);
-      await sendTelegramMessage(chatId, {
-        text: 'Sistem hatası nedeniyle bağlantı kurulamadı. Lütfen daha sonra tekrar deneyin.',
-        disable_web_page_preview: true,
-      });
+      await respond('Sistem hatası nedeniyle bağlantı kurulamadı. Lütfen daha sonra tekrar deneyin.');
       return NextResponse.json({ ok: true });
     }
 
     if (!profile) {
-      await sendTelegramMessage(chatId, {
-        text: 'Bu kullanıcı adı portal üzerinde bulunamadı. Lütfen admin panelindeki kullanıcı bilgilerinizden Telegram kullanıcı adınızı kontrol edin.',
-        disable_web_page_preview: true,
-      });
+      await respond(
+        'Bu kullanıcı adı için kayıt bulunamadı. Yönetici panelinden bağlantı linki üretip yeniden deneyebilirsiniz.'
+      );
       return NextResponse.json({ ok: true });
     }
 
     const updates = {
-      telegram_chat_id: chatId.toString(),
+      telegram_chat_id: chatId,
       telegram_username: sanitizedUsername,
       telegram_notifications_enabled: true,
-      telegram_linked_at: new Date().toISOString(),
+      telegram_linked_at: nowIso,
     };
 
     const { error: updateError } = await supabaseAdmin
@@ -138,19 +211,20 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('Telegram webhook update error:', updateError);
-      await sendTelegramMessage(chatId, {
-        text: 'Bilgileriniz güncellenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.',
-        disable_web_page_preview: true,
-      });
+      await respond('Bilgileriniz güncellenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
       return NextResponse.json({ ok: true });
     }
 
     const displayName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Kullanıcı';
 
-    await sendTelegramMessage(chatId, {
-      text: `Merhaba ${displayName}, Telegram bildirimleri başarıyla aktifleştirildi.`,
-      disable_web_page_preview: true,
-    });
+    await supabaseAdmin
+      .from('telegram_link_tokens')
+      .update({ last_used_at: nowIso })
+      .eq('chat_id', chatId);
+
+    await respond(
+      `Merhaba ${displayName}, Telegram bildirimleri başarıyla aktifleştirildi. Bağlantı kodu almak isterseniz yönetici panelinden yeni bağlantı oluşturabilirsiniz.`
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error) {

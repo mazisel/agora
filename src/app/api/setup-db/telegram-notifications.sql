@@ -23,3 +23,21 @@ CREATE TABLE IF NOT EXISTS telegram_notifications (
   failed_count INTEGER NOT NULL DEFAULT 0,
   data JSONB
 );
+
+-- Store one-time deep link tokens for Telegram linking
+CREATE TABLE IF NOT EXISTS telegram_link_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  chat_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  consumed_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  last_used_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_user_id
+  ON telegram_link_tokens(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_token
+  ON telegram_link_tokens(token);

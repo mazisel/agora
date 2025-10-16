@@ -39,6 +39,139 @@ export default function AdminPage() {
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [visibleSensitiveFields, setVisibleSensitiveFields] = useState<Set<string>>(new Set());
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  const [telegramLinkState, setTelegramLinkState] = useState<{
+    loading: boolean;
+    generating: boolean;
+    error: string;
+    success: string;
+    currentLink: { token: string; deepLink: string; expiresAt: string | null } | null;
+    history: any[];
+  }>({
+    loading: false,
+    generating: false,
+    error: '',
+    success: '',
+    currentLink: null,
+    history: [],
+  });
+  const [telegramCopyFeedback, setTelegramCopyFeedback] = useState('');
+  const TELEGRAM_BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || '';
+
+  const buildTelegramLink = (token: string) =>
+    TELEGRAM_BOT_USERNAME ? `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${token}` : '';
+
+  const resetTelegramState = () => {
+    setTelegramLinkState({
+      loading: false,
+      generating: false,
+      error: '',
+      success: '',
+      currentLink: null,
+      history: [],
+    });
+    setTelegramCopyFeedback('');
+  };
+
+  const loadTelegramLinks = async (userId: string, successMessage?: string) => {
+    if (!userId) return;
+    setTelegramLinkState(prev => ({
+      ...prev,
+      loading: true,
+      error: '',
+      success: '',
+    }));
+
+    try {
+      const response = await fetch(`/api/admin/telegram/generate-link?userId=${userId}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Telegram bağlantı bilgileri getirilemedi.');
+      }
+
+      const data = await response.json();
+      const tokens = Array.isArray(data.tokens) ? data.tokens : [];
+      const activeToken = tokens.find(
+        (token: any) =>
+          !token.consumed_at &&
+          (!token.expires_at || new Date(token.expires_at) > new Date())
+      ) || tokens[0];
+
+      const currentLink = activeToken
+        ? {
+            token: activeToken.token,
+            deepLink: buildTelegramLink(activeToken.token),
+            expiresAt: activeToken.expires_at || null,
+          }
+        : null;
+
+      setTelegramLinkState({
+        loading: false,
+        generating: false,
+        error: '',
+        success: successMessage || '',
+        currentLink,
+        history: tokens,
+      });
+    } catch (err) {
+      console.error('Telegram link fetch error:', err);
+      setTelegramLinkState(prev => ({
+        ...prev,
+        loading: false,
+        generating: false,
+        error: err instanceof Error ? err.message : 'Telegram bağlantı bilgileri alınamadı.',
+      }));
+    }
+  };
+
+  const handleGenerateTelegramLink = async (userId: string, expireInMinutes?: number) => {
+    if (!userId) return;
+    setTelegramLinkState(prev => ({
+      ...prev,
+      generating: true,
+      error: '',
+      success: '',
+    }));
+
+    try {
+      const response = await fetch('/api/admin/telegram/generate-link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          expireInMinutes: expireInMinutes ?? 1440,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Telegram bağlantısı oluşturulamadı.');
+      }
+
+      await loadTelegramLinks(userId, 'Yeni Telegram bağlantısı oluşturuldu.');
+    } catch (error) {
+      console.error('Telegram link generate error:', error);
+      setTelegramLinkState(prev => ({
+        ...prev,
+        generating: false,
+        error: error instanceof Error ? error.message : 'Telegram bağlantısı oluşturulamadı.',
+      }));
+    }
+  };
+
+  const handleCopyTelegramLink = async (link: string) => {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setTelegramCopyFeedback('Bağlantı panoya kopyalandı.');
+      setTimeout(() => setTelegramCopyFeedback(''), 2500);
+    } catch (error) {
+      console.error('Clipboard copy error:', error);
+      setTelegramCopyFeedback('Bağlantı kopyalanamadı.');
+      setTimeout(() => setTelegramCopyFeedback(''), 2500);
+    }
+  };
   const { user, loading } = useAuth();
   const { canAccess } = usePermissions();
   const router = useRouter();
@@ -166,6 +299,15 @@ export default function AdminPage() {
       fetchData();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (editingUser?.id) {
+      loadTelegramLinks(editingUser.id);
+    } else {
+      resetTelegramState();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingUser?.id]);
 
   // Show loading while checking authentication or access
   if (loading || isCheckingAccess) {
@@ -1461,64 +1603,187 @@ export default function AdminPage() {
                   />
                 </div>
 
-                {/* Telegram Username */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Telegram Kullanıcı Adı</label>
-                  <input
-                    type="text"
-                    value={editingUser.telegram_username || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      const sanitizedValue = sanitizeTelegramUsername(value);
-                      const originalSanitized = sanitizeTelegramUsername(
-                        users.find(u => u.id === editingUser.id)?.telegram_username || null
-                      );
-                      const usernameChanged = sanitizedValue !== originalSanitized;
-                      setEditingUser({
-                        ...editingUser,
-                        telegram_username: value,
-                        telegram_notifications_enabled: usernameChanged ? false : editingUser.telegram_notifications_enabled
-                      });
-                    }}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
-                    placeholder="ornek_kullanici"
-                  />
-                  <p className="mt-2 text-xs text-slate-500">
-                    Kullanıcı adını başında @ olmadan girin. Kullanıcının botla konuşması bağlantıyı tamamlar. Kullanıcı adını değiştirdiğinizde mevcut bağlantı sıfırlanır ve bot üzerinden yeniden onay alınması gerekir.
-                  </p>
-                  <div className="mt-3 p-3 bg-slate-800/50 border border-slate-600/60 rounded-xl flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-200">Telegram Bildirimleri</p>
-                      {editingUser.telegram_chat_id ? (
-                        <p className="text-xs text-emerald-400 mt-1">
-                          Bağlı (Chat ID: {editingUser.telegram_chat_id})
-                        </p>
-                      ) : (
-                        <p className="text-xs text-slate-500 mt-1">
-                          Henüz bot ile bağlantı kurulmamış. Kullanıcı botu başlattığında otomatik olarak eşleşir.
-                        </p>
-                      )}
-                      {editingUser.telegram_linked_at && (
-                        <p className="text-xs text-slate-500 mt-1">
-                          Son bağlantı: {new Date(editingUser.telegram_linked_at).toLocaleString()}
-                        </p>
-                      )}
+                {/* Telegram Section */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Telegram</label>
+                  <div className="p-4 rounded-2xl border border-slate-700/60 bg-slate-800/40 space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-xl bg-slate-900/40 border border-slate-700/40 p-4">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-200">Bağlantı Durumu</p>
+                        {editingUser.telegram_chat_id ? (
+                          <div className="text-xs text-emerald-400 mt-1 space-y-1">
+                            <p>Bağlantı tamamlandı (Chat ID: {editingUser.telegram_chat_id})</p>
+                            {editingUser.telegram_linked_at && (
+                              <p className="text-slate-500">
+                                Son bağlantı: {new Date(editingUser.telegram_linked_at).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 mt-1">
+                            Bağlantı bekleniyor. Kullanıcıya aşağıdaki bağlantıyı gönderin ve bot üzerinden doğrulamasını isteyin.
+                          </p>
+                        )}
+                      </div>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-600 text-blue-500 focus:ring-blue-500 disabled:opacity-50"
+                          checked={editingUser.telegram_notifications_enabled === true}
+                          onChange={(e) =>
+                            setEditingUser({
+                              ...editingUser,
+                              telegram_notifications_enabled: e.target.checked,
+                            })
+                          }
+                          disabled={
+                            !editingUser.telegram_chat_id ||
+                            !sanitizeTelegramUsername(editingUser.telegram_username)
+                          }
+                        />
+                        <span className="text-xs text-slate-400">
+                          {editingUser.telegram_chat_id ? 'Bildirimler aktif' : 'Bağlantı bekleniyor'}
+                        </span>
+                      </label>
                     </div>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-600 text-blue-500 focus:ring-blue-500"
-                        checked={editingUser.telegram_notifications_enabled === true}
-                        onChange={(e) => setEditingUser({ ...editingUser, telegram_notifications_enabled: e.target.checked })}
-                        disabled={
-                          !editingUser.telegram_chat_id ||
-                          !sanitizeTelegramUsername(editingUser.telegram_username)
-                        }
-                      />
-                      <span className="text-xs text-slate-400">
-                        {editingUser.telegram_chat_id ? 'Aktif' : 'Bağlantı bekleniyor'}
-                      </span>
-                    </label>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wide">
+                          Kullanıcı Adı
+                        </label>
+                        <input
+                          type="text"
+                          value={editingUser.telegram_username || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            const sanitizedValue = sanitizeTelegramUsername(value);
+                            const originalSanitized = sanitizeTelegramUsername(
+                              users.find(u => u.id === editingUser.id)?.telegram_username || null
+                            );
+                            const usernameChanged = sanitizedValue !== originalSanitized;
+                            setEditingUser({
+                              ...editingUser,
+                              telegram_username: value,
+                              telegram_notifications_enabled: usernameChanged ? false : editingUser.telegram_notifications_enabled
+                            });
+                          }}
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                          placeholder="ornek_kullanici"
+                        />
+                        <p className="mt-2 text-xs text-slate-500">
+                          Kullanıcı adını başında @ olmadan girin. Farklı bir kullanıcı adı kaydetmek mevcut bağlantıyı sıfırlar.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide">
+                          Bağlantı Linki
+                        </label>
+                        <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-3 space-y-3">
+                          {telegramLinkState.loading ? (
+                            <p className="text-xs text-slate-400">Bağlantı bilgileri yükleniyor...</p>
+                          ) : telegramLinkState.currentLink ? (
+                            <>
+                              {telegramLinkState.currentLink.deepLink ? (
+                                <div className="text-xs text-slate-300 break-all">
+                                  {telegramLinkState.currentLink.deepLink}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-red-400">
+                                  Bağlantı URL'si üretilemedi. `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` environment değişkenini tanımlayın.
+                                </p>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleCopyTelegramLink(telegramLinkState.currentLink?.deepLink || '')
+                                  }
+                                  disabled={!telegramLinkState.currentLink?.deepLink}
+                                  className="px-3 py-2 text-xs bg-slate-700/60 hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Kopyala
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleGenerateTelegramLink(editingUser.id)}
+                                  className="px-3 py-2 text-xs bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50"
+                                  disabled={telegramLinkState.generating}
+                                >
+                                  {telegramLinkState.generating ? 'Oluşturuluyor...' : 'Yeni Bağlantı Oluştur'}
+                                </button>
+                              </div>
+                              {telegramLinkState.currentLink.expiresAt && (
+                                <p className="text-xs text-slate-500">
+                                  Geçerlilik: {new Date(telegramLinkState.currentLink.expiresAt).toLocaleString()}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <div className="space-y-2">
+                              <p className="text-xs text-slate-400">
+                                Henüz bağlantı oluşturulmadı. Kullanıcıya yeni bir bağlantı göndermek için aşağıdaki butonu kullanın.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => handleGenerateTelegramLink(editingUser.id)}
+                                className="px-3 py-2 text-xs bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50"
+                                disabled={telegramLinkState.generating}
+                              >
+                                {telegramLinkState.generating ? 'Oluşturuluyor...' : 'Bağlantı Oluştur'}
+                              </button>
+                            </div>
+                          )}
+
+                          {telegramLinkState.error && (
+                            <p className="text-xs text-red-400">{telegramLinkState.error}</p>
+                          )}
+                          {telegramLinkState.success && (
+                            <p className="text-xs text-emerald-400">{telegramLinkState.success}</p>
+                          )}
+                          {telegramCopyFeedback && (
+                            <p className="text-xs text-blue-400">{telegramCopyFeedback}</p>
+                          )}
+                          {telegramLinkState.history.length > 0 && (
+                            <div className="pt-3 mt-2 border-t border-slate-700/40">
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">
+                                Son Oluşturulan Kodlar
+                              </p>
+                              <div className="space-y-1 text-xs text-slate-500">
+                                {telegramLinkState.history.slice(0, 3).map((token: any) => {
+                                  const isConsumed = Boolean(token.consumed_at);
+                                  const isExpired =
+                                    !isConsumed && token.expires_at && new Date(token.expires_at) < new Date();
+                                  const statusLabel = isConsumed
+                                    ? `Kullanıldı (${new Date(token.consumed_at).toLocaleString()})`
+                                    : isExpired
+                                      ? `Süresi doldu (${new Date(token.expires_at).toLocaleString()})`
+                                      : 'Aktif';
+
+                                  return (
+                                    <div key={token.id || token.token} className="flex items-center justify-between">
+                                      <span className="font-mono text-slate-400">
+                                        {token.token.slice(0, 8)}…
+                                      </span>
+                                      <span className={
+                                        isConsumed
+                                          ? 'text-emerald-400'
+                                          : isExpired
+                                            ? 'text-amber-400'
+                                            : 'text-blue-400'
+                                      }>
+                                        {statusLabel}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
