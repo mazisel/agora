@@ -82,6 +82,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
     let initTimeout: NodeJS.Timeout;
+
+    const updateLastLogin = async (userId: string) => {
+      try {
+        await supabase
+          .from('user_profiles')
+          .update({ last_login_at: new Date().toISOString() })
+          .eq('id', userId);
+      } catch (error) {
+        console.error('Failed to update last login:', error);
+      }
+    };
     
     // Get initial session with timeout
     const getSession = async () => {
@@ -114,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          updateLastLogin(session.user.id);
           // Don't await - let it run in background
           fetchUserProfile(session.user.id);
         } else {
@@ -153,6 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(session?.user ?? null);
           
           if (session?.user) {
+            updateLastLogin(session.user.id);
             // Don't await - let it run in background
             fetchUserProfile(session.user.id);
           }

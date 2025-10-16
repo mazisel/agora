@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     switch (type) {
       case 'taskAssigned': {
-        const { taskId, assignedToIds, assignedByName, taskTitle, dueDate } = payload;
+        const { taskId, assignedToIds, assignedByName, taskTitle, dueDate, priority, projectName, assigneeNames } = payload;
 
         if (!taskId || !Array.isArray(assignedToIds) || assignedToIds.length === 0 || !assignedByName || !taskTitle) {
           return NextResponse.json({ error: 'Invalid taskAssigned payload' }, { status: 400 });
@@ -36,7 +36,14 @@ export async function POST(request: NextRequest) {
           assignedToIds,
           assignedByName,
           taskTitle,
-          dueDate || undefined
+          dueDate || undefined,
+          {
+            priority: priority || null,
+            projectName: projectName || null,
+            assigneeNames: Array.isArray(assigneeNames) ? assigneeNames : null,
+            assignedByName,
+            dueDate: dueDate || null,
+          }
         );
 
         return NextResponse.json({ success });

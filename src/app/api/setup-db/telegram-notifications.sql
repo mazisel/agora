@@ -41,3 +41,32 @@ CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_user_id
 
 CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_token
   ON telegram_link_tokens(token);
+
+-- Track last login for reminder suppression
+ALTER TABLE user_profiles
+ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+
+-- Reminder queue for task assignments
+CREATE TABLE IF NOT EXISTS task_assignment_reminders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+  initial_notification_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  next_reminder_at TIMESTAMPTZ,
+  last_reminder_sent_at TIMESTAMPTZ,
+  reminder_attempts INTEGER NOT NULL DEFAULT 0,
+  reminder_interval_minutes INTEGER NOT NULL DEFAULT 60,
+  max_reminders INTEGER NOT NULL DEFAULT 12,
+  completed_at TIMESTAMPTZ,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (task_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_assignment_reminders_next
+  ON task_assignment_reminders(next_reminder_at)
+  WHERE completed_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_task_assignment_reminders_user
+  ON task_assignment_reminders(user_id);

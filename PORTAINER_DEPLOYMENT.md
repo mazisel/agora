@@ -34,6 +34,7 @@ TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 TELEGRAM_WEBHOOK_SECRET=your_webhook_secret
 TELEGRAM_BOT_USERNAME=your_bot_username_without_at
 NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=your_bot_username_without_at
+TASK_REMINDER_SECRET=your_task_reminder_secret
 ```
 
 ## 2. Portainer Stack Oluşturma
@@ -100,6 +101,7 @@ services:
       - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET}
       - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
       - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME}
+      - TASK_REMINDER_SECRET=${TASK_REMINDER_SECRET}
     restart: unless-stopped
     networks:
       - team-management-network
@@ -147,6 +149,7 @@ TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
 TELEGRAM_BOT_USERNAME=your-bot-username
 NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=your-bot-username
+TASK_REMINDER_SECRET=your-task-reminder-secret
 ```
 
 ## 4. Deployment Sonrası Kontroller
@@ -193,6 +196,13 @@ curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getWebhookInfo"
 
 5. Admin panelinde kullanıcı düzenleme moduna girip "Telegram" bölümündeki **Bağlantı Oluştur** butonuyla derin link üretin ve ilgili kullanıcıya gönderin. Kullanıcı linke tıklayıp botta `/start` komutunu çalıştırdığında bağlantı otomatik olarak tamamlanır.
 6. Bağlantı sonrası kartta "Bağlı" durumu görünecek; gerekirse yeni bağlantı oluşturup eskisini geçersiz kılabilirsiniz.
+7. Görev hatırlatmalarının çalışması için düzenli olarak `/api/tasks/reminders/process` endpoint’ini tetikleyecek bir cron job ekleyin. Örnek crontab satırı:
+
+```
+*/10 * * * * curl -s -X POST "https://agora.e4labs.com.tr/api/tasks/reminders/process?secret=${TASK_REMINDER_SECRET}"
+```
+
+Bu komut her 10 dakikada bir hatırlatma kuyruğunu çalıştırır. Supabase Scheduled Triggers veya sunucudaki cron ile aynı çağrıyı yapabilirsiniz.
 
 ## 5. Güncelleme Süreci
 

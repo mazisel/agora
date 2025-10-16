@@ -6,7 +6,8 @@ export type TelegramNotificationType =
   | 'task_assigned'
   | 'task_status_update'
   | 'event_reminder'
-  | 'project_assigned';
+  | 'project_assigned'
+  | 'task_assigned_reminder';
 
 export interface TelegramMessage {
   text: string;
@@ -43,6 +44,37 @@ export const telegramTemplates: Record<TelegramNotificationType, TelegramTemplat
       taskId ? `Görev ID: ${taskId}` : null,
       '',
       'Detaylar için portalı kontrol edebilirsiniz.',
+    ].filter(Boolean);
+
+    return {
+      text: lines.join('\n'),
+      disable_web_page_preview: true,
+    };
+  },
+  task_assigned_reminder: (data) => {
+    const taskTitle = toText(data['taskTitle']) ?? 'Görev';
+    const assignedBy = toText(data['assignedBy']) ?? 'Yönetici';
+    const dueDate = toText(data['dueDate']);
+    const taskId = toText(data['taskId']);
+    const priority = toText(data['priority']);
+    const projectName = toText(data['projectName']);
+    const assigneeNames = Array.isArray(data['assigneeNames'])
+      ? (data['assigneeNames'] as string[]).filter(Boolean).join(', ')
+      : toText(data['assigneeNames']);
+    const attempt = typeof data['attempt'] === 'number' ? data['attempt'] : undefined;
+
+    const lines = [
+      '⏰ Görev Hatırlatma',
+      attempt ? `Hatırlatma #: ${attempt}` : null,
+      `Görev: ${taskTitle}`,
+      `Atayan: ${assignedBy}`,
+      assigneeNames ? `Sorumlu: ${assigneeNames}` : null,
+      projectName ? `Proje: ${projectName}` : null,
+      priority ? `Öncelik: ${priority}` : null,
+      dueDate ? `Teslim Tarihi: ${dueDate}` : null,
+      taskId ? `Görev ID: ${taskId}` : null,
+      '',
+      'Lütfen görevi tamamlamak için portala giriş yapın.',
     ].filter(Boolean);
 
     return {

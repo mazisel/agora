@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { buildTelegramMessage, sendTelegramMessages, TelegramNotificationType } from '@/lib/telegram';
+import { scheduleTaskAssignmentReminders } from '@/lib/task-reminders';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +14,14 @@ type TelegramContactRow = {
   telegram_chat_id: string | null;
   telegram_notifications_enabled: boolean | null;
 };
+
+interface TaskAssignmentContext {
+  priority?: string | null;
+  projectName?: string | null;
+  assigneeNames?: string[] | null;
+  assignedByName?: string | null;
+  dueDate?: string | null;
+}
 
 // Notification helper functions
 export class NotificationService {
@@ -209,7 +218,8 @@ export class NotificationService {
       type === 'task_assigned' ||
       type === 'task_status_update' ||
       type === 'event_reminder' ||
-      type === 'project_assigned'
+      type === 'project_assigned' ||
+      type === 'task_assigned_reminder'
     );
   }
 
@@ -219,7 +229,8 @@ export class NotificationService {
     assignedToIds: string[],
     assignedByName: string,
     taskTitle: string,
-    dueDate?: string
+    dueDate?: string,
+    context?: TaskAssignmentContext
   ): Promise<boolean> {
     const [emails, telegramChatIds] = await Promise.all([
       NotificationService.getUserEmails(assignedToIds),
@@ -235,7 +246,10 @@ export class NotificationService {
       taskTitle,
       assignedBy: assignedByName,
       dueDate,
-      taskId
+      taskId,
+      priority: context?.priority ?? null,
+      projectName: context?.projectName ?? null,
+      assigneeNames: context?.assigneeNames ?? null,
     };
 
     const deliveries: Promise<boolean>[] = [];
@@ -251,6 +265,16 @@ export class NotificationService {
     }
 
     const results = await Promise.all(deliveries);
+
+    await scheduleTaskAssignmentReminders(taskId, assignedToIds, {
+      taskTitle,
+      priority: context?.priority ?? null,
+      projectName: context?.projectName ?? null,
+      assigneeNames: context?.assigneeNames ?? null,
+      assignedByName,
+      dueDate: dueDate ?? null,
+    });
+
     return results.some(Boolean);
   }
 
