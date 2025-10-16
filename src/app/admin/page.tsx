@@ -82,7 +82,9 @@ export default function AdminPage() {
     }));
 
     try {
-      const response = await fetch(`/api/admin/telegram/generate-link?userId=${userId}`);
+      const response = await fetch(`/api/admin/telegram/generate-link?userId=${userId}`, {
+        credentials: 'include',
+      });
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.error || 'Telegram bağlantı bilgileri getirilemedi.');
@@ -138,6 +140,7 @@ export default function AdminPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           userId,
           expireInMinutes: expireInMinutes ?? 1440,
