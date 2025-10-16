@@ -72,6 +72,18 @@ export default function AdminPage() {
     setTelegramCopyFeedback('');
   };
 
+  const { session } = useAuth();
+
+  const authHeaders = () => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+    return headers;
+  };
+
   const loadTelegramLinks = async (userId: string, successMessage?: string) => {
     if (!userId) return;
     setTelegramLinkState(prev => ({
@@ -84,6 +96,7 @@ export default function AdminPage() {
     try {
       const response = await fetch(`/api/admin/telegram/generate-link?userId=${userId}`, {
         credentials: 'include',
+        headers: authHeaders(),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
@@ -137,9 +150,7 @@ export default function AdminPage() {
     try {
       const response = await fetch('/api/admin/telegram/generate-link', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders(),
         credentials: 'include',
         body: JSON.stringify({
           userId,
@@ -175,7 +186,7 @@ export default function AdminPage() {
       setTimeout(() => setTelegramCopyFeedback(''), 2500);
     }
   };
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
   const { canAccess } = usePermissions();
   const router = useRouter();
 
