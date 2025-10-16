@@ -26,11 +26,19 @@ export const telegramTemplates: Record<TelegramNotificationType, TelegramTemplat
     const assignedBy = toText(data['assignedBy']) ?? 'Yönetici';
     const dueDate = toText(data['dueDate']);
     const taskId = toText(data['taskId']);
+    const priority = toText(data['priority']);
+    const projectName = toText(data['projectName']);
+    const assigneeNames = Array.isArray(data['assigneeNames'])
+      ? (data['assigneeNames'] as string[]).filter(Boolean).join(', ')
+      : toText(data['assigneeNames']);
 
     const lines = [
       '📌 Yeni Görev Ataması',
       `Görev: ${taskTitle}`,
       `Atayan: ${assignedBy}`,
+      assigneeNames ? `Atananlar: ${assigneeNames}` : null,
+      projectName ? `Proje: ${projectName}` : null,
+      priority ? `Öncelik: ${priority}` : null,
       dueDate ? `Teslim Tarihi: ${dueDate}` : null,
       taskId ? `Görev ID: ${taskId}` : null,
       '',

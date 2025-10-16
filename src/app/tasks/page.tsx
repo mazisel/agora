@@ -240,6 +240,18 @@ export default function TasksPage() {
         ? selectedAssignees
         : (newTask.assigned_to ? [newTask.assigned_to] : []);
 
+      const assigneeNames = selectedAssignees.length > 0
+        ? selectedAssignees
+            .map(id => {
+              const user = users.find(u => u.id === id);
+              return user ? `${user.first_name} ${user.last_name}`.trim() : null;
+            })
+            .filter(Boolean)
+        : (newTask.assigned_to ? (() => {
+            const user = users.find(u => u.id === newTask.assigned_to);
+            return user ? [`${user.first_name} ${user.last_name}`.trim()] : [];
+          })() : []);
+
       if (assigneeIds.length > 0 && data?.id) {
         try {
           const assignedByName = `${userProfile?.first_name || 'Kullanıcı'} ${userProfile?.last_name || ''}`.trim();
@@ -257,6 +269,9 @@ export default function TasksPage() {
                 assignedByName,
                 taskTitle: newTask.title,
                 dueDate: newTask.due_date || null,
+                priority: newTask.priority,
+                projectName: projects.find(p => p.id === newTask.project_id)?.name || '',
+                assigneeNames,
               },
             }),
           });
