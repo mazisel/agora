@@ -235,6 +235,32 @@ export default function TasksPage() {
       if (error) throw error;
 
       await fetchData();
+
+      const assigneeIds = selectedAssignees.length > 0
+        ? selectedAssignees
+        : (newTask.assigned_to ? [newTask.assigned_to] : []);
+
+      if (assigneeIds.length > 0 && data?.id) {
+        try {
+          const assignedByName = `${userProfile?.first_name || 'Kullanıcı'} ${userProfile?.last_name || ''}`.trim();
+          await fetch('/api/tasks/notify-assignment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+            },
+            body: JSON.stringify({
+              taskId: data.id,
+              assignedToIds: assigneeIds,
+              assignedByName,
+              taskTitle: newTask.title,
+              dueDate: newTask.due_date || null,
+            }),
+          });
+        } catch (notifyError) {
+          console.error('Task assignment notification error:', notifyError);
+        }
+      }
       
       setNewTask({
         title: '',
