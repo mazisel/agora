@@ -57,6 +57,10 @@ export default function AdminPage() {
   const [telegramCopyFeedback, setTelegramCopyFeedback] = useState('');
   const TELEGRAM_BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || '';
 
+  const { user, session, loading } = useAuth();
+  const { canAccess } = usePermissions();
+  const router = useRouter();
+
   const buildTelegramLink = (token: string) =>
     TELEGRAM_BOT_USERNAME ? `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${token}` : '';
 
@@ -71,8 +75,6 @@ export default function AdminPage() {
     });
     setTelegramCopyFeedback('');
   };
-
-  const { session } = useAuth();
 
   const authHeaders = () => {
     const headers: Record<string, string> = {
@@ -186,10 +188,6 @@ export default function AdminPage() {
       setTimeout(() => setTelegramCopyFeedback(''), 2500);
     }
   };
-  const { user, session, loading } = useAuth();
-  const { canAccess } = usePermissions();
-  const router = useRouter();
-
   const [newUser, setNewUser] = useState({
     firstName: '',
     lastName: '',
