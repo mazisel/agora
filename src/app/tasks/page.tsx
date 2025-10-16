@@ -10,7 +10,7 @@ import CreateTaskView from '@/components/tasks/CreateTaskView';
 import TaskDetailView from '@/components/tasks/TaskDetailView';
 
 export default function TasksPage() {
-  const { userProfile, loading } = useAuth();
+  const { userProfile, session, loading } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<{
