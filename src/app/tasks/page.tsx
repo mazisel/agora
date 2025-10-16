@@ -209,6 +209,13 @@ export default function TasksPage() {
     }
 
     try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('User not authenticated');
+        alert('Oturum doğrulanamadı. Lütfen tekrar giriş yapın.');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('tasks')
         .insert([{
@@ -219,7 +226,8 @@ export default function TasksPage() {
           informed_person: newTask.informed_person || null,
           priority: newTask.priority,
           due_date: newTask.due_date || null,
-          status: newTask.status
+          status: newTask.status,
+          created_by: user.id
         }])
         .select()
         .single();
