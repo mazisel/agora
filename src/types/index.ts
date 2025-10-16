@@ -298,6 +298,14 @@ export interface SupportTicket {
   category?: SupportCategory;
   assigned_agent?: UserProfile;
 }
+
+export interface SupportTicketComment {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  message: string;
+  created_at: string;
+  updated_at: string;
   // Relations
   user?: UserProfile;
   ticket?: SupportTicket;

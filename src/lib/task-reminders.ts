@@ -1,6 +1,6 @@
 import { supabaseAdmin } from './supabase-admin';
 
-interface ReminderContext {
+export interface ReminderContext {
   taskTitle?: string | null;
   priority?: string | null;
   projectName?: string | null;
@@ -18,9 +18,7 @@ export async function scheduleTaskAssignmentReminders(
   userIds: string[],
   context: ReminderContext
 ): Promise<void> {
-  if (!userIds || userIds.length === 0) {
-    return;
-  }
+  if (!userIds?.length) return;
 
   const now = new Date();
   const firstReminder = new Date(now.getTime() + DEFAULT_FIRST_REMINDER_MINUTES * 60 * 1000);
@@ -49,9 +47,7 @@ export async function scheduleTaskAssignmentReminders(
   try {
     await supabaseAdmin
       .from('task_assignment_reminders')
-      .upsert(rows, {
-        onConflict: 'task_id,user_id',
-      });
+      .upsert(rows, { onConflict: 'task_id,user_id' });
   } catch (error) {
     console.error('Failed to schedule task assignment reminders:', error);
   }
@@ -69,3 +65,4 @@ export async function completeTaskReminder(reminderId: string): Promise<void> {
   } catch (error) {
     console.error('Failed to complete task reminder:', error);
   }
+}
