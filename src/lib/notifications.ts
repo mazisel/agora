@@ -222,8 +222,8 @@ export class NotificationService {
     dueDate?: string
   ): Promise<boolean> {
     const [emails, telegramChatIds] = await Promise.all([
-      this.getUserEmails(assignedToIds),
-      this.getUserTelegramChatIds(assignedToIds)
+      NotificationService.getUserEmails(assignedToIds),
+      NotificationService.getUserTelegramChatIds(assignedToIds)
     ]);
 
     if (emails.length === 0 && telegramChatIds.length === 0) {
@@ -241,12 +241,12 @@ export class NotificationService {
     const deliveries: Promise<boolean>[] = [];
 
     if (emails.length > 0) {
-      deliveries.push(this.sendEmailNotification('task_assigned', emails, payload));
+      deliveries.push(NotificationService.sendEmailNotification('task_assigned', emails, payload));
     }
 
     if (telegramChatIds.length > 0) {
       deliveries.push(
-        this.sendTelegramNotification('task_assigned', telegramChatIds, payload)
+        NotificationService.sendTelegramNotification('task_assigned', telegramChatIds, payload)
       );
     }
 
@@ -264,8 +264,8 @@ export class NotificationService {
     notifyUserIds: string[]
   ): Promise<boolean> {
     const [emails, telegramChatIds] = await Promise.all([
-      this.getUserEmails(notifyUserIds),
-      this.getUserTelegramChatIds(notifyUserIds)
+      NotificationService.getUserEmails(notifyUserIds),
+      NotificationService.getUserTelegramChatIds(notifyUserIds)
     ]);
 
     if (emails.length === 0 && telegramChatIds.length === 0) {
@@ -284,12 +284,12 @@ export class NotificationService {
     const deliveries: Promise<boolean>[] = [];
 
     if (emails.length > 0) {
-      deliveries.push(this.sendEmailNotification('task_status_update', emails, payload));
+      deliveries.push(NotificationService.sendEmailNotification('task_status_update', emails, payload));
     }
 
     if (telegramChatIds.length > 0) {
       deliveries.push(
-        this.sendTelegramNotification('task_status_update', telegramChatIds, payload)
+        NotificationService.sendTelegramNotification('task_status_update', telegramChatIds, payload)
       );
     }
 
@@ -307,8 +307,8 @@ export class NotificationService {
     location?: string
   ): Promise<boolean> {
     const [emails, telegramChatIds] = await Promise.all([
-      this.getUserEmails(participantIds),
-      this.getUserTelegramChatIds(participantIds)
+      NotificationService.getUserEmails(participantIds),
+      NotificationService.getUserTelegramChatIds(participantIds)
     ]);
 
     if (emails.length === 0 && telegramChatIds.length === 0) {
@@ -327,12 +327,12 @@ export class NotificationService {
     const deliveries: Promise<boolean>[] = [];
 
     if (emails.length > 0) {
-      deliveries.push(this.sendEmailNotification('event_reminder', emails, payload));
+      deliveries.push(NotificationService.sendEmailNotification('event_reminder', emails, payload));
     }
 
     if (telegramChatIds.length > 0) {
       deliveries.push(
-        this.sendTelegramNotification('event_reminder', telegramChatIds, payload)
+        NotificationService.sendTelegramNotification('event_reminder', telegramChatIds, payload)
       );
     }
 
@@ -346,7 +346,7 @@ export class NotificationService {
     userName: string,
     tempPassword: string
   ): Promise<boolean> {
-    return await this.sendEmailNotification('user_welcome', [userEmail], {
+    return await NotificationService.sendEmailNotification('user_welcome', [userEmail], {
       userName,
       tempPassword
     });
@@ -358,7 +358,7 @@ export class NotificationService {
     userName: string,
     newPassword: string
   ): Promise<boolean> {
-    return await this.sendEmailNotification('password_reset', [userEmail], {
+    return await NotificationService.sendEmailNotification('password_reset', [userEmail], {
       userName,
       newPassword
     });
@@ -373,8 +373,8 @@ export class NotificationService {
     role: string
   ): Promise<boolean> {
     const [emails, telegramChatIds] = await Promise.all([
-      this.getUserEmails(assignedToIds),
-      this.getUserTelegramChatIds(assignedToIds)
+      NotificationService.getUserEmails(assignedToIds),
+      NotificationService.getUserTelegramChatIds(assignedToIds)
     ]);
 
     if (emails.length === 0 && telegramChatIds.length === 0) {
@@ -392,12 +392,12 @@ export class NotificationService {
     const deliveries: Promise<boolean>[] = [];
 
     if (emails.length > 0) {
-      deliveries.push(this.sendEmailNotification('project_assigned', emails, payload));
+      deliveries.push(NotificationService.sendEmailNotification('project_assigned', emails, payload));
     }
 
     if (telegramChatIds.length > 0) {
       deliveries.push(
-        this.sendTelegramNotification('project_assigned', telegramChatIds, payload)
+        NotificationService.sendTelegramNotification('project_assigned', telegramChatIds, payload)
       );
     }
 
@@ -411,8 +411,8 @@ export class NotificationService {
     data: NotificationPayload
   ): Promise<boolean> {
     const [emails, telegramChatIds] = await Promise.all([
-      this.getUserEmailsByRole('admin'),
-      this.getUserTelegramChatIdsByRole('admin')
+      NotificationService.getUserEmailsByRole('admin'),
+      NotificationService.getUserTelegramChatIdsByRole('admin')
     ]);
 
     if (emails.length === 0 && telegramChatIds.length === 0) {
@@ -423,11 +423,11 @@ export class NotificationService {
     const deliveries: Promise<boolean>[] = [];
 
     if (emails.length > 0) {
-      deliveries.push(this.sendEmailNotification(type, emails, data));
+      deliveries.push(NotificationService.sendEmailNotification(type, emails, data));
     }
 
     if (telegramChatIds.length > 0 && this.isTelegramNotificationType(type)) {
-      deliveries.push(this.sendTelegramNotification(type, telegramChatIds, data));
+      deliveries.push(NotificationService.sendTelegramNotification(type, telegramChatIds, data));
     }
 
     if (deliveries.length === 0) {
@@ -445,8 +445,8 @@ export class NotificationService {
     data: NotificationPayload
   ): Promise<boolean> {
     const [emails, telegramChatIds] = await Promise.all([
-      this.getUserEmailsByRole('manager'),
-      this.getUserTelegramChatIdsByRole('manager')
+      NotificationService.getUserEmailsByRole('manager'),
+      NotificationService.getUserTelegramChatIdsByRole('manager')
     ]);
 
     if (emails.length === 0 && telegramChatIds.length === 0) {
@@ -457,11 +457,11 @@ export class NotificationService {
     const deliveries: Promise<boolean>[] = [];
 
     if (emails.length > 0) {
-      deliveries.push(this.sendEmailNotification(type, emails, data));
+      deliveries.push(NotificationService.sendEmailNotification(type, emails, data));
     }
 
     if (telegramChatIds.length > 0 && this.isTelegramNotificationType(type)) {
-      deliveries.push(this.sendTelegramNotification(type, telegramChatIds, data));
+      deliveries.push(NotificationService.sendTelegramNotification(type, telegramChatIds, data));
     }
 
     if (deliveries.length === 0) {
