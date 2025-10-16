@@ -1,18 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
+import { buildTelegramMessage, sendTelegramMessages, TelegramNotificationType } from '@/lib/telegram';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+type NotificationType = TelegramNotificationType | 'user_welcome' | 'password_reset';
+type NotificationPayload = Record<string, unknown>;
+
+type TelegramContactRow = {
+  telegram_chat_id: string | null;
+  telegram_notifications_enabled: boolean | null;
+};
+
 // Notification helper functions
 export class NotificationService {
   
   // Send email notification via API
   private static async sendEmailNotification(
-    type: string,
+    type: NotificationType,
     recipients: string[],
-    data: any
+    data: NotificationPayload
   ): Promise<boolean> {
     try {
       const response = await fetch('/api/notifications/send-email', {
@@ -31,6 +40,52 @@ export class NotificationService {
       return result.success;
     } catch (error) {
       console.error('Failed to send email notification:', error);
+      return false;
+    }
+  }
+
+  // Send Telegram notification via Bot API
+  private static async sendTelegramNotification(
+    type: TelegramNotificationType,
+    chatIds: (string | number)[],
+    data: NotificationPayload
+  ): Promise<boolean> {
+    if (!chatIds || chatIds.length === 0) {
+      return false;
+    }
+
+    const message = buildTelegramMessage(type, data);
+
+    if (!message) {
+      console.warn(`No Telegram template found for notification type: ${type}`);
+      return false;
+    }
+
+    try {
+      const { successful, failed } = await sendTelegramMessages(chatIds, message);
+
+      try {
+        await supabase.from('telegram_notifications').insert({
+          type,
+          recipients: chatIds.map((id) => id.toString()),
+          message: message.text,
+          sent_at: new Date().toISOString(),
+          successful_count: successful,
+          failed_count: failed,
+          data
+        });
+      } catch (logError) {
+        console.error('Failed to log Telegram notification:', logError);
+      }
+
+      if (successful === 0) {
+        console.warn(`Telegram notification "${type}" could not be delivered to any recipient.`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Failed to send Telegram notification:', error);
       return false;
     }
   }
@@ -56,6 +111,43 @@ export class NotificationService {
     }
   }
 
+  // Get user Telegram chat IDs by user IDs
+  private static async getUserTelegramChatIds(userIds: string[]): Promise<string[]> {
+    if (!userIds || userIds.length === 0) {
+      return [];
+    }
+
+    try {
+      const { data: users, error } = await supabase
+        .from<TelegramContactRow>('user_profiles')
+        .select('telegram_chat_id, telegram_notifications_enabled')
+        .in('id', userIds)
+        .eq('telegram_notifications_enabled', true)
+        .not('telegram_chat_id', 'is', null);
+
+      if (error) {
+        console.error('Error fetching Telegram chat IDs:', error);
+        return [];
+      }
+
+      if (!users) {
+        return [];
+      }
+
+      return users
+        .filter(
+          (user): user is TelegramContactRow & { telegram_chat_id: string } =>
+            Boolean(user.telegram_notifications_enabled) &&
+            typeof user.telegram_chat_id === 'string' &&
+            user.telegram_chat_id.trim().length > 0
+        )
+        .map((user) => user.telegram_chat_id);
+    } catch (error) {
+      console.error('Error fetching Telegram chat IDs:', error);
+      return [];
+    }
+  }
+
   // Get user emails by role
   private static async getUserEmailsByRole(role: string): Promise<string[]> {
     try {
@@ -77,6 +169,50 @@ export class NotificationService {
     }
   }
 
+  // Get Telegram chat IDs by role
+  private static async getUserTelegramChatIdsByRole(role: string): Promise<string[]> {
+    try {
+      const { data: users, error } = await supabase
+        .from<TelegramContactRow>('user_profiles')
+        .select('telegram_chat_id, telegram_notifications_enabled')
+        .eq('authority_level', role)
+        .eq('telegram_notifications_enabled', true)
+        .not('telegram_chat_id', 'is', null);
+
+      if (error) {
+        console.error('Error fetching Telegram chat IDs by role:', error);
+        return [];
+      }
+
+      if (!users) {
+        return [];
+      }
+
+      return users
+        .filter(
+          (user): user is TelegramContactRow & { telegram_chat_id: string } =>
+            Boolean(user.telegram_notifications_enabled) &&
+            typeof user.telegram_chat_id === 'string' &&
+            user.telegram_chat_id.trim().length > 0
+        )
+        .map((user) => user.telegram_chat_id);
+    } catch (error) {
+      console.error('Error fetching Telegram chat IDs by role:', error);
+      return [];
+    }
+  }
+
+  private static isTelegramNotificationType(
+    type: NotificationType
+  ): type is TelegramNotificationType {
+    return (
+      type === 'task_assigned' ||
+      type === 'task_status_update' ||
+      type === 'event_reminder' ||
+      type === 'project_assigned'
+    );
+  }
+
   // Task assignment notification
   static async notifyTaskAssignment(
     taskId: string,
@@ -85,19 +221,37 @@ export class NotificationService {
     taskTitle: string,
     dueDate?: string
   ): Promise<boolean> {
-    const emails = await this.getUserEmails(assignedToIds);
-    
-    if (emails.length === 0) {
-      console.warn('No valid emails found for task assignment notification');
+    const [emails, telegramChatIds] = await Promise.all([
+      this.getUserEmails(assignedToIds),
+      this.getUserTelegramChatIds(assignedToIds)
+    ]);
+
+    if (emails.length === 0 && telegramChatIds.length === 0) {
+      console.warn('No valid recipients found for task assignment notification');
       return false;
     }
 
-    return await this.sendEmailNotification('task_assigned', emails, {
+    const payload = {
       taskTitle,
       assignedBy: assignedByName,
       dueDate,
       taskId
-    });
+    };
+
+    const deliveries: Promise<boolean>[] = [];
+
+    if (emails.length > 0) {
+      deliveries.push(this.sendEmailNotification('task_assigned', emails, payload));
+    }
+
+    if (telegramChatIds.length > 0) {
+      deliveries.push(
+        this.sendTelegramNotification('task_assigned', telegramChatIds, payload)
+      );
+    }
+
+    const results = await Promise.all(deliveries);
+    return results.some(Boolean);
   }
 
   // Task status update notification
@@ -109,20 +263,38 @@ export class NotificationService {
     updatedByName: string,
     notifyUserIds: string[]
   ): Promise<boolean> {
-    const emails = await this.getUserEmails(notifyUserIds);
-    
-    if (emails.length === 0) {
-      console.warn('No valid emails found for task status update notification');
+    const [emails, telegramChatIds] = await Promise.all([
+      this.getUserEmails(notifyUserIds),
+      this.getUserTelegramChatIds(notifyUserIds)
+    ]);
+
+    if (emails.length === 0 && telegramChatIds.length === 0) {
+      console.warn('No valid recipients found for task status update notification');
       return false;
     }
 
-    return await this.sendEmailNotification('task_status_update', emails, {
+    const payload = {
       taskTitle,
       oldStatus,
       newStatus,
       updatedBy: updatedByName,
       taskId
-    });
+    };
+
+    const deliveries: Promise<boolean>[] = [];
+
+    if (emails.length > 0) {
+      deliveries.push(this.sendEmailNotification('task_status_update', emails, payload));
+    }
+
+    if (telegramChatIds.length > 0) {
+      deliveries.push(
+        this.sendTelegramNotification('task_status_update', telegramChatIds, payload)
+      );
+    }
+
+    const results = await Promise.all(deliveries);
+    return results.some(Boolean);
   }
 
   // Event reminder notification
@@ -134,20 +306,38 @@ export class NotificationService {
     eventTime?: string,
     location?: string
   ): Promise<boolean> {
-    const emails = await this.getUserEmails(participantIds);
-    
-    if (emails.length === 0) {
-      console.warn('No valid emails found for event reminder notification');
+    const [emails, telegramChatIds] = await Promise.all([
+      this.getUserEmails(participantIds),
+      this.getUserTelegramChatIds(participantIds)
+    ]);
+
+    if (emails.length === 0 && telegramChatIds.length === 0) {
+      console.warn('No valid recipients found for event reminder notification');
       return false;
     }
 
-    return await this.sendEmailNotification('event_reminder', emails, {
+    const payload = {
       eventTitle,
       eventDate,
       eventTime,
       location,
       eventId
-    });
+    };
+
+    const deliveries: Promise<boolean>[] = [];
+
+    if (emails.length > 0) {
+      deliveries.push(this.sendEmailNotification('event_reminder', emails, payload));
+    }
+
+    if (telegramChatIds.length > 0) {
+      deliveries.push(
+        this.sendTelegramNotification('event_reminder', telegramChatIds, payload)
+      );
+    }
+
+    const results = await Promise.all(deliveries);
+    return results.some(Boolean);
   }
 
   // New user welcome notification
@@ -182,49 +372,105 @@ export class NotificationService {
     assignedByName: string,
     role: string
   ): Promise<boolean> {
-    const emails = await this.getUserEmails(assignedToIds);
-    
-    if (emails.length === 0) {
-      console.warn('No valid emails found for project assignment notification');
+    const [emails, telegramChatIds] = await Promise.all([
+      this.getUserEmails(assignedToIds),
+      this.getUserTelegramChatIds(assignedToIds)
+    ]);
+
+    if (emails.length === 0 && telegramChatIds.length === 0) {
+      console.warn('No valid recipients found for project assignment notification');
       return false;
     }
 
-    return await this.sendEmailNotification('project_assigned', emails, {
+    const payload = {
       projectTitle,
       assignedBy: assignedByName,
       role,
       projectId
-    });
+    };
+
+    const deliveries: Promise<boolean>[] = [];
+
+    if (emails.length > 0) {
+      deliveries.push(this.sendEmailNotification('project_assigned', emails, payload));
+    }
+
+    if (telegramChatIds.length > 0) {
+      deliveries.push(
+        this.sendTelegramNotification('project_assigned', telegramChatIds, payload)
+      );
+    }
+
+    const results = await Promise.all(deliveries);
+    return results.some(Boolean);
   }
 
   // Notify all admins
   static async notifyAdmins(
-    type: string,
-    data: any
+    type: NotificationType,
+    data: NotificationPayload
   ): Promise<boolean> {
-    const emails = await this.getUserEmailsByRole('admin');
-    
-    if (emails.length === 0) {
-      console.warn('No admin emails found');
+    const [emails, telegramChatIds] = await Promise.all([
+      this.getUserEmailsByRole('admin'),
+      this.getUserTelegramChatIdsByRole('admin')
+    ]);
+
+    if (emails.length === 0 && telegramChatIds.length === 0) {
+      console.warn('No admin recipients found for notification');
       return false;
     }
 
-    return await this.sendEmailNotification(type, emails, data);
+    const deliveries: Promise<boolean>[] = [];
+
+    if (emails.length > 0) {
+      deliveries.push(this.sendEmailNotification(type, emails, data));
+    }
+
+    if (telegramChatIds.length > 0 && this.isTelegramNotificationType(type)) {
+      deliveries.push(this.sendTelegramNotification(type, telegramChatIds, data));
+    }
+
+    if (deliveries.length === 0) {
+      console.warn('Admin notification skipped because no supported channels were available');
+      return false;
+    }
+
+    const results = await Promise.all(deliveries);
+    return results.some(Boolean);
   }
 
   // Notify all managers
   static async notifyManagers(
-    type: string,
-    data: any
+    type: NotificationType,
+    data: NotificationPayload
   ): Promise<boolean> {
-    const emails = await this.getUserEmailsByRole('manager');
-    
-    if (emails.length === 0) {
-      console.warn('No manager emails found');
+    const [emails, telegramChatIds] = await Promise.all([
+      this.getUserEmailsByRole('manager'),
+      this.getUserTelegramChatIdsByRole('manager')
+    ]);
+
+    if (emails.length === 0 && telegramChatIds.length === 0) {
+      console.warn('No manager recipients found for notification');
       return false;
     }
 
-    return await this.sendEmailNotification(type, emails, data);
+    const deliveries: Promise<boolean>[] = [];
+
+    if (emails.length > 0) {
+      deliveries.push(this.sendEmailNotification(type, emails, data));
+    }
+
+    if (telegramChatIds.length > 0 && this.isTelegramNotificationType(type)) {
+      deliveries.push(this.sendTelegramNotification(type, telegramChatIds, data));
+    }
+
+    if (deliveries.length === 0) {
+      console.warn('Manager notification skipped because no supported channels were available');
+      return false;
+    }
+
+    const results = await Promise.all(deliveries);
+    return results.some(Boolean);
   }
 
   // Schedule event reminders (to be called by a cron job or scheduler)

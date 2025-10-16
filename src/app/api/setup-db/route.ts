@@ -20,7 +20,8 @@ export async function POST(request: NextRequest) {
       'service-routes.sql',
       'vehicle-request-system.sql',
       'office-supplies-system.sql',
-      'meeting-room-system.sql'
+      'meeting-room-system.sql',
+      'telegram-notifications.sql'
     ];
 
     for (const fileName of setupFiles) {

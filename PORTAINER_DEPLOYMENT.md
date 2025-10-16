@@ -28,6 +28,10 @@ EMAIL_FROM=your_from_email
 # Application Settings
 NODE_ENV=production
 PORT=3001
+
+# Telegram Notifications
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_WEBHOOK_SECRET=your_webhook_secret
 ```
 
 ## 2. Portainer Stack Oluşturma
@@ -89,6 +93,9 @@ services:
       - EMAIL_USER=${EMAIL_USER}
       - EMAIL_PASS=${EMAIL_PASS}
       - EMAIL_FROM=${EMAIL_FROM}
+      # Telegram
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET}
     restart: unless-stopped
     networks:
       - team-management-network
@@ -132,6 +139,8 @@ EMAIL_PASS=your-app-password
 EMAIL_FROM=noreply@yourcompany.com
 NODE_ENV=production
 PORT=3001
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
 ```
 
 ## 4. Deployment Sonrası Kontroller
@@ -157,6 +166,27 @@ Portainer'da **Containers** > **team-management-system** > **Logs**
 
 ### Container Stats
 CPU, Memory, Network kullanımını **Stats** sekmesinden takip edin
+
+## 5. Telegram Bot Kurulumu
+
+1. Telegram'da **@BotFather** üzerinden bir bot oluşturun ve verdiği token'ı `TELEGRAM_BOT_TOKEN` olarak kaydedin.
+2. Bot isteğinin yalnızca sizden gelmesi için rastgele bir değer belirleyin ve `TELEGRAM_WEBHOOK_SECRET` değişkenine girin.
+3. Stack'i redeploy ettikten sonra webhook'u aşağıdaki gibi ayarlayın (alan adınızı ve secret değerini güncelleyin):
+
+```bash
+curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://your-domain.com/api/telegram/webhook?secret=<TELEGRAM_WEBHOOK_SECRET>"}'
+```
+
+4. `getWebhookInfo` çağrısı ile webhook'un doğru kurulduğunu doğrulayabilirsiniz:
+
+```bash
+curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getWebhookInfo"
+```
+
+5. Admin panelindeki kullanıcı düzenleme ekranından her kullanıcı için Telegram kullanıcı adını girin (başında `@` olmadan).
+6. Kullanıcılar botu Telegram üzerinden başlattığında sistem otomatik olarak chat ID'yi eşleştirir ve bildirimleri aktive eder; kullanıcı adı değişirse bağlantıyı yenilemek için botla tekrar konuşmaları gerekir.
 
 ## 5. Güncelleme Süreci
 

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/supabase';
 import { UserProfile, Department, Position } from '@/types';
+import { sanitizeTelegramUsername, isValidTelegramUsername } from '@/lib/telegram-utils';
 import { 
   Users, 
   Plus, 
@@ -48,6 +49,8 @@ export default function AdminPage() {
     email: '',
     password: '',
     phone: '',
+    telegramUsername: '',
+    telegramNotificationsEnabled: false,
     position: '',
     department: '',
     address: '',
@@ -220,6 +223,13 @@ export default function AdminPage() {
     setIsLoading(true);
     setError('');
 
+    const sanitizedTelegram = sanitizeTelegramUsername(newUser.telegramUsername);
+    if (newUser.telegramUsername && !isValidTelegramUsername(newUser.telegramUsername)) {
+      setError('Geçerli bir Telegram kullanıcı adı giriniz. Kullanıcı adları en az 5 karakter olmalı ve yalnızca harf, sayı veya alt çizgi içermelidir.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // API route'u kullanarak kullanıcı oluştur (mevcut oturumu etkilemez)
       const response = await fetch('/api/admin/create-user', {
@@ -238,6 +248,10 @@ export default function AdminPage() {
             last_name: newUser.lastName,
             email: newUser.email,
             phone: newUser.phone,
+            telegram_username: sanitizedTelegram,
+            telegram_notifications_enabled: false,
+            telegram_chat_id: null,
+            telegram_linked_at: null,
             position: newUser.position,
             department: newUser.department,
             address: newUser.address,
@@ -297,6 +311,8 @@ export default function AdminPage() {
         email: '',
         password: '',
         phone: '',
+        telegramUsername: '',
+        telegramNotificationsEnabled: false,
         position: '',
         department: '',
         address: '',
@@ -352,6 +368,34 @@ export default function AdminPage() {
     try {
       setIsLoading(true);
       
+      const sanitizedTelegram = sanitizeTelegramUsername(editingUser.telegram_username);
+      if (editingUser.telegram_username && !isValidTelegramUsername(editingUser.telegram_username)) {
+        setError('Geçerli bir Telegram kullanıcı adı giriniz. Kullanıcı adları en az 5 karakter olmalı ve yalnızca harf, sayı veya alt çizgi içerebilir.');
+        setIsLoading(false);
+        return;
+      }
+
+      const originalUser = users.find(u => u.id === editingUser.id) || null;
+      const previousTelegram = sanitizeTelegramUsername(originalUser?.telegram_username || null);
+      const usernameChanged = sanitizedTelegram !== previousTelegram;
+
+      let telegramUsernameForUpdate = sanitizedTelegram;
+      let telegramChatIdForUpdate = editingUser.telegram_chat_id || null;
+      let telegramLinkedAtForUpdate = editingUser.telegram_linked_at || null;
+      let telegramNotificationsEnabledForUpdate =
+        editingUser.telegram_notifications_enabled === true && Boolean(telegramChatIdForUpdate);
+
+      if (!sanitizedTelegram) {
+        telegramUsernameForUpdate = null;
+        telegramChatIdForUpdate = null;
+        telegramLinkedAtForUpdate = null;
+        telegramNotificationsEnabledForUpdate = false;
+      } else if (usernameChanged) {
+        telegramChatIdForUpdate = null;
+        telegramLinkedAtForUpdate = null;
+        telegramNotificationsEnabledForUpdate = false;
+      }
+      
       console.log('🔄 Kullanıcı güncelleniyor:', editingUser.id, editingUser.first_name, editingUser.last_name);
       
       const updateData = {
@@ -391,7 +435,11 @@ export default function AdminPage() {
         is_leader: editingUser.is_leader,
         authority_level: editingUser.authority_level,
         department_id: editingUser.department_id,
-        position_id: editingUser.position_id
+        position_id: editingUser.position_id,
+        telegram_username: telegramUsernameForUpdate,
+        telegram_chat_id: telegramChatIdForUpdate,
+        telegram_linked_at: telegramLinkedAtForUpdate,
+        telegram_notifications_enabled: telegramNotificationsEnabledForUpdate
       };
 
       console.log('📝 Güncelleme verisi:', updateData);
@@ -766,6 +814,82 @@ export default function AdminPage() {
                     className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                     placeholder="+90 555 123 4567"
                   />
+                </div>
+
+                {/* Telegram Username */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Telegram Kullanıcı Adı</label>
+                  <input
+                    type="text"
+                    value={editingUser.telegram_username || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const sanitizedValue = sanitizeTelegramUsername(value);
+                      const originalSanitized = sanitizeTelegramUsername(
+                        users.find(u => u.id === editingUser.id)?.telegram_username || null
+                      );
+                      const usernameChanged = sanitizedValue !== originalSanitized;
+                      setEditingUser({
+                        ...editingUser,
+                        telegram_username: value,
+                        telegram_notifications_enabled: usernameChanged ? false : editingUser.telegram_notifications_enabled
+                      });
+                    }}
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                    placeholder="ornek_kullanici"
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    Kullanıcı adını başında @ olmadan girin. Kullanıcının botla konuşması bağlantıyı tamamlar. Kullanıcı adını değiştirdiğinizde mevcut bağlantı sıfırlanır ve bot üzerinden yeniden onay alınması gerekir.
+                  </p>
+                  <div className="mt-3 p-3 bg-slate-800/50 border border-slate-600/60 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-200">Telegram Bildirimleri</p>
+                      {editingUser.telegram_chat_id ? (
+                        <p className="text-xs text-emerald-400 mt-1">
+                          Bağlı (Chat ID: {editingUser.telegram_chat_id})
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Henüz bot ile bağlantı kurulmamış. Kullanıcı botu başlattığında otomatik olarak eşleşir.
+                        </p>
+                      )}
+                      {editingUser.telegram_linked_at && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Son bağlantı: {new Date(editingUser.telegram_linked_at).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-600 text-blue-500 focus:ring-blue-500"
+                        checked={editingUser.telegram_notifications_enabled === true}
+                        onChange={(e) => setEditingUser({ ...editingUser, telegram_notifications_enabled: e.target.checked })}
+                        disabled={
+                          !editingUser.telegram_chat_id ||
+                          !sanitizeTelegramUsername(editingUser.telegram_username)
+                        }
+                      />
+                      <span className="text-xs text-slate-400">
+                        {editingUser.telegram_chat_id ? 'Aktif' : 'Bağlantı bekleniyor'}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Telegram Username */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Telegram Kullanıcı Adı</label>
+                  <input
+                    type="text"
+                    value={newUser.telegramUsername}
+                    onChange={(e) => setNewUser({ ...newUser, telegramUsername: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                    placeholder="ornek_kullanici"
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    Kullanıcı adını başında @ olmadan girin. Kullanıcı botla konuştuğunda Telegram bildirimleri otomatik bağlanır.
+                  </p>
                 </div>
 
                 {/* Department */}

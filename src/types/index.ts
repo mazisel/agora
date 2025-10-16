@@ -13,6 +13,10 @@ export interface UserProfile {
   last_name: string;
   email?: string;
   phone?: string;
+  telegram_username?: string | null;
+  telegram_chat_id?: string | null;
+  telegram_notifications_enabled?: boolean | null;
+  telegram_linked_at?: string | null;
   position?: string;
   department?: string;
   address?: string;
