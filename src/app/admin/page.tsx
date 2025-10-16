@@ -480,6 +480,7 @@ export default function AdminPage() {
     } catch (error) {
       console.error('💥 Kullanıcı güncelleme hatası:', error);
       setError(`Kullanıcı güncellenirken hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
+      setShowUpdateConfirm(false);
       setIsLoading(false);
     }
   };
