@@ -243,18 +243,21 @@ export default function TasksPage() {
       if (assigneeIds.length > 0 && data?.id) {
         try {
           const assignedByName = `${userProfile?.first_name || 'Kullanıcı'} ${userProfile?.last_name || ''}`.trim();
-          await fetch('/api/tasks/notify-assignment', {
+          await fetch('/api/tasks/notifications', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
             },
             body: JSON.stringify({
-              taskId: data.id,
-              assignedToIds: assigneeIds,
-              assignedByName,
-              taskTitle: newTask.title,
-              dueDate: newTask.due_date || null,
+              type: 'taskAssigned',
+              payload: {
+                taskId: data.id,
+                assignedToIds: assigneeIds,
+                assignedByName,
+                taskTitle: newTask.title,
+                dueDate: newTask.due_date || null,
+              },
             }),
           });
         } catch (notifyError) {
