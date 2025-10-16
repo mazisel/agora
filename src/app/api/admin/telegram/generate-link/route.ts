@@ -7,44 +7,52 @@ import { cookies } from 'next/headers';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+  },
+});
 
 const TELEGRAM_BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME;
 
-async function requireAdmin(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  let authToken: string | null = null;
-
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    authToken = authHeader.substring(7);
-  } else {
-    const cookieStore = await cookies();
-    const candidates = [
-      'sb-access-token',
-      'sb-riacmnpxjsbrppzfjeur-auth-token',
-      'supabase-auth-token',
-      'supabase.auth.token',
-    ];
-
-    for (const name of candidates) {
-      const cookie = cookieStore.get(name);
-      if (!cookie?.value) continue;
-
-      try {
-        const parsed = JSON.parse(cookie.value);
-        if (parsed.access_token) {
-          authToken = parsed.access_token;
-          break;
-        }
-      } catch {
-        authToken = cookie.value;
-        break;
-      }
-
-      authToken = cookie.value;
-      break;
-    }
+async function getAuthToken(request: NextRequest): Promise<string | null> {
+  const header = request.headers.get('authorization');
+  if (header?.startsWith('Bearer ')) {
+    return header.substring(7);
   }
+
+  const cookieStore = await cookies();
+  const candidates = [
+    'sb-access-token',
+    'sb-riacmnpxjsbrppzfjeur-auth-token',
+    'supabase-auth-token',
+    'supabase.auth.token',
+  ];
+
+  for (const name of candidates) {
+    const cookie = cookieStore.get(name);
+    if (!cookie?.value) continue;
+
+    try {
+      const parsed = JSON.parse(cookie.value);
+      if (parsed.access_token) {
+        return parsed.access_token;
+      }
+    } catch {
+      return cookie.value;
+    }
+
+    return cookie.value;
+  }
+
+  return null;
+}
+
+async function requireAdmin(request: NextRequest) {
+  const authToken = await getAuthToken(request);
 
   if (!authToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
