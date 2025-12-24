@@ -30,7 +30,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   }>({ status: '' });
   const [commentsSubscription, setCommentsSubscription] = useState<any>(null);
   const [showKanban, setShowKanban] = useState(false);
-  
+
   // Expense states
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [newExpense, setNewExpense] = useState({
@@ -43,7 +43,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
     receipt_number: '',
     expense_date: new Date().toISOString().split('T')[0]
   });
-  
+
   const { user, userProfile } = useAuth();
 
   // Fetch tasks from Supabase and API
@@ -52,10 +52,10 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
 
     try {
       setIsLoading(true);
-      
+
       // Get auth token
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       const authHeaders: HeadersInit = session?.access_token ? {
         'Authorization': `Bearer ${session.access_token}`
       } : {};
@@ -92,9 +92,9 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         if (tasksResponse.ok) {
           const allTasks = await tasksResponse.json();
           // Filter only request tasks (not normal tasks)
-          requestTasks = allTasks.filter((task: any) => 
-            task.id.startsWith('leave_') || 
-            task.id.startsWith('advance_') || 
+          requestTasks = allTasks.filter((task: any) =>
+            task.id.startsWith('leave_') ||
+            task.id.startsWith('advance_') ||
             task.id.startsWith('suggestion_')
           );
         } else {
@@ -109,7 +109,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         ...(normalTasks || []),
         ...requestTasks
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-       .slice(0, 10); // Limit to 10 for dashboard
+        .slice(0, 10); // Limit to 10 for dashboard
 
       setTasks(allTasks);
     } catch (error) {
@@ -140,7 +140,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
       });
 
       console.log('🔍 API Response status:', response.status);
-      
+
       if (response.ok) {
         const result = await response.json();
         console.log('🔍 API Response data:', result);
@@ -162,23 +162,21 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   };
 
   useEffect(() => {
-    console.log('🔍 TaskCards useEffect triggered');
-    console.log('🔍 User:', user);
-    console.log('🔍 UserProfile:', userProfile);
-    
-    if (user && userProfile) {
+    // console.log('🔍 TaskCards useEffect triggered'); // Reduced logging
+
+    if (user?.id && userProfile?.id) {
       loadData();
     }
-  }, [user, userProfile]);
+  }, [user?.id, userProfile?.id]);
 
   const loadData = async () => {
     try {
       // Önce tasks yükle
       await fetchTasks();
-      
+
       // 200ms bekle
       await new Promise(resolve => setTimeout(resolve, 200));
-      
+
       // Sonra transferred tasks yükle
       await fetchTransferredTasks();
     } catch (error) {
@@ -256,7 +254,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
     try {
       const { error } = await supabase
         .from('tasks')
-        .update({ 
+        .update({
           status: newStatus,
           completed_at: newStatus === 'done' ? new Date().toISOString() : null
         })
@@ -319,7 +317,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           suggestion_id: supportTicketId,
           status: 'implemented'
         })
@@ -694,35 +692,35 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   };
 
   // Filtreleme
-  const filteredTasks = selectedStatus 
+  const filteredTasks = selectedStatus
     ? tasks.filter(task => {
-        switch (selectedStatus.toLowerCase()) {
-          case 'yapılacak':
-          case 'todo':
-            return task.status === 'todo';
-          case 'devam ediyor':
-          case 'in_progress':
-            return task.status === 'in_progress';
-          case 'inceleme':
-          case 'review':
-            return task.status === 'review';
-          case 'tamamlandı':
-          case 'done':
-            return task.status === 'done';
-          case 'iptal':
-          case 'cancelled':
-            return task.status === 'cancelled';
-          default:
-            return true;
-        }
-      })
+      switch (selectedStatus.toLowerCase()) {
+        case 'yapılacak':
+        case 'todo':
+          return task.status === 'todo';
+        case 'devam ediyor':
+        case 'in_progress':
+          return task.status === 'in_progress';
+        case 'inceleme':
+        case 'review':
+          return task.status === 'review';
+        case 'tamamlandı':
+        case 'done':
+          return task.status === 'done';
+        case 'iptal':
+        case 'cancelled':
+          return task.status === 'cancelled';
+        default:
+          return true;
+      }
+    })
     : tasks;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('tr-TR', { 
-      day: 'numeric', 
-      month: 'short' 
+    return date.toLocaleDateString('tr-TR', {
+      day: 'numeric',
+      month: 'short'
     });
   };
 
@@ -760,7 +758,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={() => setShowKanban(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl text-sm"
             title="Kanban Görünümü"
@@ -768,7 +766,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
             <LayoutGrid className="w-3 h-3" />
             <span className="font-medium hidden sm:inline">Kanban</span>
           </button>
-          <button 
+          <button
             onClick={() => window.location.href = '/tasks'}
             className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl text-sm"
           >
@@ -782,11 +780,10 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
       <div className="flex items-center gap-1 mb-4 bg-slate-700/30 rounded-xl p-1">
         <button
           onClick={() => setActiveTab('tasks')}
-          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'tasks'
+          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'tasks'
               ? 'bg-blue-500 text-white shadow-lg'
               : 'text-slate-300 hover:text-white hover:bg-slate-600/50'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-center gap-2">
             <FileText className="w-4 h-4" />
@@ -800,11 +797,10 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
             console.log('🔍 Mevcut transferredTasks:', transferredTasks);
             setActiveTab('transferred');
           }}
-          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'transferred'
+          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'transferred'
               ? 'bg-orange-500 text-white shadow-lg'
               : 'text-slate-300 hover:text-white hover:bg-slate-600/50'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-center gap-2">
             <Users className="w-4 h-4" />
@@ -818,48 +814,44 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
 
       {/* Status Filter Buttons */}
       <div className="flex flex-wrap gap-1 mb-3 justify-center items-center">
-        <button 
+        <button
           onClick={() => onStatusChange?.('todo')}
-          className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${
-            selectedStatus === 'todo' 
-              ? 'bg-slate-500 text-white shadow-lg' 
+          className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${selectedStatus === 'todo'
+              ? 'bg-slate-500 text-white shadow-lg'
               : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
-          }`}
+            }`}
         >
           Yeni
         </button>
-        <button 
+        <button
           onClick={() => onStatusChange?.('in_progress')}
-          className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${
-            selectedStatus === 'in_progress' 
-              ? 'bg-blue-500 text-white shadow-lg' 
+          className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${selectedStatus === 'in_progress'
+              ? 'bg-blue-500 text-white shadow-lg'
               : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
-          }`}
+            }`}
         >
           Devam Ediyor
         </button>
-        <button 
+        <button
           onClick={() => onStatusChange?.('review')}
-          className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${
-            selectedStatus === 'review' 
-              ? 'bg-yellow-500 text-white shadow-lg' 
+          className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${selectedStatus === 'review'
+              ? 'bg-yellow-500 text-white shadow-lg'
               : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
-          }`}
+            }`}
         >
           İnceleme
         </button>
-        <button 
+        <button
           onClick={() => onStatusChange?.('done')}
-          className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${
-            selectedStatus === 'done' 
-              ? 'bg-green-500 text-white shadow-lg' 
+          className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${selectedStatus === 'done'
+              ? 'bg-green-500 text-white shadow-lg'
               : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
-          }`}
+            }`}
         >
           Tamamlandı
         </button>
         {selectedStatus && (
-          <button 
+          <button
             onClick={() => onStatusChange?.('')}
             className="px-2 py-1 rounded-md text-xs font-medium bg-slate-700 text-slate-300 hover:bg-slate-600 transition-all duration-200 border border-slate-500 whitespace-nowrap"
           >
@@ -874,8 +866,8 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
           <div className="space-y-4 px-2">
             {activeTab === 'tasks' ? (
               filteredTasks.map((task) => (
-                <div 
-                  key={task.id} 
+                <div
+                  key={task.id}
                   onClick={() => {
                     console.log('Task clicked:', task.id);
                     setViewingTask(task);
@@ -883,63 +875,63 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
                   }}
                   className="w-full max-w-sm mx-auto group bg-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 hover:shadow-lg hover:shadow-black/10 cursor-pointer"
                 >
-                {/* Card Header */}
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      {getStatusIcon(task.status)}
-                      <div>
-                        <h4 className="font-semibold text-white text-sm group-hover:text-blue-300 transition-colors">
-                          {task.title}
-                        </h4>
-                        <span className="text-xs text-slate-400 font-medium">{task.project?.name}</span>
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {getStatusIcon(task.status)}
+                        <div>
+                          <h4 className="font-semibold text-white text-sm group-hover:text-blue-300 transition-colors">
+                            {task.title}
+                          </h4>
+                          <span className="text-xs text-slate-400 font-medium">{task.project?.name}</span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-1">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold text-white ${getStatusColor(task.status)} shadow-sm`}>
+                        {getStatusText(task.status)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold text-white ${getStatusColor(task.status)} shadow-sm`}>
-                      {getStatusText(task.status)}
-                    </span>
+
+                  {/* Description */}
+                  <p className="text-xs text-slate-300 leading-relaxed mb-2 line-clamp-2">
+                    {task.description || 'Açıklama bulunmuyor'}
+                  </p>
+
+                  {/* Card Footer */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {task.assignee && (
+                        <div className="flex items-center gap-1">
+                          <User className="w-3 h-3 text-slate-400" />
+                          <span className="text-xs text-slate-300 font-medium">
+                            {task.assignee.first_name} {task.assignee.last_name}
+                          </span>
+                        </div>
+                      )}
+                      {task.due_date && (
+                        <div className="flex items-center gap-1">
+                          <Clock className={`w-3 h-3 ${isOverdue(task.due_date) ? 'text-red-400' : 'text-slate-400'}`} />
+                          <span className={`text-xs ${isOverdue(task.due_date) ? 'text-red-400' : 'text-slate-300'}`}>
+                            {formatDate(task.due_date)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${getPriorityColor(task.priority)} animate-pulse`}></div>
+
+                    </div>
                   </div>
                 </div>
-
-                {/* Description */}
-                <p className="text-xs text-slate-300 leading-relaxed mb-2 line-clamp-2">
-                  {task.description || 'Açıklama bulunmuyor'}
-                </p>
-
-                {/* Card Footer */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {task.assignee && (
-                      <div className="flex items-center gap-1">
-                        <User className="w-3 h-3 text-slate-400" />
-                        <span className="text-xs text-slate-300 font-medium">
-                          {task.assignee.first_name} {task.assignee.last_name}
-                        </span>
-                      </div>
-                    )}
-                    {task.due_date && (
-                      <div className="flex items-center gap-1">
-                        <Clock className={`w-3 h-3 ${isOverdue(task.due_date) ? 'text-red-400' : 'text-slate-400'}`} />
-                        <span className={`text-xs ${isOverdue(task.due_date) ? 'text-red-400' : 'text-slate-300'}`}>
-                          {formatDate(task.due_date)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full ${getPriorityColor(task.priority)} animate-pulse`}></div>
-                    
-                  </div>
-                </div>
-              </div>
               ))
             ) : (
               // Yönlendirilen görevler
               transferredTasks.map((transfer) => (
-                <div 
-                  key={transfer.id} 
+                <div
+                  key={transfer.id}
                   className="w-full max-w-sm mx-auto group bg-orange-800/20 backdrop-blur-sm rounded-xl p-4 border border-orange-700/50 hover:border-orange-600/50 transition-all duration-300 hover:shadow-lg hover:shadow-black/10"
                 >
                   {/* Transfer Header */}
@@ -1030,9 +1022,9 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
                                 'Content-Type': 'application/json',
                                 'Authorization': `Bearer ${session.access_token}`
                               },
-                              body: JSON.stringify({ 
+                              body: JSON.stringify({
                                 action: 'reject',
-                                rejection_reason: reason 
+                                rejection_reason: reason
                               })
                             });
 
@@ -1068,13 +1060,13 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
                   {activeTab === 'tasks' ? 'Görev Bulunamadı' : 'Yönlendirilen Görev Yok'}
                 </h4>
                 <p className="text-sm text-slate-400 mb-4">
-                  {activeTab === 'tasks' 
+                  {activeTab === 'tasks'
                     ? (selectedStatus ? `${getStatusText(selectedStatus as any)} durumunda görev bulunmuyor` : 'Henüz görev eklenmemiş')
                     : 'Size yönlendirilen bekleyen görev bulunmuyor'
                   }
                 </p>
                 {activeTab === 'tasks' && (
-                  <button 
+                  <button
                     onClick={() => window.location.href = '/tasks'}
                     className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl font-medium"
                   >

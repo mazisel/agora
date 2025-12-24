@@ -32,7 +32,7 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
   const [taskAttachments, setTaskAttachments] = useState<any[]>([]);
   const [isAnimating, setIsAnimating] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
-  
+
   const { user, userProfile } = useAuth();
 
   // Animation effect
@@ -62,10 +62,10 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
 
     try {
       setIsLoading(true);
-      
+
       // Get auth token
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       const authHeaders: HeadersInit = session?.access_token ? {
         'Authorization': `Bearer ${session.access_token}`
       } : {};
@@ -101,9 +101,9 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
         if (tasksResponse.ok) {
           const allTasks = await tasksResponse.json();
           // Filter only request tasks (not normal tasks)
-          requestTasks = allTasks.filter((task: any) => 
-            task.id.startsWith('leave_') || 
-            task.id.startsWith('advance_') || 
+          requestTasks = allTasks.filter((task: any) =>
+            task.id.startsWith('leave_') ||
+            task.id.startsWith('advance_') ||
             task.id.startsWith('suggestion_')
           );
         } else {
@@ -141,10 +141,10 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
   };
 
   useEffect(() => {
-    if (user && userProfile) {
+    if (user?.id && userProfile?.id) {
       fetchTasks();
     }
-  }, [user, userProfile]);
+  }, [user?.id, userProfile?.id]);
 
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -161,7 +161,7 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
     // Find the task being moved
     const sourceColumn = columns.find(col => col.id === source.droppableId);
     const destColumn = columns.find(col => col.id === destination.droppableId);
-    
+
     if (!sourceColumn || !destColumn) return;
 
     const task = sourceColumn.tasks[source.index];
@@ -175,7 +175,7 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
 
     // First update local state optimistically
     const newColumns = [...columns];
-    
+
     // Remove from source
     const sourceColumnIndex = newColumns.findIndex(col => col.id === source.droppableId);
     const newSourceTasks = [...newColumns[sourceColumnIndex].tasks];
@@ -201,10 +201,10 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
     // Then update database
     try {
       console.log('Updating task:', task.id, 'from', source.droppableId, 'to', destination.droppableId);
-      
+
       const { data, error } = await supabase
         .from('tasks')
-        .update({ 
+        .update({
           status: destination.droppableId,
           completed_at: destination.droppableId === 'done' ? new Date().toISOString() : null
         })
@@ -270,7 +270,7 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
     try {
       const { error } = await supabase
         .from('tasks')
-        .update({ 
+        .update({
           status: newStatus,
           completed_at: newStatus === 'done' ? new Date().toISOString() : null
         })
@@ -285,9 +285,9 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('tr-TR', { 
-      day: 'numeric', 
-      month: 'short' 
+    return date.toLocaleDateString('tr-TR', {
+      day: 'numeric',
+      month: 'short'
     });
   };
 
@@ -314,7 +314,7 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex flex-col transition-all"
       style={{
         opacity: isAnimating ? 0 : isClosing ? 0 : 1,
@@ -322,7 +322,7 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
       }}
     >
       {/* Header */}
-      <div 
+      <div
         className="bg-slate-800/90 backdrop-blur-sm border-b border-slate-700/50 p-4 transition-all"
         style={{
           transform: isAnimating ? 'translateX(-100%)' : isClosing ? 'translateX(-100%)' : 'translateX(0)',
@@ -353,7 +353,7 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
       </div>
 
       {/* Kanban Board */}
-      <div 
+      <div
         className="flex-1 overflow-hidden transition-all"
         style={{
           transform: isAnimating ? 'translateX(-100%)' : isClosing ? 'translateX(-100%)' : 'translateX(0)',
@@ -432,84 +432,82 @@ export default function KanbanView({ onClose }: KanbanViewProps) {
                         <div
                           ref={provided.innerRef}
                           {...provided.droppableProps}
-                          className={`flex-1 space-y-3 p-2 rounded-xl transition-colors ${
-                            snapshot.isDraggingOver 
-                              ? 'bg-slate-700/30 border-2 border-slate-600/50' 
+                          className={`flex-1 space-y-3 p-2 rounded-xl transition-colors ${snapshot.isDraggingOver
+                              ? 'bg-slate-700/30 border-2 border-slate-600/50'
                               : 'bg-slate-800/20 border-2 border-transparent'
-                          } min-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600/50 scrollbar-track-transparent`}
+                            } min-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600/50 scrollbar-track-transparent`}
                         >
                           {column.tasks.map((task, index) => {
                             const isRequestTask = task.id.startsWith('leave_') || task.id.startsWith('advance_') || task.id.startsWith('suggestion_');
                             return (
-                              <Draggable 
-                                key={task.id} 
-                                draggableId={task.id} 
+                              <Draggable
+                                key={task.id}
+                                draggableId={task.id}
                                 index={index}
                                 isDragDisabled={isRequestTask}
                               >
                                 {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`bg-slate-800/70 backdrop-blur-sm rounded-xl p-4 border border-slate-700/50 cursor-pointer transition-all duration-200 ${
-                                    snapshot.isDragging 
-                                      ? 'shadow-2xl shadow-black/50 rotate-2 scale-105' 
-                                      : 'hover:shadow-lg hover:shadow-black/20 hover:border-slate-600/50'
-                                  }`}
-                                  onClick={() => {
-                                    if (!snapshot.isDragging) {
-                                      setViewingTask(task);
-                                      fetchTaskDetails(task.id);
-                                    }
-                                  }}
-                                >
-                                  {/* Task Header */}
-                                  <div className="flex items-start justify-between mb-2">
-                                    <h4 className="font-semibold text-white text-sm line-clamp-2 flex-1">
-                                      {task.title}
-                                    </h4>
-                                    <div className={`w-2 h-2 rounded-full ${getPriorityColor(task.priority)} animate-pulse ml-2 mt-1 flex-shrink-0`}></div>
-                                  </div>
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`bg-slate-800/70 backdrop-blur-sm rounded-xl p-4 border border-slate-700/50 cursor-pointer transition-all duration-200 ${snapshot.isDragging
+                                        ? 'shadow-2xl shadow-black/50 rotate-2 scale-105'
+                                        : 'hover:shadow-lg hover:shadow-black/20 hover:border-slate-600/50'
+                                      }`}
+                                    onClick={() => {
+                                      if (!snapshot.isDragging) {
+                                        setViewingTask(task);
+                                        fetchTaskDetails(task.id);
+                                      }
+                                    }}
+                                  >
+                                    {/* Task Header */}
+                                    <div className="flex items-start justify-between mb-2">
+                                      <h4 className="font-semibold text-white text-sm line-clamp-2 flex-1">
+                                        {task.title}
+                                      </h4>
+                                      <div className={`w-2 h-2 rounded-full ${getPriorityColor(task.priority)} animate-pulse ml-2 mt-1 flex-shrink-0`}></div>
+                                    </div>
 
-                                  {/* Project */}
-                                  <p className="text-xs text-slate-400 mb-2">{task.project?.name}</p>
+                                    {/* Project */}
+                                    <p className="text-xs text-slate-400 mb-2">{task.project?.name}</p>
 
-                                  {/* Description */}
-                                  {task.description && (
-                                    <p className="text-xs text-slate-300 leading-relaxed mb-3 line-clamp-2">
-                                      {task.description}
-                                    </p>
-                                  )}
+                                    {/* Description */}
+                                    {task.description && (
+                                      <p className="text-xs text-slate-300 leading-relaxed mb-3 line-clamp-2">
+                                        {task.description}
+                                      </p>
+                                    )}
 
-                                  {/* Task Footer */}
-                                  <div className="flex items-center justify-between text-xs">
-                                    <div className="flex items-center gap-2">
-                                      {task.assignee && (
+                                    {/* Task Footer */}
+                                    <div className="flex items-center justify-between text-xs">
+                                      <div className="flex items-center gap-2">
+                                        {task.assignee && (
+                                          <div className="flex items-center gap-1">
+                                            <User className="w-3 h-3 text-slate-400" />
+                                            <span className="text-slate-300 truncate max-w-[80px]">
+                                              {task.assignee.first_name}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {task.due_date && (
                                         <div className="flex items-center gap-1">
-                                          <User className="w-3 h-3 text-slate-400" />
-                                          <span className="text-slate-300 truncate max-w-[80px]">
-                                            {task.assignee.first_name}
+                                          <Calendar className={`w-3 h-3 ${isOverdue(task.due_date) ? 'text-red-400' : 'text-slate-400'}`} />
+                                          <span className={`${isOverdue(task.due_date) ? 'text-red-400' : 'text-slate-300'}`}>
+                                            {formatDate(task.due_date)}
                                           </span>
                                         </div>
                                       )}
                                     </div>
-                                    {task.due_date && (
-                                      <div className="flex items-center gap-1">
-                                        <Calendar className={`w-3 h-3 ${isOverdue(task.due_date) ? 'text-red-400' : 'text-slate-400'}`} />
-                                        <span className={`${isOverdue(task.due_date) ? 'text-red-400' : 'text-slate-300'}`}>
-                                          {formatDate(task.due_date)}
-                                        </span>
-                                      </div>
-                                    )}
                                   </div>
-                                </div>
-                              )}
-                            </Draggable>
+                                )}
+                              </Draggable>
                             );
                           })}
                           {provided.placeholder}
-                          
+
                           {/* Empty State */}
                           {column.tasks.length === 0 && (
                             <div className="flex items-center justify-center h-32 text-slate-500 text-sm">

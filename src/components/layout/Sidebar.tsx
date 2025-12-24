@@ -109,7 +109,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
 
   // Load badge counts and check modules
   useEffect(() => {
-    if (!user || !userProfile) return;
+    if (!user?.id || !userProfile?.id) return;
 
     const loadCounts = async () => {
       try {
@@ -146,7 +146,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
     return () => {
       clearInterval(interval);
     };
-  }, [user, userProfile]);
+  }, [user?.id, userProfile?.id]);
 
   const handleLogout = async () => {
     await signOut();
@@ -254,13 +254,13 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
                 key={item.id}
                 href={item.href}
                 className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-200 relative ${itemIsActive
-                    ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-500/30 shadow-lg shadow-blue-500/10'
-                    : 'text-slate-300 hover:bg-slate-800/50 hover:text-white border border-transparent hover:border-slate-600/50'
+                  ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-500/30 shadow-lg shadow-blue-500/10'
+                  : 'text-slate-300 hover:bg-slate-800/50 hover:text-white border border-transparent hover:border-slate-600/50'
                   }`}
               >
                 <div className={`p-2 rounded-lg ${itemIsActive
-                    ? 'bg-blue-500/20 text-blue-300'
-                    : 'text-slate-400 group-hover:text-white group-hover:bg-slate-700/50'
+                  ? 'bg-blue-500/20 text-blue-300'
+                  : 'text-slate-400 group-hover:text-white group-hover:bg-slate-700/50'
                   } transition-all duration-200`}>
                   <Icon className="w-4 h-4" />
                 </div>
@@ -343,13 +343,13 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
                 key={item.id}
                 href={item.href}
                 className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-200 relative ${itemIsActive
-                    ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-500/30 shadow-lg shadow-blue-500/10'
-                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent hover:border-slate-600/50'
+                  ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-500/30 shadow-lg shadow-blue-500/10'
+                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent hover:border-slate-600/50'
                   }`}
               >
                 <div className={`p-2 rounded-lg ${itemIsActive
-                    ? 'bg-blue-500/20 text-blue-300'
-                    : 'text-slate-400 group-hover:bg-slate-700/50 group-hover:text-white'
+                  ? 'bg-blue-500/20 text-blue-300'
+                  : 'text-slate-400 group-hover:bg-slate-700/50 group-hover:text-white'
                   } transition-all duration-200`}>
                   <Icon className="w-4 h-4" />
                 </div>

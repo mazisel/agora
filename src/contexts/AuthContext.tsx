@@ -44,16 +44,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserProfile = async (userId: string) => {
     const debugKey = `profile-${userId}`;
     debugLoading.start(debugKey, 'Fetching user profile');
-    
+
     // Set fallback profile immediately to prevent loading hang
     const fallbackProfile = createFallbackProfile(userId);
     setUserProfile(fallbackProfile);
-    
+
     try {
       // Much shorter timeout - 3 seconds
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
+
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -70,7 +70,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data) {
-        setUserProfile(data);
+        // Only update if profile has actually changed
+        setUserProfile(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(data)) {
+            return prev;
+          }
+          return data;
+        });
         debugLoading.end(debugKey);
       }
     } catch (error: any) {
@@ -93,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Failed to update last login:', error);
       }
     };
-    
+
     // Get initial session with timeout
     const getSession = async () => {
       try {
@@ -105,13 +111,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, 5000);
 
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (initTimeout) {
           clearTimeout(initTimeout);
         }
-        
+
         if (!mounted) return;
-        
+
         if (error) {
           console.error('❌ Session error:', error);
           setSession(null);
@@ -120,10 +126,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
           return;
         }
-        
+
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           updateLastLogin(session.user.id);
           // Don't await - let it run in background
@@ -131,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUserProfile(null);
         }
-        
+
         setLoading(false);
       } catch (error) {
         console.error('💥 Unexpected error getting session:', error);
@@ -150,7 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
-        
+
         // Handle sign out
         if (event === 'SIGNED_OUT' || !session) {
           setSession(null);
@@ -158,12 +164,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUserProfile(null);
           return;
         }
-        
+
         // Handle sign in or token refresh
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           setSession(session);
           setUser(session?.user ?? null);
-          
+
           if (session?.user) {
             updateLastLogin(session.user.id);
             // Don't await - let it run in background
