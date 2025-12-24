@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Plus, Search, Edit3, Trash2, Clock, User, Calendar, MessageSquare, Paperclip, CheckCircle2, Eye, X, Send, Download, AlertCircle, FileText, Users, Image, Smile, Save, XCircle, DollarSign, Receipt, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -10,7 +10,7 @@ import { Task, Project, UserProfile, TaskComment, TaskAttachment, TaskExpense } 
 import CreateTaskView from '@/components/tasks/CreateTaskView';
 import TaskDetailView from '@/components/tasks/TaskDetailView';
 
-export default function TasksPage() {
+function TasksContent() {
   const { userProfile, session, loading } = useAuth();
   const searchParams = useSearchParams();
   const taskIdFromUrl = searchParams.get('taskId');
@@ -1372,5 +1372,20 @@ export default function TasksPage() {
         return null;
       })()}
     </div>
+  );
+}
+
+export default function TasksPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-slate-900">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Yükleniyor...</p>
+        </div>
+      </div>
+    }>
+      <TasksContent />
+    </Suspense>
   );
 }
