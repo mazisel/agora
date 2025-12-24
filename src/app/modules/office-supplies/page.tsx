@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  Package, 
-  Plus, 
-  Calendar, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
+import { supabase } from '@/lib/supabase';
+import {
+  Package,
+  Plus,
+  Calendar,
+  Clock,
+  CheckCircle,
+  XCircle,
   AlertCircle,
   Truck,
   Eye,
@@ -59,7 +60,7 @@ interface OfficeSupplyItemOption {
 export default function OfficeSuppliesPage() {
   const { user } = useAuth();
   const [requests, setRequests] = useState<OfficeSupplyRequest[]>([]);
-  const [departments, setDepartments] = useState<{id: string, name: string}[]>([]);
+  const [departments, setDepartments] = useState<{ id: string, name: string }[]>([]);
   const [availableItems, setAvailableItems] = useState<OfficeSupplyItemOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -111,7 +112,12 @@ export default function OfficeSuppliesPage() {
     if (!user) return;
 
     try {
-      const response = await fetch(`/api/modules/office-supplies?userId=${user.id}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`/api/modules/office-supplies?userId=${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -129,7 +135,12 @@ export default function OfficeSuppliesPage() {
 
   const fetchDepartments = async () => {
     try {
-      const response = await fetch('/api/departments');
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/departments', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -144,7 +155,12 @@ export default function OfficeSuppliesPage() {
 
   const fetchAvailableItems = async () => {
     try {
-      const response = await fetch('/api/office-supplies-items');
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/office-supplies-items', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -180,7 +196,7 @@ export default function OfficeSuppliesPage() {
   const updateItem = (index: number, field: keyof OfficeSupplyItem, value: any) => {
     const updatedItems = [...newRequest.items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
-    
+
     // If item name is selected from dropdown, auto-fill unit
     if (field === 'name') {
       const selectedItem = availableItems.find(item => item.name === value);
@@ -188,9 +204,9 @@ export default function OfficeSuppliesPage() {
         updatedItems[index].unit = selectedItem.unit;
       }
     }
-    
-    setNewRequest({ 
-      ...newRequest, 
+
+    setNewRequest({
+      ...newRequest,
       items: updatedItems
     });
   };
@@ -209,10 +225,12 @@ export default function OfficeSuppliesPage() {
     setError('');
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/modules/office-supplies', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
           user_id: user.id,
@@ -273,10 +291,12 @@ export default function OfficeSuppliesPage() {
     setError('');
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/modules/office-supplies', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
           id: editingRequest.id,

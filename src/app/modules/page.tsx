@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { 
+import {
   UtensilsCrossed,
   Settings,
   Eye,
@@ -40,8 +40,14 @@ export default function UserModulesPage() {
 
     try {
       setIsLoading(true);
-      
-      const response = await fetch(`/api/modules/user?userId=${user.id}`);
+
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch(`/api/modules/user?userId=${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -150,7 +156,7 @@ export default function UserModulesPage() {
                       <span>Sorumlu</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <Clock className="w-3 h-3" />
                     <span>

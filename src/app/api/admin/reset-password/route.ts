@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { notifyPasswordReset } from '@/lib/notifications';
+import { authenticateUser, isAdmin } from '@/lib/auth-helper';
 
 // Service role key ile admin client oluştur
 const supabaseAdmin = createClient(
@@ -16,6 +17,18 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { userId, newPassword } = body;
 
@@ -45,7 +58,7 @@ export async function POST(request: NextRequest) {
         if (!profileError && profile) {
           const userName = `${profile.first_name} ${profile.last_name}`;
           const userEmail = profile.email || data.user.email;
-          
+
           if (userEmail) {
             await notifyPasswordReset(userEmail, userName, newPassword);
           }

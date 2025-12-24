@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { Car, Plus, Clock, CheckCircle, XCircle, Calendar, MapPin, Users } from 'lucide-react';
 
 interface VehicleRequest {
@@ -63,9 +64,14 @@ export default function VehicleRequestsPage() {
 
   const fetchRequests = async () => {
     try {
-      const response = await fetch(`/api/modules/vehicle-requests?userId=${user?.id}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`/api/modules/vehicle-requests?userId=${user?.id}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       const data = await response.json();
-      
+
       if (data.success) {
         setRequests(data.requests);
       }
@@ -78,9 +84,14 @@ export default function VehicleRequestsPage() {
 
   const fetchVehicles = async () => {
     try {
-      const response = await fetch('/api/modules/vehicles?available=true&active=true');
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/modules/vehicles?available=true&active=true', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       const data = await response.json();
-      
+
       if (data.success) {
         setVehicles(data.vehicles);
       }
@@ -91,14 +102,16 @@ export default function VehicleRequestsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/modules/vehicle-requests', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
           ...formData,

@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { notifyUserWelcome } from '@/lib/notifications';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { authenticateUser, isAdmin } from '@/lib/auth-helper';
 
 export async function POST(request: NextRequest) {
   try {
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { 
       email, 

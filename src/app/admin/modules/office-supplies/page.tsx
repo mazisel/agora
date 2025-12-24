@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  Package, 
-  Search, 
-  Filter, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+import {
+  Package,
+  Search,
+  Filter,
+  CheckCircle,
+  XCircle,
+  Clock,
   Truck,
   Eye,
   Calendar,
@@ -106,7 +106,11 @@ export default function AdminOfficeSuppliesPage() {
 
   const fetchRequests = async () => {
     try {
-      const response = await fetch('/api/admin/office-supplies');
+      const response = await fetch('/api/admin/office-supplies', {
+        headers: {
+          'Authorization': `Bearer ${user?.id ? (await import('@/lib/supabase')).supabase.auth.getSession().then(({ data }) => data.session?.access_token) : ''}`
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -132,7 +136,7 @@ export default function AdminOfficeSuppliesPage() {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(request => 
+      filtered = filtered.filter(request =>
         request.user_profiles?.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         request.user_profiles?.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         request.user_profiles?.personnel_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -168,9 +172,9 @@ export default function AdminOfficeSuppliesPage() {
     try {
       const updateData: any = {
         id: processingRequest.id,
-        status: actionType === 'approve' ? 'approved' : 
-                actionType === 'reject' ? 'rejected' :
-                actionType === 'order' ? 'ordered' : 'delivered'
+        status: actionType === 'approve' ? 'approved' :
+          actionType === 'reject' ? 'rejected' :
+            actionType === 'order' ? 'ordered' : 'delivered'
       };
 
       if (actionType === 'approve') {
@@ -681,8 +685,8 @@ export default function AdminOfficeSuppliesPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold text-white">
                     {actionType === 'approve' ? 'Talebi Onayla' :
-                     actionType === 'reject' ? 'Talebi Reddet' :
-                     actionType === 'order' ? 'Sipariş Ver' : 'Teslim Et'}
+                      actionType === 'reject' ? 'Talebi Reddet' :
+                        actionType === 'order' ? 'Sipariş Ver' : 'Teslim Et'}
                   </h3>
                   <button
                     onClick={() => {
@@ -702,24 +706,23 @@ export default function AdminOfficeSuppliesPage() {
               <div className="p-6">
                 <div className="space-y-4">
                   <div className="text-center">
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
-                      actionType === 'approve' ? 'bg-green-500/20' :
-                      actionType === 'reject' ? 'bg-red-500/20' :
-                      actionType === 'order' ? 'bg-blue-500/20' : 'bg-purple-500/20'
-                    }`}>
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${actionType === 'approve' ? 'bg-green-500/20' :
+                        actionType === 'reject' ? 'bg-red-500/20' :
+                          actionType === 'order' ? 'bg-blue-500/20' : 'bg-purple-500/20'
+                      }`}>
                       {actionType === 'approve' ? <CheckCircle className="w-8 h-8 text-green-400" /> :
-                       actionType === 'reject' ? <XCircle className="w-8 h-8 text-red-400" /> :
-                       actionType === 'order' ? <Package className="w-8 h-8 text-blue-400" /> :
-                       <Truck className="w-8 h-8 text-purple-400" />}
+                        actionType === 'reject' ? <XCircle className="w-8 h-8 text-red-400" /> :
+                          actionType === 'order' ? <Package className="w-8 h-8 text-blue-400" /> :
+                            <Truck className="w-8 h-8 text-purple-400" />}
                     </div>
                     <h4 className="text-lg font-semibold text-white mb-2">
                       {processingRequest.user_profiles?.first_name} {processingRequest.user_profiles?.last_name}
                     </h4>
                     <p className="text-slate-400">
                       {actionType === 'approve' ? 'Bu talebi onaylamak istediğinizden emin misiniz?' :
-                       actionType === 'reject' ? 'Bu talebi reddetmek istediğinizden emin misiniz?' :
-                       actionType === 'order' ? 'Bu talep için sipariş vermek istediğinizden emin misiniz?' :
-                       'Bu talebi teslim edildi olarak işaretlemek istediğinizden emin misiniz?'}
+                        actionType === 'reject' ? 'Bu talebi reddetmek istediğinizden emin misiniz?' :
+                          actionType === 'order' ? 'Bu talep için sipariş vermek istediğinizden emin misiniz?' :
+                            'Bu talebi teslim edildi olarak işaretlemek istediğinizden emin misiniz?'}
                     </p>
                   </div>
 
@@ -779,12 +782,11 @@ export default function AdminOfficeSuppliesPage() {
                   <button
                     onClick={handleAction}
                     disabled={isLoading || (actionType === 'reject' && !rejectionReason.trim())}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-xl transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                      actionType === 'approve' ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700' :
-                      actionType === 'reject' ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' :
-                      actionType === 'order' ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700' :
-                      'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700'
-                    } text-white`}
+                    className={`flex items-center gap-2 px-6 py-2 rounded-xl transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed ${actionType === 'approve' ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700' :
+                        actionType === 'reject' ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' :
+                          actionType === 'order' ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700' :
+                            'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700'
+                      } text-white`}
                   >
                     {isLoading ? (
                       <>
@@ -794,12 +796,12 @@ export default function AdminOfficeSuppliesPage() {
                     ) : (
                       <>
                         {actionType === 'approve' ? <CheckCircle className="w-4 h-4" /> :
-                         actionType === 'reject' ? <XCircle className="w-4 h-4" /> :
-                         actionType === 'order' ? <Package className="w-4 h-4" /> :
-                         <Truck className="w-4 h-4" />}
+                          actionType === 'reject' ? <XCircle className="w-4 h-4" /> :
+                            actionType === 'order' ? <Package className="w-4 h-4" /> :
+                              <Truck className="w-4 h-4" />}
                         {actionType === 'approve' ? 'Onayla' :
-                         actionType === 'reject' ? 'Reddet' :
-                         actionType === 'order' ? 'Sipariş Ver' : 'Teslim Et'}
+                          actionType === 'reject' ? 'Reddet' :
+                            actionType === 'order' ? 'Sipariş Ver' : 'Teslim Et'}
                       </>
                     )}
                   </button>

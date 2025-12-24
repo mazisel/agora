@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { authenticateUser, isAdmin } from '@/lib/auth-helper';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,18 @@ const supabaseAdmin = createClient(
 
 export async function GET(request: NextRequest) {
   try {
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const startDate = searchParams.get('startDate');
@@ -44,9 +57,9 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Admin expenses error:', error);
-      return NextResponse.json({ 
-        success: false, 
-        error: error.message 
+      return NextResponse.json({
+        success: false,
+        error: error.message
       }, { status: 500 });
     }
 
@@ -89,15 +102,27 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('API error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const {
       id,
@@ -109,16 +134,16 @@ export async function PUT(request: NextRequest) {
     } = body;
 
     if (!id || !status) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Expense ID and status are required' 
+      return NextResponse.json({
+        success: false,
+        error: 'Expense ID and status are required'
       }, { status: 400 });
     }
 
     if (status === 'approved' && !account_id) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Account selection is required for approval' 
+      return NextResponse.json({
+        success: false,
+        error: 'Account selection is required for approval'
       }, { status: 400 });
     }
 
@@ -130,9 +155,9 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (expenseError || !expense) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Expense not found' 
+      return NextResponse.json({
+        success: false,
+        error: 'Expense not found'
       }, { status: 404 });
     }
 
@@ -161,9 +186,9 @@ export async function PUT(request: NextRequest) {
 
     if (updateError) {
       console.error('Update expense status error:', updateError);
-      return NextResponse.json({ 
-        success: false, 
-        error: updateError.message 
+      return NextResponse.json({
+        success: false,
+        error: updateError.message
       }, { status: 500 });
     }
 
@@ -177,7 +202,7 @@ export async function PUT(request: NextRequest) {
           .eq('id', expense.user_id)
           .single();
 
-        const employeeName = userProfile 
+        const employeeName = userProfile
           ? `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim() || userProfile.email
           : 'Bilinmeyen Kullanıcı';
 
@@ -215,9 +240,9 @@ export async function PUT(request: NextRequest) {
 
   } catch (error) {
     console.error('API error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }

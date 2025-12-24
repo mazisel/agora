@@ -16,7 +16,7 @@ const supabaseAdmin = createClient(
 export async function POST(request: NextRequest) {
   try {
     console.log('🔄 Password change request received');
-    
+
     const { currentPassword, newPassword } = await request.json();
 
     if (!currentPassword || !newPassword) {
@@ -27,10 +27,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (newPassword.length < 6) {
-      console.log('❌ New password too short');
+    // Güçlü şifre politikası kontrolü
+    if (newPassword.length < 8) {
       return NextResponse.json(
-        { error: 'Yeni şifre en az 6 karakter olmalıdır' },
+        { error: 'Yeni şifre en az 8 karakter olmalıdır' },
+        { status: 400 }
+      );
+    }
+
+    // Büyük harf kontrolü
+    if (!/[A-Z]/.test(newPassword)) {
+      return NextResponse.json(
+        { error: 'Yeni şifre en az bir büyük harf içermelidir' },
+        { status: 400 }
+      );
+    }
+
+    // Küçük harf kontrolü
+    if (!/[a-z]/.test(newPassword)) {
+      return NextResponse.json(
+        { error: 'Yeni şifre en az bir küçük harf içermelidir' },
+        { status: 400 }
+      );
+    }
+
+    // Rakam kontrolü
+    if (!/[0-9]/.test(newPassword)) {
+      return NextResponse.json(
+        { error: 'Yeni şifre en az bir rakam içermelidir' },
         { status: 400 }
       );
     }
@@ -38,7 +62,6 @@ export async function POST(request: NextRequest) {
     // Get authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ Missing or invalid authorization header');
       return NextResponse.json(
         { error: 'Yetkilendirme gerekli' },
         { status: 401 }
@@ -46,20 +69,16 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.split(' ')[1];
-    console.log('🔍 Verifying user token...');
 
     // Get current user from token using admin client
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
-    
+
     if (userError || !user) {
-      console.error('❌ User verification failed:', userError);
       return NextResponse.json(
         { error: 'Kullanıcı bulunamadı veya token geçersiz' },
         { status: 401 }
       );
     }
-
-    console.log('✅ User verified:', user.email);
 
     // Create a separate client instance for password verification
     const verificationClient = createClient(
@@ -74,38 +93,30 @@ export async function POST(request: NextRequest) {
     );
 
     // Verify current password by attempting to sign in with a separate client
-    console.log('🔍 Verifying current password...');
     const { error: signInError } = await verificationClient.auth.signInWithPassword({
       email: user.email!,
       password: currentPassword
     });
 
     if (signInError) {
-      console.error('❌ Current password verification failed:', signInError.message);
       return NextResponse.json(
         { error: 'Mevcut şifre yanlış' },
         { status: 400 }
       );
     }
 
-    console.log('✅ Current password verified');
-
     // Update password using the admin client
-    console.log('🔄 Updating password...');
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       user.id,
       { password: newPassword }
     );
 
     if (updateError) {
-      console.error('❌ Password update failed:', updateError);
       return NextResponse.json(
         { error: 'Şifre güncellenirken hata oluştu: ' + updateError.message },
         { status: 500 }
       );
     }
-
-    console.log('✅ Password updated successfully');
 
     return NextResponse.json(
       { message: 'Şifre başarıyla güncellendi' },
@@ -113,7 +124,6 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('❌ Password change error:', error);
     return NextResponse.json(
       { error: 'Sunucu hatası: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata') },
       { status: 500 }

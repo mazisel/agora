@@ -12,9 +12,10 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Auth token'ı al
     const authHeader = request.headers.get('authorization');
     let authToken = null;
@@ -24,7 +25,7 @@ export async function PUT(
     } else {
       // Cookie'den almayı dene
       const cookieStore = await cookies();
-      
+
       const possibleCookieNames = [
         'sb-access-token',
         'sb-riacmnpxjsbrppzfjeur-auth-token',
@@ -80,7 +81,7 @@ export async function PUT(
     const { data: existingCategory, error: checkError } = await supabase
       .from('support_categories')
       .select('is_system')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (checkError) {
@@ -96,7 +97,7 @@ export async function PUT(
     const { data: category, error } = await supabase
       .from('support_categories')
       .update({ name, description })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -114,9 +115,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Auth token'ı al
     const authHeader = request.headers.get('authorization');
     let authToken = null;
@@ -126,7 +128,7 @@ export async function DELETE(
     } else {
       // Cookie'den almayı dene
       const cookieStore = await cookies();
-      
+
       const possibleCookieNames = [
         'sb-access-token',
         'sb-riacmnpxjsbrppzfjeur-auth-token',
@@ -176,7 +178,7 @@ export async function DELETE(
     const { data: existingCategory, error: checkError } = await supabase
       .from('support_categories')
       .select('is_system')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (checkError) {
@@ -192,7 +194,7 @@ export async function DELETE(
     const { data: agents, error: agentsError } = await supabase
       .from('support_agents')
       .select('id')
-      .eq('category_id', params.id);
+      .eq('category_id', id);
 
     if (agentsError) {
       console.error('Destek kişileri kontrol edilirken hata:', agentsError);
@@ -200,8 +202,8 @@ export async function DELETE(
     }
 
     if (agents && agents.length > 0) {
-      return NextResponse.json({ 
-        error: 'Bu kategoriye bağlı destek kişileri var. Önce onları silin.' 
+      return NextResponse.json({
+        error: 'Bu kategoriye bağlı destek kişileri var. Önce onları silin.'
       }, { status: 400 });
     }
 
@@ -209,7 +211,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('support_categories')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       console.error('Kategori silinirken hata:', error);

@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  Receipt, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Receipt,
+  CheckCircle,
+  XCircle,
   Clock,
   Eye,
   Filter,
@@ -73,7 +73,7 @@ interface FinanceAccount {
 }
 
 export default function ExpenseEntriesManagement() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
   const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,12 +114,23 @@ export default function ExpenseEntriesManagement() {
 
   const fetchExpenses = async () => {
     try {
+      if (!session?.access_token) return;
+
       const params = new URLSearchParams();
       if (filterStatus !== 'all') params.append('status', filterStatus);
       if (filterDateFrom) params.append('startDate', filterDateFrom);
       if (filterDateTo) params.append('endDate', filterDateTo);
 
-      const response = await fetch(`/api/admin/expense-entries?${params.toString()}`);
+      const response = await fetch(`/api/admin/expense-entries?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (response.status === 401) {
+        throw new Error('Oturum süresi dolmuş');
+      }
+
       const data = await response.json();
 
       if (data.success) {
@@ -137,7 +148,13 @@ export default function ExpenseEntriesManagement() {
 
   const fetchAccounts = async () => {
     try {
-      const response = await fetch('/api/admin/finance-accounts/?type=expense');
+      if (!session?.access_token) return;
+
+      const response = await fetch('/api/admin/finance-accounts/?type=expense', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setAccounts(data.accounts || []);
@@ -148,12 +165,14 @@ export default function ExpenseEntriesManagement() {
   };
 
   useEffect(() => {
-    fetchExpenses();
-    fetchAccounts();
-  }, [filterStatus, filterDateFrom, filterDateTo]);
+    if (session) {
+      fetchExpenses();
+      fetchAccounts();
+    }
+  }, [filterStatus, filterDateFrom, filterDateTo, session]);
 
   const handleExpenseAction = async (action: 'approve' | 'reject') => {
-    if (!actionData.expenseId || !user) return;
+    if (!actionData.expenseId || !user || !session?.access_token) return;
 
     if (action === 'reject' && !actionData.rejectionReason.trim()) {
       setError('Red gerekçesi zorunludur.');
@@ -173,6 +192,7 @@ export default function ExpenseEntriesManagement() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           id: actionData.expenseId,
@@ -801,11 +821,10 @@ export default function ExpenseEntriesManagement() {
                 <button
                   onClick={() => handleExpenseAction(actionData.action)}
                   disabled={isLoading || (actionData.action === 'reject' && !actionData.rejectionReason.trim())}
-                  className={`flex items-center gap-2 px-6 py-2 rounded-xl transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                    actionData.action === 'approve'
+                  className={`flex items-center gap-2 px-6 py-2 rounded-xl transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed ${actionData.action === 'approve'
                       ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
                       : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'
-                  } text-white`}
+                    } text-white`}
                 >
                   {isLoading ? (
                     <>

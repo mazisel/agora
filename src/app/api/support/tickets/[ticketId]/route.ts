@@ -12,7 +12,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { ticketId: string } }
+  { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
     // Auth token'ı al
@@ -24,7 +24,7 @@ export async function PATCH(
     } else {
       // Cookie'den almayı dene
       const cookieStore = await cookies();
-      
+
       const possibleCookieNames = [
         'sb-access-token',
         'sb-riacmnpxjsbrppzfjeur-auth-token',
@@ -60,11 +60,11 @@ export async function PATCH(
     }
 
     const { status } = await request.json();
-    const { ticketId } = params;
+    const { ticketId } = await params;
 
     if (!status) {
-      return NextResponse.json({ 
-        error: 'Status gerekli' 
+      return NextResponse.json({
+        error: 'Status gerekli'
       }, { status: 400 });
     }
 
@@ -110,7 +110,7 @@ export async function PATCH(
       status: (ticket as any).status,
       priority: (ticket as any).priority,
       category_name: (ticket as any).support_categories.name,
-      assigned_to_name: (ticket as any).assigned_to_profile ? 
+      assigned_to_name: (ticket as any).assigned_to_profile ?
         `${(ticket as any).assigned_to_profile.first_name} ${(ticket as any).assigned_to_profile.last_name}` : null,
       assigned_to_email: (ticket as any).assigned_to_profile?.email || null,
       created_at: (ticket as any).created_at,

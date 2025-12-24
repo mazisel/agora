@@ -25,7 +25,7 @@ interface TaskAssignmentContext {
 
 // Notification helper functions
 export class NotificationService {
-  
+
   // Send email notification via API
   private static async sendEmailNotification(
     type: NotificationType,
@@ -33,7 +33,8 @@ export class NotificationService {
     data: NotificationPayload
   ): Promise<boolean> {
     try {
-      const response = await fetch('/api/notifications/send-email', {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const response = await fetch(`${appUrl}/api/notifications/send-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -103,7 +104,7 @@ export class NotificationService {
   private static async getUserEmails(userIds: string[]): Promise<string[]> {
     try {
       const { data: users, error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('email')
         .in('id', userIds)
         .not('email', 'is', null);
@@ -128,7 +129,7 @@ export class NotificationService {
 
     try {
       const { data: users, error } = await supabase
-        .from<TelegramContactRow>('user_profiles')
+        .from('user_profiles')
         .select('telegram_chat_id, telegram_notifications_enabled')
         .in('id', userIds)
         .eq('telegram_notifications_enabled', true)
@@ -145,12 +146,12 @@ export class NotificationService {
 
       return users
         .filter(
-          (user): user is TelegramContactRow & { telegram_chat_id: string } =>
+          (user: any): user is TelegramContactRow & { telegram_chat_id: string } =>
             Boolean(user.telegram_notifications_enabled) &&
             typeof user.telegram_chat_id === 'string' &&
             user.telegram_chat_id.trim().length > 0
         )
-        .map((user) => user.telegram_chat_id);
+        .map((user: any) => user.telegram_chat_id);
     } catch (error) {
       console.error('Error fetching Telegram chat IDs:', error);
       return [];
@@ -161,9 +162,9 @@ export class NotificationService {
   private static async getUserEmailsByRole(role: string): Promise<string[]> {
     try {
       const { data: users, error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('email')
-        .eq('role', role)
+        .eq('authority_level', role) // Fixed: role -> authority_level based on schema usage elsewhere
         .not('email', 'is', null);
 
       if (error) {
@@ -182,7 +183,7 @@ export class NotificationService {
   private static async getUserTelegramChatIdsByRole(role: string): Promise<string[]> {
     try {
       const { data: users, error } = await supabase
-        .from<TelegramContactRow>('user_profiles')
+        .from('user_profiles')
         .select('telegram_chat_id, telegram_notifications_enabled')
         .eq('authority_level', role)
         .eq('telegram_notifications_enabled', true)
@@ -199,12 +200,12 @@ export class NotificationService {
 
       return users
         .filter(
-          (user): user is TelegramContactRow & { telegram_chat_id: string } =>
+          (user: any): user is TelegramContactRow & { telegram_chat_id: string } =>
             Boolean(user.telegram_notifications_enabled) &&
             typeof user.telegram_chat_id === 'string' &&
             user.telegram_chat_id.trim().length > 0
         )
-        .map((user) => user.telegram_chat_id);
+        .map((user: any) => user.telegram_chat_id);
     } catch (error) {
       console.error('Error fetching Telegram chat IDs by role:', error);
       return [];
@@ -503,7 +504,7 @@ export class NotificationService {
       // Get events happening in the next 24 hours
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      
+
       const { data: events, error } = await supabase
         .from('events')
         .select(`
@@ -545,9 +546,9 @@ export class NotificationService {
     try {
       // Import email functions directly for server-side use
       const { sendEmail, emailTemplates } = await import('@/lib/email');
-      
+
       const template = emailTemplates.userWelcome('Test User', 'test123');
-      
+
       const success = await sendEmail(testEmail, template);
 
       return success;

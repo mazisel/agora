@@ -13,7 +13,12 @@ export interface TelegramMessage {
   text: string;
   parse_mode?: 'Markdown' | 'MarkdownV2' | 'HTML';
   disable_web_page_preview?: boolean;
+  reply_markup?: {
+    inline_keyboard: { text: string; url: string | undefined }[][];
+  };
 }
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 type TelegramTemplatePayload = Record<string, unknown>;
 type TelegramTemplateFactory = (data: TelegramTemplatePayload) => TelegramMessage;
@@ -42,13 +47,16 @@ export const telegramTemplates: Record<TelegramNotificationType, TelegramTemplat
       priority ? `Öncelik: ${priority}` : null,
       dueDate ? `Teslim Tarihi: ${dueDate}` : null,
       taskId ? `Görev ID: ${taskId}` : null,
-      '',
-      'Detaylar için portalı kontrol edebilirsiniz.',
     ].filter(Boolean);
 
     return {
       text: lines.join('\n'),
       disable_web_page_preview: true,
+      reply_markup: taskId ? {
+        inline_keyboard: [
+          [{ text: 'Görevi Görüntüle', url: `${APP_URL}/tasks?taskId=${taskId}` }]
+        ]
+      } : undefined
     };
   },
   task_assigned_reminder: (data) => {
@@ -73,13 +81,16 @@ export const telegramTemplates: Record<TelegramNotificationType, TelegramTemplat
       priority ? `Öncelik: ${priority}` : null,
       dueDate ? `Teslim Tarihi: ${dueDate}` : null,
       taskId ? `Görev ID: ${taskId}` : null,
-      '',
-      'Lütfen görevi tamamlamak için portala giriş yapın.',
     ].filter(Boolean);
 
     return {
       text: lines.join('\n'),
       disable_web_page_preview: true,
+      reply_markup: taskId ? {
+        inline_keyboard: [
+          [{ text: 'Görevi Görüntüle', url: `${APP_URL}/tasks?taskId=${taskId}` }]
+        ]
+      } : undefined
     };
   },
   task_status_update: (data) => {
@@ -96,13 +107,16 @@ export const telegramTemplates: Record<TelegramNotificationType, TelegramTemplat
       `Yeni Durum: ${newStatus}`,
       `Güncelleyen: ${updatedBy}`,
       taskId ? `Görev ID: ${taskId}` : null,
-      '',
-      'Detaylar için portalı kontrol edebilirsiniz.',
     ].filter(Boolean);
 
     return {
       text: lines.join('\n'),
       disable_web_page_preview: true,
+      reply_markup: taskId ? {
+        inline_keyboard: [
+          [{ text: 'Görevi Görüntüle', url: `${APP_URL}/tasks?taskId=${taskId}` }]
+        ]
+      } : undefined
     };
   },
   event_reminder: (data) => {
@@ -117,13 +131,16 @@ export const telegramTemplates: Record<TelegramNotificationType, TelegramTemplat
       `Tarih: ${eventDate}`,
       eventTime ? `Saat: ${eventTime}` : null,
       location ? `Konum: ${location}` : null,
-      '',
-      'Detaylar için portalı kontrol edebilirsiniz.',
     ].filter(Boolean);
 
     return {
       text: lines.join('\n'),
       disable_web_page_preview: true,
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Ajandayı Görüntüle', url: `${APP_URL}/calendar` }]
+        ]
+      }
     };
   },
   project_assigned: (data) => {
@@ -138,13 +155,16 @@ export const telegramTemplates: Record<TelegramNotificationType, TelegramTemplat
       `Rolünüz: ${role}`,
       `Atayan: ${assignedBy}`,
       projectId ? `Proje ID: ${projectId}` : null,
-      '',
-      'Detaylar için portalı kontrol edebilirsiniz.',
     ].filter(Boolean);
 
     return {
       text: lines.join('\n'),
       disable_web_page_preview: true,
+      reply_markup: projectId ? {
+        inline_keyboard: [
+          [{ text: 'Projeyi Görüntüle', url: `${APP_URL}/projects/${projectId}` }]
+        ]
+      } : undefined
     };
   },
 };
@@ -186,6 +206,7 @@ export async function sendTelegramMessage(
         parse_mode: message.parse_mode,
         disable_web_page_preview:
           message.disable_web_page_preview !== undefined ? message.disable_web_page_preview : true,
+        reply_markup: message.reply_markup,
       }),
     });
 

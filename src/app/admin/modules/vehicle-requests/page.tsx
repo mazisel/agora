@@ -72,9 +72,13 @@ export default function AdminVehicleRequestsPage() {
 
   const fetchRequests = async () => {
     try {
-      const response = await fetch('/api/admin/vehicle-requests');
+      const response = await fetch('/api/admin/vehicle-requests', {
+        headers: {
+          'Authorization': `Bearer ${user?.id ? (await import('@/lib/supabase')).supabase.auth.getSession().then(({ data }) => data.session?.access_token) : ''}`
+        }
+      });
       const data = await response.json();
-      
+
       if (data.success) {
         setRequests(data.requests);
       }
@@ -89,7 +93,7 @@ export default function AdminVehicleRequestsPage() {
     try {
       const response = await fetch('/api/modules/vehicles?available=true&active=true');
       const data = await response.json();
-      
+
       if (data.success) {
         setVehicles(data.vehicles);
       }
@@ -116,6 +120,7 @@ export default function AdminVehicleRequestsPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.id ? (await import('@/lib/supabase')).supabase.auth.getSession().then(({ data }) => data.session?.access_token) : ''}`
         },
         body: JSON.stringify({
           id: selectedRequest.id,
@@ -130,7 +135,7 @@ export default function AdminVehicleRequestsPage() {
 
       if (data.success) {
         // Update the request in the list
-        setRequests(requests.map(req => 
+        setRequests(requests.map(req =>
           req.id === selectedRequest.id ? data.request : req
         ));
         setShowReviewModal(false);
@@ -197,7 +202,7 @@ export default function AdminVehicleRequestsPage() {
           <Car className="w-8 h-8 text-blue-400" />
           <h1 className="text-3xl font-bold text-white">Araç Talep Yönetimi</h1>
         </div>
-        
+
         <div className="flex items-center space-x-4">
           <select
             value={statusFilter}
@@ -217,22 +222,20 @@ export default function AdminVehicleRequestsPage() {
       <div className="flex space-x-1 mb-6 bg-slate-800/50 p-1 rounded-lg">
         <button
           onClick={() => setActiveTab('list')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-            activeTab === 'list'
+          className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${activeTab === 'list'
               ? 'bg-blue-600 text-white'
               : 'text-slate-400 hover:text-white hover:bg-slate-700'
-          }`}
+            }`}
         >
           <Car className="w-4 h-4" />
           <span>Talep Listesi</span>
         </button>
         <button
           onClick={() => setActiveTab('calendar')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-            activeTab === 'calendar'
+          className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${activeTab === 'calendar'
               ? 'bg-blue-600 text-white'
               : 'text-slate-400 hover:text-white hover:bg-slate-700'
-          }`}
+            }`}
         >
           <CalendarDays className="w-4 h-4" />
           <span>Rezervasyon Takvimi</span>
@@ -244,7 +247,7 @@ export default function AdminVehicleRequestsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-600">
             <h2 className="text-xl font-bold mb-4 text-white">Talep İnceleme</h2>
-            
+
             {/* Request Details */}
             <div className="bg-slate-700 rounded-lg p-4 mb-6">
               <h3 className="font-medium mb-2 text-white">Talep Detayları</h3>
@@ -256,7 +259,7 @@ export default function AdminVehicleRequestsPage() {
                   <span className="font-medium text-gray-300">Departman:</span> <span className="text-white">{selectedRequest.user_profiles.department || 'Belirtilmemiş'}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-300">Tarih:</span> 
+                  <span className="font-medium text-gray-300">Tarih:</span>
                   <span className="text-white">
                     {new Date(selectedRequest.request_date).toLocaleDateString('tr-TR')}
                     {selectedRequest.end_date && selectedRequest.end_date !== selectedRequest.request_date && (
@@ -484,13 +487,13 @@ export default function AdminVehicleRequestsPage() {
               const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
               const startDate = new Date(firstDay);
               startDate.setDate(startDate.getDate() - (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1));
-              
+
               const cellDate = new Date(startDate);
               cellDate.setDate(cellDate.getDate() + i);
-              
+
               const isCurrentMonth = cellDate.getMonth() === currentDate.getMonth();
               const isToday = cellDate.toDateString() === new Date().toDateString();
-              
+
               // Find reservations for this date
               const dayReservations = requests.filter(req => {
                 if (req.status !== 'approved') return false;
@@ -502,16 +505,14 @@ export default function AdminVehicleRequestsPage() {
               return (
                 <div
                   key={i}
-                  className={`min-h-[100px] p-2 border border-slate-600 rounded ${
-                    isCurrentMonth ? 'bg-slate-700/30' : 'bg-slate-800/20'
-                  } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
+                  className={`min-h-[100px] p-2 border border-slate-600 rounded ${isCurrentMonth ? 'bg-slate-700/30' : 'bg-slate-800/20'
+                    } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
                 >
-                  <div className={`text-sm font-medium mb-1 ${
-                    isCurrentMonth ? 'text-white' : 'text-slate-500'
-                  }`}>
+                  <div className={`text-sm font-medium mb-1 ${isCurrentMonth ? 'text-white' : 'text-slate-500'
+                    }`}>
                     {cellDate.getDate()}
                   </div>
-                  
+
                   <div className="space-y-1">
                     {dayReservations.slice(0, 2).map((reservation) => (
                       <div

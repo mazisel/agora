@@ -7,12 +7,12 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/supabase';
 import { UserProfile, Department, Position } from '@/types';
 import { sanitizeTelegramUsername, isValidTelegramUsername } from '@/lib/telegram-utils';
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Edit3, 
-  Phone, 
+import {
+  Users,
+  Plus,
+  Search,
+  Edit3,
+  Phone,
   Briefcase,
   Hash,
   User,
@@ -115,10 +115,10 @@ export default function AdminPage() {
 
       const currentLink = activeToken
         ? {
-            token: activeToken.token,
-            deepLink: buildTelegramLink(activeToken.token),
-            expiresAt: activeToken.expires_at || null,
-          }
+          token: activeToken.token,
+          deepLink: buildTelegramLink(activeToken.token),
+          expiresAt: activeToken.expires_at || null,
+        }
         : null;
 
       setTelegramLinkState({
@@ -179,12 +179,36 @@ export default function AdminPage() {
   const handleCopyTelegramLink = async (link: string) => {
     if (!link) return;
     try {
-      await navigator.clipboard.writeText(link);
-      setTelegramCopyFeedback('Bağlantı panoya kopyalandı.');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(link);
+        setTelegramCopyFeedback('Bağlantı panoya kopyalandı.');
+      } else {
+        // Fallback for insecure contexts or older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = link;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            setTelegramCopyFeedback('Bağlantı panoya kopyalandı.');
+          } else {
+            throw new Error('Fallback copy failed');
+          }
+        } catch (err) {
+          throw err;
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      }
       setTimeout(() => setTelegramCopyFeedback(''), 2500);
     } catch (error) {
       console.error('Clipboard copy error:', error);
-      setTelegramCopyFeedback('Bağlantı kopyalanamadı.');
+      setTelegramCopyFeedback('Kopyalama başarısız, lütfen manuel kopyalayın.');
       setTimeout(() => setTelegramCopyFeedback(''), 2500);
     }
   };
@@ -388,9 +412,7 @@ export default function AdminPage() {
       // API route'u kullanarak kullanıcı oluştur (mevcut oturumu etkilemez)
       const response = await fetch('/api/admin/create-user', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders(),
         body: JSON.stringify({
           email: newUser.email,
           password: newUser.password,
@@ -458,7 +480,7 @@ export default function AdminPage() {
 
       // Refresh data to get the new user
       await fetchData();
-      
+
       setNewUser({
         firstName: '',
         lastName: '',
@@ -501,7 +523,7 @@ export default function AdminPage() {
       });
       setIsCreating(false);
       setIsLoading(false);
-      
+
       // Success notification
       alert('Kullanıcı başarıyla oluşturuldu ve Supabase\'e kaydedildi!');
     } catch (error) {
@@ -521,7 +543,7 @@ export default function AdminPage() {
 
     try {
       setIsLoading(true);
-      
+
       const sanitizedTelegram = sanitizeTelegramUsername(editingUser.telegram_username);
       if (editingUser.telegram_username && !isValidTelegramUsername(editingUser.telegram_username)) {
         setError('Geçerli bir Telegram kullanıcı adı giriniz. Kullanıcı adları en az 5 karakter olmalı ve yalnızca harf, sayı veya alt çizgi içerebilir.');
@@ -549,9 +571,9 @@ export default function AdminPage() {
         telegramLinkedAtForUpdate = null;
         telegramNotificationsEnabledForUpdate = false;
       }
-      
+
       console.log('🔄 Kullanıcı güncelleniyor:', editingUser.id, editingUser.first_name, editingUser.last_name);
-      
+
       const updateData = {
         first_name: editingUser.first_name,
         last_name: editingUser.last_name,
@@ -601,9 +623,7 @@ export default function AdminPage() {
       // API endpoint'ini kullanarak güncelleme yap (Service role key ile)
       const response = await fetch('/api/admin/update-user', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders(),
         body: JSON.stringify({
           userId: editingUser.id,
           updateData: updateData
@@ -625,11 +645,11 @@ export default function AdminPage() {
 
       // Refresh data to get the updated user
       await fetchData();
-      
+
       setEditingUser(null);
       setShowUpdateConfirm(false);
       setIsLoading(false);
-      
+
       alert('Kullanıcı başarıyla güncellendi ve Supabase\'e kaydedildi!');
     } catch (error) {
       console.error('💥 Kullanıcı güncelleme hatası:', error);
@@ -656,9 +676,9 @@ export default function AdminPage() {
 
   const renderSensitiveField = (value: string | number | null | undefined, fieldId: string, placeholder: string = '••••••••') => {
     if (!value) return '-';
-    
+
     const isVisible = visibleSensitiveFields.has(fieldId);
-    
+
     return (
       <div className="flex items-center gap-2">
         <span className={`${isVisible ? 'text-white' : 'text-white filter blur-sm select-none'} transition-all duration-200`}>
@@ -683,7 +703,7 @@ export default function AdminPage() {
 
     try {
       setIsLoading(true);
-      
+
       const { error } = await supabase
         .from('user_profiles')
         .update({
@@ -696,15 +716,15 @@ export default function AdminPage() {
 
       // Refresh data to get the updated user
       await fetchData();
-      
+
       // Update editing user if it's the same user
       if (editingUser && editingUser.id === deactivatingUser.id) {
         setEditingUser({ ...editingUser, status: 'inactive', end_date: endDate });
       }
-      
+
       setDeactivatingUser(null);
       setIsLoading(false);
-      
+
       alert(`${deactivatingUser.first_name} ${deactivatingUser.last_name} başarıyla pasife alındı.`);
     } catch (error) {
       console.error('Error deactivating user:', error);
@@ -768,8 +788,8 @@ export default function AdminPage() {
             </thead>
             <tbody>
               {filteredUsers.map((userData) => (
-                <tr 
-                  key={userData.id} 
+                <tr
+                  key={userData.id}
                   className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors cursor-pointer"
                   onClick={() => handleViewUser(userData)}
                 >
@@ -777,8 +797,8 @@ export default function AdminPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center">
                         {userData.profile_photo_url ? (
-                          <img 
-                            src={userData.profile_photo_url} 
+                          <img
+                            src={userData.profile_photo_url}
                             alt={`${userData.first_name} ${userData.last_name}`}
                             className="w-full h-full object-cover"
                             onError={(e) => {
@@ -822,11 +842,10 @@ export default function AdminPage() {
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                      userData.status === 'active' 
-                        ? 'bg-green-500/20 text-green-400' 
-                        : 'bg-red-500/20 text-red-400'
-                    }`}>
+                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${userData.status === 'active'
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-red-500/20 text-red-400'
+                      }`}>
                       {userData.status === 'active' ? 'Aktif' : 'Pasif'}
                     </span>
                   </td>
@@ -993,8 +1012,8 @@ export default function AdminPage() {
                     value={newUser.departmentId}
                     onChange={(e) => {
                       const selectedDept = departments.find(d => d.id === e.target.value);
-                      setNewUser({ 
-                        ...newUser, 
+                      setNewUser({
+                        ...newUser,
                         departmentId: e.target.value,
                         department: selectedDept?.name || '',
                         positionId: '', // Reset position when department changes
@@ -1017,8 +1036,8 @@ export default function AdminPage() {
                     value={newUser.positionId}
                     onChange={(e) => {
                       const selectedPos = positions.find(p => p.id === e.target.value);
-                      setNewUser({ 
-                        ...newUser, 
+                      setNewUser({
+                        ...newUser,
                         positionId: e.target.value,
                         position: selectedPos?.name || ''
                       });
@@ -1140,9 +1159,9 @@ export default function AdminPage() {
                     {/* Photo Preview */}
                     <div className="w-20 h-20 bg-slate-700/50 rounded-xl border border-slate-600 flex items-center justify-center overflow-hidden">
                       {newUser.profilePhotoUrl ? (
-                        <img 
-                          src={newUser.profilePhotoUrl} 
-                          alt="Profil" 
+                        <img
+                          src={newUser.profilePhotoUrl}
+                          alt="Profil"
                           className="w-full h-full object-cover"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
@@ -1161,7 +1180,7 @@ export default function AdminPage() {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* File Input */}
                     <div className="flex-1 space-y-2">
                       <input
@@ -1174,11 +1193,11 @@ export default function AdminPage() {
                               // Create temporary preview URL
                               const previewUrl = URL.createObjectURL(file);
                               setNewUser({ ...newUser, profilePhotoUrl: previewUrl });
-                              
+
                               // Upload to Supabase Storage
                               const fileExt = file.name.split('.').pop();
                               const fileName = `temp-${Date.now()}.${fileExt}`;
-                              
+
                               const { error } = await supabase.storage
                                 .from('profile-photos')
                                 .upload(fileName, file, {
@@ -1199,7 +1218,7 @@ export default function AdminPage() {
 
                               // Update with Supabase URL
                               setNewUser({ ...newUser, profilePhotoUrl: publicUrl });
-                              
+
                               // Clean up preview URL
                               URL.revokeObjectURL(previewUrl);
                             } catch (error) {
@@ -1422,7 +1441,7 @@ export default function AdminPage() {
                   <label className="block text-sm font-medium text-slate-300 mb-2">Yetki Seviyesi</label>
                   <select
                     value={newUser.authorityLevel}
-                      onChange={(e) => setNewUser({ ...newUser, authorityLevel: e.target.value as 'employee' | 'team_lead' | 'manager' | 'director' | 'admin' })}
+                    onChange={(e) => setNewUser({ ...newUser, authorityLevel: e.target.value as 'employee' | 'team_lead' | 'manager' | 'director' | 'admin' })}
                     className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                   >
                     <option value="employee">Çalışan</option>
@@ -1806,8 +1825,8 @@ export default function AdminPage() {
                     value={editingUser.department_id || ''}
                     onChange={(e) => {
                       const selectedDept = departments.find(d => d.id === e.target.value);
-                      setEditingUser({ 
-                        ...editingUser, 
+                      setEditingUser({
+                        ...editingUser,
                         department_id: e.target.value,
                         department: selectedDept?.name || '',
                         position_id: '', // Reset position when department changes
@@ -1830,8 +1849,8 @@ export default function AdminPage() {
                     value={editingUser.position_id || ''}
                     onChange={(e) => {
                       const selectedPos = positions.find(p => p.id === e.target.value);
-                      setEditingUser({ 
-                        ...editingUser, 
+                      setEditingUser({
+                        ...editingUser,
                         position_id: e.target.value,
                         position: selectedPos?.name || ''
                       });
@@ -2037,9 +2056,9 @@ export default function AdminPage() {
                     {/* Photo Preview */}
                     <div className="w-20 h-20 bg-slate-700/50 rounded-xl border border-slate-600 flex items-center justify-center overflow-hidden">
                       {editingUser.profile_photo_url ? (
-                        <img 
-                          src={editingUser.profile_photo_url} 
-                          alt="Profil" 
+                        <img
+                          src={editingUser.profile_photo_url}
+                          alt="Profil"
                           className="w-full h-full object-cover"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
@@ -2058,7 +2077,7 @@ export default function AdminPage() {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* File Input */}
                     <div className="flex-1 space-y-2">
                       <input
@@ -2071,16 +2090,16 @@ export default function AdminPage() {
                               // Create temporary preview URL
                               const previewUrl = URL.createObjectURL(file);
                               setEditingUser({ ...editingUser, profile_photo_url: previewUrl });
-                              
+
                               // Upload to Supabase Storage
                               const fileExt = file.name.split('.').pop();
                               const fileName = `${editingUser.id}/profile.${fileExt}`;
-                              
+
                               // Remove old file if exists
                               await supabase.storage
                                 .from('profile-photos')
                                 .remove([fileName]);
-                              
+
                               const { error } = await supabase.storage
                                 .from('profile-photos')
                                 .upload(fileName, file, {
@@ -2101,7 +2120,7 @@ export default function AdminPage() {
 
                               // Update with Supabase URL
                               setEditingUser({ ...editingUser, profile_photo_url: publicUrl });
-                              
+
                               // Clean up preview URL
                               URL.revokeObjectURL(previewUrl);
                             } catch (error) {
@@ -2423,7 +2442,7 @@ export default function AdminPage() {
                 <p className="text-slate-400 text-center mb-4">
                   Bu personeli pasife almak istediğinizden emin misiniz? Bu işlem personelin işten çıktığı anlamına gelir.
                 </p>
-                
+
                 {/* End Date */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">İşten Çıkış Tarihi *</label>
@@ -2487,8 +2506,8 @@ export default function AdminPage() {
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center">
                     {viewingUser.profile_photo_url ? (
-                      <img 
-                        src={viewingUser.profile_photo_url} 
+                      <img
+                        src={viewingUser.profile_photo_url}
                         alt={`${viewingUser.first_name} ${viewingUser.last_name}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -2541,9 +2560,9 @@ export default function AdminPage() {
                     <div>
                       <span className="text-slate-400 text-sm">Cinsiyet:</span>
                       <p className="text-white">
-                        {viewingUser.gender === 'male' ? 'Erkek' : 
-                         viewingUser.gender === 'female' ? 'Kadın' : 
-                         viewingUser.gender === 'other' ? 'Diğer' : '-'}
+                        {viewingUser.gender === 'male' ? 'Erkek' :
+                          viewingUser.gender === 'female' ? 'Kadın' :
+                            viewingUser.gender === 'other' ? 'Diğer' : '-'}
                       </p>
                     </div>
                     <div>
@@ -2558,9 +2577,9 @@ export default function AdminPage() {
                       <span className="text-slate-400 text-sm">Medeni Durum:</span>
                       <p className="text-white">
                         {viewingUser.marital_status === 'single' ? 'Bekar' :
-                         viewingUser.marital_status === 'married' ? 'Evli' :
-                         viewingUser.marital_status === 'divorced' ? 'Boşanmış' :
-                         viewingUser.marital_status === 'widowed' ? 'Dul' : '-'}
+                          viewingUser.marital_status === 'married' ? 'Evli' :
+                            viewingUser.marital_status === 'divorced' ? 'Boşanmış' :
+                              viewingUser.marital_status === 'widowed' ? 'Dul' : '-'}
                       </p>
                     </div>
                     <div>
@@ -2635,19 +2654,19 @@ export default function AdminPage() {
                       <span className="text-slate-400 text-sm">Çalışma Tipi:</span>
                       <p className="text-white">
                         {viewingUser.work_type === 'full_time' ? 'Tam Zamanlı' :
-                         viewingUser.work_type === 'part_time' ? 'Yarı Zamanlı' :
-                         viewingUser.work_type === 'intern' ? 'Stajyer' :
-                         viewingUser.work_type === 'contract' ? 'Sözleşmeli' : '-'}
+                          viewingUser.work_type === 'part_time' ? 'Yarı Zamanlı' :
+                            viewingUser.work_type === 'intern' ? 'Stajyer' :
+                              viewingUser.work_type === 'contract' ? 'Sözleşmeli' : '-'}
                       </p>
                     </div>
                     <div>
                       <span className="text-slate-400 text-sm">Yetki Seviyesi:</span>
                       <p className="text-white">
                         {viewingUser.authority_level === 'employee' ? 'Çalışan' :
-                         viewingUser.authority_level === 'team_lead' ? 'Takım Lideri' :
-                         viewingUser.authority_level === 'manager' ? 'Yönetici' :
-                         viewingUser.authority_level === 'director' ? 'Direktör' :
-                         viewingUser.authority_level === 'admin' ? 'Admin' : '-'}
+                          viewingUser.authority_level === 'team_lead' ? 'Takım Lideri' :
+                            viewingUser.authority_level === 'manager' ? 'Yönetici' :
+                              viewingUser.authority_level === 'director' ? 'Direktör' :
+                                viewingUser.authority_level === 'admin' ? 'Admin' : '-'}
                       </p>
                     </div>
                     <div>
@@ -2657,18 +2676,17 @@ export default function AdminPage() {
                     <div>
                       <span className="text-slate-400 text-sm">Yöneticisi:</span>
                       <p className="text-white">
-                        {viewingUser.manager_id ? 
-                          users.find(u => u.id === viewingUser.manager_id)?.first_name + ' ' + 
+                        {viewingUser.manager_id ?
+                          users.find(u => u.id === viewingUser.manager_id)?.first_name + ' ' +
                           users.find(u => u.id === viewingUser.manager_id)?.last_name || '-' : '-'}
                       </p>
                     </div>
                     <div>
                       <span className="text-slate-400 text-sm">Durum:</span>
-                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                        viewingUser.status === 'active' 
-                          ? 'bg-green-500/20 text-green-400' 
-                          : 'bg-red-500/20 text-red-400'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${viewingUser.status === 'active'
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-red-500/20 text-red-400'
+                        }`}>
                         {viewingUser.status === 'active' ? 'Aktif' : 'Pasif'}
                       </span>
                     </div>
@@ -2727,8 +2745,8 @@ export default function AdminPage() {
                     <div>
                       <span className="text-slate-400 text-sm">Maaş:</span>
                       {renderSensitiveField(
-                        viewingUser.salary ? `${viewingUser.salary.toLocaleString('tr-TR')} TL` : null, 
-                        `salary-${viewingUser.id}`, 
+                        viewingUser.salary ? `${viewingUser.salary.toLocaleString('tr-TR')} TL` : null,
+                        `salary-${viewingUser.id}`,
                         '••••••• TL'
                       )}
                     </div>
@@ -2749,9 +2767,9 @@ export default function AdminPage() {
                   <div className="flex justify-center">
                     <div className="w-32 h-32 bg-slate-700/50 rounded-xl border border-slate-600 flex items-center justify-center overflow-hidden">
                       {viewingUser.profile_photo_url ? (
-                        <img 
-                          src={viewingUser.profile_photo_url} 
-                          alt="Profil" 
+                        <img
+                          src={viewingUser.profile_photo_url}
+                          alt="Profil"
                           className="w-full h-full object-cover"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';

@@ -3,10 +3,10 @@ import { supabase } from '@/lib/supabase';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { routeId: string } }
+  { params }: { params: Promise<{ routeId: string }> }
 ) {
   try {
-    const routeId = params.routeId;
+    const { routeId } = await params;
     const body = await request.json();
     const {
       route_name,
@@ -80,10 +80,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { routeId: string } }
+  { params }: { params: Promise<{ routeId: string }> }
 ) {
   try {
-    const routeId = params.routeId;
+    const { routeId } = await params;
 
     // Delete route
     const { error } = await supabase
@@ -115,10 +115,10 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { routeId: string } }
+  { params }: { params: Promise<{ routeId: string }> }
 ) {
   try {
-    const routeId = params.routeId;
+    const { routeId } = await params;
 
     // Get single route
     const { data, error } = await supabase

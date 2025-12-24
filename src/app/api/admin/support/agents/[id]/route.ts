@@ -12,9 +12,10 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Auth token'ı al
     const authHeader = request.headers.get('authorization');
     let authToken = null;
@@ -24,7 +25,7 @@ export async function PUT(
     } else {
       // Cookie'den almayı dene
       const cookieStore = await cookies();
-      
+
       const possibleCookieNames = [
         'sb-access-token',
         'sb-riacmnpxjsbrppzfjeur-auth-token',
@@ -82,7 +83,7 @@ export async function PUT(
       .select('id')
       .eq('user_id', user_id)
       .eq('category_id', category_id)
-      .neq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows found
@@ -98,7 +99,7 @@ export async function PUT(
     const { data: agent, error } = await supabase
       .from('support_agents')
       .update({ user_id, category_id })
-      .eq('id', params.id)
+      .eq('id', id)
       .select(`
         id,
         user_id,
@@ -134,9 +135,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Auth token'ı al
     const authHeader = request.headers.get('authorization');
     let authToken = null;
@@ -146,7 +148,7 @@ export async function DELETE(
     } else {
       // Cookie'den almayı dene
       const cookieStore = await cookies();
-      
+
       const possibleCookieNames = [
         'sb-access-token',
         'sb-riacmnpxjsbrppzfjeur-auth-token',
@@ -196,7 +198,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('support_agents')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       console.error('Destek kişisi silinirken hata:', error);

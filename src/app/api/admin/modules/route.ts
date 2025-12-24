@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { authenticateUser, isAdmin } from '@/lib/auth-helper';
 
 // Use service role key for admin operations
 const supabaseAdmin = createClient(
@@ -9,6 +10,18 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { name, description, icon, is_active = true, settings = {} } = body;
 
@@ -21,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if module already exists
-    const { data: existingModule, error: checkError } = await supabase
+    const { data: existingModule } = await supabaseAdmin
       .from('modules')
       .select('id')
       .eq('name', name)
@@ -35,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert new module
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('modules')
       .insert([{
         name,
@@ -50,7 +63,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error creating module:', error);
       return NextResponse.json(
-        { error: 'Failed to create module', details: error.message },
+        { error: 'Failed to create module' },
         { status: 500 }
       );
     }
@@ -60,10 +73,10 @@ export async function POST(request: NextRequest) {
       module: data
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in POST /api/admin/modules:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -71,7 +84,19 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { data, error } = await supabase
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
+    const { data, error } = await supabaseAdmin
       .from('modules')
       .select(`
         *,
@@ -87,7 +112,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error fetching modules:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch modules', details: error.message },
+        { error: 'Failed to fetch modules' },
         { status: 500 }
       );
     }
@@ -97,10 +122,10 @@ export async function GET(request: NextRequest) {
       modules: data || []
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in GET /api/admin/modules:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

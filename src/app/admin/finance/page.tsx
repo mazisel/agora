@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { UserProfile } from '@/types';
-import { 
-  DollarSign, 
-  TrendingUp, 
-  TrendingDown, 
-  Plus, 
-  Search, 
+import {
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Plus,
+  Search,
   Filter,
   Calendar,
   User,
@@ -125,14 +125,14 @@ export default function FinancePage() {
   const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [transactionDocuments, setTransactionDocuments] = useState<{[key: string]: FinanceDocument[]}>({});
+  const [transactionDocuments, setTransactionDocuments] = useState<{ [key: string]: FinanceDocument[] }>({});
   const [viewingDocuments, setViewingDocuments] = useState<string | null>(null);
   const [viewingTransaction, setViewingTransaction] = useState<FinanceTransaction | null>(null);
-  
+
   // Account linking states
   const [linkingAccountTransaction, setLinkingAccountTransaction] = useState<FinanceTransaction | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState('');
-  
+
   // Account management states
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [editingAccount, setEditingAccount] = useState<FinanceAccount | null>(null);
@@ -145,8 +145,8 @@ export default function FinancePage() {
     account_type: 'expense' as 'asset' | 'liability' | 'equity' | 'income' | 'expense',
     parent_account_id: ''
   });
-  
-  const { user, loading } = useAuth();
+
+  const { user, session, loading } = useAuth();
   const router = useRouter();
 
   const [newTransaction, setNewTransaction] = useState({
@@ -169,7 +169,7 @@ export default function FinancePage() {
     { id: '3', name: 'Ürün Satışı', type: 'income', color: 'bg-teal-500', icon: '📦' },
     { id: '4', name: 'Yatırım Geliri', type: 'income', color: 'bg-cyan-500', icon: '📈' },
     { id: '5', name: 'Diğer Gelirler', type: 'income', color: 'bg-blue-500', icon: '💰' },
-    
+
     // Expense categories
     { id: '6', name: 'Maaşlar', type: 'expense', color: 'bg-red-500', icon: '👥' },
     { id: '7', name: 'Ofis Kirası', type: 'expense', color: 'bg-orange-500', icon: '🏢' },
@@ -215,9 +215,13 @@ export default function FinancePage() {
   const fetchAccounts = async () => {
     try {
       console.log('Fetching accounts...');
-      const response = await fetch('/api/admin/finance-accounts/');
+      const response = await fetch('/api/admin/finance-accounts/', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       console.log('Response status:', response.status);
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('Accounts data:', data);
@@ -274,15 +278,15 @@ export default function FinancePage() {
   // Filter transactions
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (transaction.employee_name && transaction.employee_name.toLowerCase().includes(searchTerm.toLowerCase()));
-    
+      transaction.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (transaction.employee_name && transaction.employee_name.toLowerCase().includes(searchTerm.toLowerCase()));
+
     const matchesType = filterType === 'all' || transaction.type === filterType;
     const matchesCategory = !filterCategory || transaction.category === filterCategory;
-    
+
     const matchesDateFrom = !filterDateFrom || transaction.date >= filterDateFrom;
     const matchesDateTo = !filterDateTo || transaction.date <= filterDateTo;
-    
+
     return matchesSearch && matchesType && matchesCategory && matchesDateFrom && matchesDateTo;
   });
 
@@ -290,18 +294,18 @@ export default function FinancePage() {
   const totalIncome = transactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
-  
+
   const totalExpense = transactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
-  
+
   const balance = totalIncome - totalExpense;
 
   // Calculate filtered totals
   const filteredIncome = filteredTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
-  
+
   const filteredExpense = filteredTransactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
@@ -330,7 +334,7 @@ export default function FinancePage() {
 
     try {
       const employeeName = newTransaction.employee_id ? getEmployeeName(newTransaction.employee_id) : null;
-      
+
       // İşlemi oluştur
       const { data: transactionData, error: transactionError } = await supabase
         .from('finance_transactions')
@@ -365,6 +369,9 @@ export default function FinancePage() {
 
             const response = await fetch('/api/admin/upload-finance-document', {
               method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session?.access_token}`
+              },
               body: formData,
             });
 
@@ -381,7 +388,7 @@ export default function FinancePage() {
       }
 
       await fetchData();
-      
+
       // Form ve dosyaları temizle
       setNewTransaction({
         type: 'expense',
@@ -398,7 +405,7 @@ export default function FinancePage() {
       setUploadError('');
       setIsCreating(false);
       setIsLoading(false);
-      
+
       alert('İşlem başarıyla eklendi!');
     } catch (error) {
       console.error('Error creating transaction:', error);
@@ -416,7 +423,7 @@ export default function FinancePage() {
 
     try {
       const employeeName = editingTransaction.employee_id ? getEmployeeName(editingTransaction.employee_id) : null;
-      
+
       const { error } = await supabase
         .from('finance_transactions')
         .update({
@@ -437,7 +444,7 @@ export default function FinancePage() {
       await fetchData();
       setEditingTransaction(null);
       setIsLoading(false);
-      
+
       alert('İşlem başarıyla güncellendi!');
     } catch (error) {
       console.error('Error updating transaction:', error);
@@ -494,7 +501,11 @@ export default function FinancePage() {
   // Fetch documents for a transaction
   const fetchTransactionDocuments = async (transactionId: string) => {
     try {
-      const response = await fetch(`/api/admin/finance-documents?transactionId=${transactionId}`);
+      const response = await fetch(`/api/admin/finance-documents?transactionId=${transactionId}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setTransactionDocuments(prev => ({
@@ -522,6 +533,9 @@ export default function FinancePage() {
     try {
       const response = await fetch(`/api/admin/upload-finance-document?id=${documentId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
       });
 
       if (response.ok) {
@@ -557,7 +571,7 @@ export default function FinancePage() {
       setLinkingAccountTransaction(null);
       setSelectedAccountId('');
       setIsLoading(false);
-      
+
       alert(selectedAccountId ? 'İşlem hesaba başarıyla bağlandı!' : 'İşlem hesap bağlantısı kaldırıldı!');
     } catch (error) {
       console.error('Error linking transaction to account:', error);
@@ -617,22 +631,20 @@ export default function FinancePage() {
           <div className="flex gap-2">
             <button
               onClick={() => setActiveTab('transactions')}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
-                activeTab === 'transactions'
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${activeTab === 'transactions'
                   ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
                   : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-              }`}
+                }`}
             >
               <DollarSign className="w-4 h-4" />
               İşlemler
             </button>
             <button
               onClick={() => setActiveTab('accounts')}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
-                activeTab === 'accounts'
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${activeTab === 'accounts'
                   ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
                   : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-              }`}
+                }`}
             >
               <FolderTree className="w-4 h-4" />
               Hesap Planı
@@ -803,182 +815,182 @@ export default function FinancePage() {
       {activeTab === 'transactions' ? (
         /* Transactions Table */
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700/50">
-                <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Tarih</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Kategori</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Açıklama</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Personel</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Ödeme</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Tutar</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransactions.map((transaction) => {
-                const categoryInfo = getCategoryInfo(transaction.category);
-                return (
-                  <tr key={transaction.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
-                    <td className="py-4 px-6">
-                      <span className="text-slate-300">{new Date(transaction.date).toLocaleDateString('tr-TR')}</span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{categoryInfo.icon}</span>
-                        <span className="text-white">{transaction.category}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div>
-                        <div className="text-white font-medium">{transaction.description}</div>
-                        {transaction.reference_number && (
-                          <div className="text-slate-400 text-sm">Ref: {transaction.reference_number}</div>
-                        )}
-                        
-                        {/* Account Information */}
-                        <div className="mt-1">
-                          {transaction.account_id ? (
-                            <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded text-xs">
-                              <Building2 className="w-3 h-3" />
-                              {getAccountName(transaction.account_id)}
-                            </div>
-                          ) : (
-                            <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-xs">
-                              <Building2 className="w-3 h-3" />
-                              Hesap Atanmamış
-                            </div>
-                          )}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-700/50">
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Tarih</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Kategori</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Açıklama</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Personel</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Ödeme</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Tutar</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">İşlemler</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTransactions.map((transaction) => {
+                  const categoryInfo = getCategoryInfo(transaction.category);
+                  return (
+                    <tr key={transaction.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
+                      <td className="py-4 px-6">
+                        <span className="text-slate-300">{new Date(transaction.date).toLocaleDateString('tr-TR')}</span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{categoryInfo.icon}</span>
+                          <span className="text-white">{transaction.category}</span>
                         </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div>
+                          <div className="text-white font-medium">{transaction.description}</div>
+                          {transaction.reference_number && (
+                            <div className="text-slate-400 text-sm">Ref: {transaction.reference_number}</div>
+                          )}
 
-                        {transaction.category.includes('Görev Harcaması') && (
-                          <div className="mt-1 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded text-xs">
-                                <FileText className="w-3 h-3" />
-                                Görev Harcaması
-                              </span>
-                              {transaction.task_title && (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-xs">
-                                  📋 {transaction.task_title}
-                                </span>
-                              )}
-                            </div>
-                            {transaction.project_name && (
-                              <div className="text-xs text-slate-400">
-                                🏢 Proje: {transaction.project_name}
+                          {/* Account Information */}
+                          <div className="mt-1">
+                            {transaction.account_id ? (
+                              <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded text-xs">
+                                <Building2 className="w-3 h-3" />
+                                {getAccountName(transaction.account_id)}
                               </div>
-                            )}
-                            {transaction.approved_by_name && (
-                              <div className="text-xs text-green-400">
-                                ✅ Onaylayan: {transaction.approved_by_name}
+                            ) : (
+                              <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-xs">
+                                <Building2 className="w-3 h-3" />
+                                Hesap Atanmamış
                               </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="text-slate-300">
-                        {transaction.employee_name || '-'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="px-2 py-1 rounded-lg text-xs font-medium bg-slate-700/50 text-slate-300">
-                        {transaction.payment_method === 'cash' ? 'Nakit' :
-                         transaction.payment_method === 'bank_transfer' ? 'Havale' :
-                         transaction.payment_method === 'credit_card' ? 'Kredi Kartı' :
-                         transaction.payment_method === 'check' ? 'Çek' : transaction.payment_method}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-2">
-                        {transaction.type === 'income' ? (
-                          <ArrowUpRight className="w-4 h-4 text-green-400" />
-                        ) : (
-                          <ArrowDownRight className="w-4 h-4 text-red-400" />
-                        )}
-                        <span className={`font-bold ${transaction.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
-                          {transaction.type === 'income' ? '+' : '-'}{formatAmount(transaction.amount)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setViewingTransaction(transaction)}
-                          className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
-                          title="Detayları Görüntüle"
-                        >
-                          <Eye className="w-4 h-4 text-slate-400 hover:text-cyan-400" />
-                        </button>
-                        <button
-                          onClick={() => handleViewDocuments(transaction.id)}
-                          className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
-                          title="Belgeleri Görüntüle"
-                        >
-                          <Paperclip className="w-4 h-4 text-slate-400 hover:text-purple-400" />
-                        </button>
-                        <button
-                          onClick={() => setEditingTransaction(transaction)}
-                          className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
-                          title="Düzenle"
-                        >
-                          <Edit3 className="w-4 h-4 text-slate-400 hover:text-blue-400" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setLinkingAccountTransaction(transaction);
-                            setSelectedAccountId(transaction.account_id || '');
-                          }}
-                          className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
-                          title="Hesaba Bağla"
-                        >
-                          <Building2 className="w-4 h-4 text-slate-400 hover:text-green-400" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTransaction(transaction.id)}
-                          className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
-                          title="Sil"
-                        >
-                          <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
 
-        {/* Empty State */}
-        {filteredTransactions.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <DollarSign className="w-8 h-8 text-slate-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-2">
-              {searchTerm || filterType !== 'all' || filterCategory || filterDateFrom || filterDateTo 
-                ? 'İşlem Bulunamadı' 
-                : 'Henüz İşlem Yok'}
-            </h3>
-            <p className="text-slate-400 mb-6">
-              {searchTerm || filterType !== 'all' || filterCategory || filterDateFrom || filterDateTo
-                ? 'Arama kriterlerinize uygun işlem bulunamadı'
-                : 'İlk finansal işlemi oluşturun'}
-            </p>
-            {!(searchTerm || filterType !== 'all' || filterCategory || filterDateFrom || filterDateTo) && (
-              <button
-                onClick={() => setIsCreating(true)}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-200 font-medium"
-              >
-                İlk İşlemi Oluştur
-              </button>
-            )}
+                          {transaction.category.includes('Görev Harcaması') && (
+                            <div className="mt-1 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded text-xs">
+                                  <FileText className="w-3 h-3" />
+                                  Görev Harcaması
+                                </span>
+                                {transaction.task_title && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-xs">
+                                    📋 {transaction.task_title}
+                                  </span>
+                                )}
+                              </div>
+                              {transaction.project_name && (
+                                <div className="text-xs text-slate-400">
+                                  🏢 Proje: {transaction.project_name}
+                                </div>
+                              )}
+                              {transaction.approved_by_name && (
+                                <div className="text-xs text-green-400">
+                                  ✅ Onaylayan: {transaction.approved_by_name}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="text-slate-300">
+                          {transaction.employee_name || '-'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="px-2 py-1 rounded-lg text-xs font-medium bg-slate-700/50 text-slate-300">
+                          {transaction.payment_method === 'cash' ? 'Nakit' :
+                            transaction.payment_method === 'bank_transfer' ? 'Havale' :
+                              transaction.payment_method === 'credit_card' ? 'Kredi Kartı' :
+                                transaction.payment_method === 'check' ? 'Çek' : transaction.payment_method}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-2">
+                          {transaction.type === 'income' ? (
+                            <ArrowUpRight className="w-4 h-4 text-green-400" />
+                          ) : (
+                            <ArrowDownRight className="w-4 h-4 text-red-400" />
+                          )}
+                          <span className={`font-bold ${transaction.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
+                            {transaction.type === 'income' ? '+' : '-'}{formatAmount(transaction.amount)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setViewingTransaction(transaction)}
+                            className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                            title="Detayları Görüntüle"
+                          >
+                            <Eye className="w-4 h-4 text-slate-400 hover:text-cyan-400" />
+                          </button>
+                          <button
+                            onClick={() => handleViewDocuments(transaction.id)}
+                            className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                            title="Belgeleri Görüntüle"
+                          >
+                            <Paperclip className="w-4 h-4 text-slate-400 hover:text-purple-400" />
+                          </button>
+                          <button
+                            onClick={() => setEditingTransaction(transaction)}
+                            className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                            title="Düzenle"
+                          >
+                            <Edit3 className="w-4 h-4 text-slate-400 hover:text-blue-400" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setLinkingAccountTransaction(transaction);
+                              setSelectedAccountId(transaction.account_id || '');
+                            }}
+                            className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                            title="Hesaba Bağla"
+                          >
+                            <Building2 className="w-4 h-4 text-slate-400 hover:text-green-400" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTransaction(transaction.id)}
+                            className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                            title="Sil"
+                          >
+                            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
+
+          {/* Empty State */}
+          {filteredTransactions.length === 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <DollarSign className="w-8 h-8 text-slate-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                {searchTerm || filterType !== 'all' || filterCategory || filterDateFrom || filterDateTo
+                  ? 'İşlem Bulunamadı'
+                  : 'Henüz İşlem Yok'}
+              </h3>
+              <p className="text-slate-400 mb-6">
+                {searchTerm || filterType !== 'all' || filterCategory || filterDateFrom || filterDateTo
+                  ? 'Arama kriterlerinize uygun işlem bulunamadı'
+                  : 'İlk finansal işlemi oluşturun'}
+              </p>
+              {!(searchTerm || filterType !== 'all' || filterCategory || filterDateFrom || filterDateTo) && (
+                <button
+                  onClick={() => setIsCreating(true)}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-200 font-medium"
+                >
+                  İlk İşlemi Oluştur
+                </button>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         /* Accounts Management */
@@ -1140,7 +1152,7 @@ export default function FinancePage() {
                   >
                     <option value="">Hesap Seçiniz (Opsiyonel)</option>
                     {accounts
-                      .filter(account => 
+                      .filter(account =>
                         (newTransaction.type === 'income' && account.account_type === 'income') ||
                         (newTransaction.type === 'expense' && account.account_type === 'expense')
                       )
@@ -1173,7 +1185,7 @@ export default function FinancePage() {
                       Belgeler (Opsiyonel)
                     </div>
                   </label>
-                  
+
                   {/* File Input */}
                   <div className="mb-4">
                     <input
@@ -1505,9 +1517,9 @@ export default function FinancePage() {
                               <File className="w-12 h-12 text-slate-500 mx-auto mb-2" />
                               <p className="text-xs text-slate-400">
                                 {document.file_type === 'application/pdf' ? 'PDF Belgesi' :
-                                 document.file_type.includes('word') ? 'Word Belgesi' :
-                                 document.file_type.includes('excel') || document.file_type.includes('sheet') ? 'Excel Belgesi' :
-                                 'Belge'}
+                                  document.file_type.includes('word') ? 'Word Belgesi' :
+                                    document.file_type.includes('excel') || document.file_type.includes('sheet') ? 'Excel Belgesi' :
+                                      'Belge'}
                               </p>
                             </div>
                           </div>
@@ -1585,11 +1597,10 @@ export default function FinancePage() {
             <div className="p-6 border-b border-slate-700/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    viewingTransaction.type === 'income' 
-                      ? 'bg-green-500/20 text-green-400' 
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${viewingTransaction.type === 'income'
+                      ? 'bg-green-500/20 text-green-400'
                       : 'bg-red-500/20 text-red-400'
-                  }`}>
+                    }`}>
                     {viewingTransaction.type === 'income' ? (
                       <TrendingUp className="w-6 h-6" />
                     ) : (
@@ -1628,9 +1639,8 @@ export default function FinancePage() {
                           ) : (
                             <TrendingDown className="w-5 h-5 text-red-400" />
                           )}
-                          <span className={`text-lg font-bold ${
-                            viewingTransaction.type === 'income' ? 'text-green-400' : 'text-red-400'
-                          }`}>
+                          <span className={`text-lg font-bold ${viewingTransaction.type === 'income' ? 'text-green-400' : 'text-red-400'
+                            }`}>
                             {viewingTransaction.type === 'income' ? 'Gelir' : 'Gider'}
                           </span>
                         </div>
@@ -1644,9 +1654,8 @@ export default function FinancePage() {
                         ) : (
                           <ArrowDownRight className="w-5 h-5 text-red-400" />
                         )}
-                        <span className={`text-2xl font-bold ${
-                          viewingTransaction.type === 'income' ? 'text-green-400' : 'text-red-400'
-                        }`}>
+                        <span className={`text-2xl font-bold ${viewingTransaction.type === 'income' ? 'text-green-400' : 'text-red-400'
+                          }`}>
                           {viewingTransaction.type === 'income' ? '+' : '-'}
                           {viewingTransaction.amount.toLocaleString('tr-TR')} TL
                         </span>
@@ -1709,9 +1718,9 @@ export default function FinancePage() {
                     <div className="flex items-center gap-2">
                       <span className="px-3 py-2 rounded-lg text-sm font-medium bg-purple-500/20 text-purple-400">
                         {viewingTransaction.payment_method === 'cash' ? '💵 Nakit' :
-                         viewingTransaction.payment_method === 'bank_transfer' ? '🏦 Havale/EFT' :
-                         viewingTransaction.payment_method === 'credit_card' ? '💳 Kredi Kartı' :
-                         viewingTransaction.payment_method === 'check' ? '📄 Çek' : viewingTransaction.payment_method}
+                          viewingTransaction.payment_method === 'bank_transfer' ? '🏦 Havale/EFT' :
+                            viewingTransaction.payment_method === 'credit_card' ? '💳 Kredi Kartı' :
+                              viewingTransaction.payment_method === 'check' ? '📄 Çek' : viewingTransaction.payment_method}
                       </span>
                     </div>
                   </div>
@@ -1932,7 +1941,7 @@ export default function FinancePage() {
                 >
                   <option value="">Hesap bağlantısını kaldır</option>
                   {accounts
-                    .filter(account => 
+                    .filter(account =>
                       (linkingAccountTransaction.type === 'income' && account.account_type === 'income') ||
                       (linkingAccountTransaction.type === 'expense' && account.account_type === 'expense')
                     )

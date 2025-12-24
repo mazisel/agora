@@ -4,10 +4,10 @@ import { supabase } from '@/lib/supabase';
 // Görev yönlendirme talebi oluşturma
 export async function POST(
   request: NextRequest,
-  { params }: { params: { taskId: string } }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
-    const { taskId } = params;
+    const { taskId } = await params;
     const body = await request.json();
     const { to_user_id, reason, transfer_type } = body;
 
@@ -19,7 +19,7 @@ export async function POST(
 
     const token = authHeader.substring(7);
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
+
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -47,14 +47,14 @@ export async function POST(
     }
 
     // Yetki kontrolü - sadece görevin sahibi veya yöneticiler yönlendirme yapabilir
-    const canTransfer = 
-      task.assigned_to === user.id || 
+    const canTransfer =
+      task.assigned_to === user.id ||
       task.created_by === user.id ||
       ['team_lead', 'manager', 'director', 'admin'].includes(userProfile.authority_level);
 
     if (!canTransfer) {
-      return NextResponse.json({ 
-        error: 'Bu görevi yönlendirme yetkiniz yok' 
+      return NextResponse.json({
+        error: 'Bu görevi yönlendirme yetkiniz yok'
       }, { status: 403 });
     }
 
@@ -71,8 +71,8 @@ export async function POST(
 
     // Aynı kişiye yönlendirme kontrolü
     if (task.assigned_to === to_user_id) {
-      return NextResponse.json({ 
-        error: 'Görev zaten bu kişiye atanmış' 
+      return NextResponse.json({
+        error: 'Görev zaten bu kişiye atanmış'
       }, { status: 400 });
     }
 
@@ -89,8 +89,8 @@ export async function POST(
 
     if (transferError) {
       console.error('Transfer request error:', transferError);
-      return NextResponse.json({ 
-        error: 'Yönlendirme talebi oluşturulamadı' 
+      return NextResponse.json({
+        error: 'Yönlendirme talebi oluşturulamadı'
       }, { status: 500 });
     }
 
@@ -131,8 +131,8 @@ export async function POST(
 
   } catch (error) {
     console.error('Task transfer error:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }
@@ -140,10 +140,10 @@ export async function POST(
 // Görev yönlendirme taleplerini listeleme
 export async function GET(
   request: NextRequest,
-  { params }: { params: { taskId: string } }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
-    const { taskId } = params;
+    const { taskId } = await params;
 
     // Authorization header'dan token al
     const authHeader = request.headers.get('authorization');
@@ -153,7 +153,7 @@ export async function GET(
 
     const token = authHeader.substring(7);
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
+
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -173,8 +173,8 @@ export async function GET(
 
     if (transfersError) {
       console.error('Transfers fetch error:', transfersError);
-      return NextResponse.json({ 
-        error: 'Yönlendirme talepleri alınamadı' 
+      return NextResponse.json({
+        error: 'Yönlendirme talepleri alınamadı'
       }, { status: 500 });
     }
 
@@ -192,8 +192,8 @@ export async function GET(
 
     if (historyError) {
       console.error('Transfer history fetch error:', historyError);
-      return NextResponse.json({ 
-        error: 'Yönlendirme geçmişi alınamadı' 
+      return NextResponse.json({
+        error: 'Yönlendirme geçmişi alınamadı'
       }, { status: 500 });
     }
 
@@ -207,8 +207,8 @@ export async function GET(
 
   } catch (error) {
     console.error('Get task transfers error:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }

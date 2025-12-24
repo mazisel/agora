@@ -14,15 +14,15 @@ const supabaseAdmin = createClient(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const { userId } = params;
+    const { userId } = await params;
 
     if (!userId) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'User ID is required' 
+      return NextResponse.json({
+        success: false,
+        error: 'User ID is required'
       }, { status: 400 });
     }
 
@@ -31,16 +31,16 @@ export async function GET(
 
     if (error) {
       console.error('Get user error:', error);
-      return NextResponse.json({ 
-        success: false, 
-        error: error.message 
+      return NextResponse.json({
+        success: false,
+        error: error.message
       }, { status: 500 });
     }
 
     if (!user) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'User not found' 
+      return NextResponse.json({
+        success: false,
+        error: 'User not found'
       }, { status: 404 });
     }
 
@@ -55,9 +55,9 @@ export async function GET(
 
   } catch (error) {
     console.error('API error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }

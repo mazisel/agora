@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Plus, Search, Edit3, Trash2, Clock, User, Calendar, MessageSquare, Paperclip, CheckCircle2, Eye, X, Send, Download, AlertCircle, FileText, Users, Image, Smile, Save, XCircle, DollarSign, Receipt, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +12,14 @@ import TaskDetailView from '@/components/tasks/TaskDetailView';
 
 export default function TasksPage() {
   const { userProfile, session, loading } = useAuth();
+  const searchParams = useSearchParams();
+  const taskIdFromUrl = searchParams.get('taskId');
+
+  // Add deep linking effect
+
   const [tasks, setTasks] = useState<Task[]>([]);
+
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<{
     id: string;
@@ -20,6 +28,7 @@ export default function TasksPage() {
     personnel_number: string;
     position?: string;
   }[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [viewingTask, setViewingTask] = useState<Task | null>(null);
@@ -36,7 +45,7 @@ export default function TasksPage() {
     status: 'todo' as const,
     due_date: ''
   });
-  
+
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [selectedInformed, setSelectedInformed] = useState<string[]>([]);
   const [assigneeSearch, setAssigneeSearch] = useState('');
@@ -70,10 +79,10 @@ export default function TasksPage() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Get auth token
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       const authHeaders: HeadersInit = session?.access_token ? {
         'Authorization': `Bearer ${session.access_token}`
       } : {};
@@ -114,9 +123,9 @@ export default function TasksPage() {
         if (tasksResponse.ok) {
           const allTasks = await tasksResponse.json();
           // Filter only request tasks (not normal tasks)
-          requestTasks = allTasks.filter((task: any) => 
-            task.id.startsWith('leave_') || 
-            task.id.startsWith('advance_') || 
+          requestTasks = allTasks.filter((task: any) =>
+            task.id.startsWith('leave_') ||
+            task.id.startsWith('advance_') ||
             task.id.startsWith('suggestion_')
           );
         } else {
@@ -154,7 +163,7 @@ export default function TasksPage() {
 
       setProjects(projectsData || []);
       setUsers(usersData || []);
-      
+
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -167,6 +176,48 @@ export default function TasksPage() {
       fetchData();
     }
   }, [userProfile]);
+
+
+
+  // Deep Linking Effect - Placed here to ensure fetchTaskDetails is defined
+  useEffect(() => {
+    const handleDeepLink = async () => {
+      if (!taskIdFromUrl || viewingTask) return;
+
+      const existingTask = tasks.find(t => t.id === taskIdFromUrl);
+      if (existingTask) {
+        setViewingTask(existingTask);
+        fetchTaskDetails(taskIdFromUrl);
+        return;
+      }
+
+      try {
+        const { data: task, error } = await supabase
+          .from('tasks')
+          .select(`
+            *,
+            project:projects(id, name),
+            assignee:user_profiles!tasks_assigned_to_fkey(id, first_name, last_name, personnel_number),
+            assigner:user_profiles!tasks_assigned_by_fkey(id, first_name, last_name, personnel_number),
+            informed:user_profiles!tasks_informed_person_fkey(id, first_name, last_name, personnel_number),
+            creator:user_profiles!tasks_created_by_fkey(id, first_name, last_name, personnel_number)
+          `)
+          .eq('id', taskIdFromUrl)
+          .single();
+
+        if (error) throw error;
+        if (task) {
+          setViewingTask(task);
+          fetchTaskDetails(taskIdFromUrl);
+        }
+      } catch (error) {
+        console.error('Error fetching deep linked task:', error);
+      }
+    };
+
+    handleDeepLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskIdFromUrl, tasks]);
 
   // Show loading while checking authentication
   if (loading) {
@@ -193,12 +244,12 @@ export default function TasksPage() {
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.project?.name.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.project?.name.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
     const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
-    
+
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
@@ -242,15 +293,15 @@ export default function TasksPage() {
 
       const assigneeNames = selectedAssignees.length > 0
         ? selectedAssignees
-            .map(id => {
-              const user = users.find(u => u.id === id);
-              return user ? `${user.first_name} ${user.last_name}`.trim() : null;
-            })
-            .filter(Boolean)
+          .map(id => {
+            const user = users.find(u => u.id === id);
+            return user ? `${user.first_name} ${user.last_name}`.trim() : null;
+          })
+          .filter(Boolean)
         : (newTask.assigned_to ? (() => {
-            const user = users.find(u => u.id === newTask.assigned_to);
-            return user ? [`${user.first_name} ${user.last_name}`.trim()] : [];
-          })() : []);
+          const user = users.find(u => u.id === newTask.assigned_to);
+          return user ? [`${user.first_name} ${user.last_name}`.trim()] : [];
+        })() : []);
 
       if (assigneeIds.length > 0 && data?.id) {
         try {
@@ -279,7 +330,7 @@ export default function TasksPage() {
           console.error('Task assignment notification error:', notifyError);
         }
       }
-      
+
       setNewTask({
         title: '',
         description: '',
@@ -303,7 +354,7 @@ export default function TasksPage() {
     try {
       const { error } = await supabase
         .from('tasks')
-        .update({ 
+        .update({
           status: newStatus,
           completed_at: newStatus === 'done' ? new Date().toISOString() : null
         })
@@ -809,8 +860,8 @@ export default function TasksPage() {
             </div>
             <h3 className="text-xl font-semibold text-white mb-2">Görev Bulunamadı</h3>
             <p className="text-slate-400 mb-6">
-              {statusFilter !== 'all' || priorityFilter !== 'all' || searchTerm 
-                ? 'Arama kriterlerinize uygun görev bulunamadı.' 
+              {statusFilter !== 'all' || priorityFilter !== 'all' || searchTerm
+                ? 'Arama kriterlerinize uygun görev bulunamadı.'
                 : 'Henüz görev eklenmemiş.'}
             </p>
             <button
@@ -937,7 +988,7 @@ export default function TasksPage() {
       {/* Create Task View for Mobile */}
       <div className="lg:hidden">
         {isCreating && (
-          <CreateTaskView 
+          <CreateTaskView
             onClose={() => setIsCreating(false)}
             onSave={handleCreateTask}
             projects={projects}
@@ -1009,7 +1060,7 @@ export default function TasksPage() {
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Sorumlu Kişiler
                     </label>
-                    
+
                     {/* Seçilen kişiler */}
                     {selectedAssignees.length > 0 && (
                       <div className="mb-2 flex flex-wrap gap-2">
@@ -1051,16 +1102,16 @@ export default function TasksPage() {
                         className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                         placeholder="Kişi ara ve ekle..."
                       />
-                      
+
                       {/* Dropdown */}
                       {showAssigneeDropdown && (
                         <div className="absolute top-full left-0 right-0 mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
                           {users
-                            .filter(user => 
+                            .filter(user =>
                               !selectedAssignees.includes(user.id) &&
                               (user.first_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-                               user.last_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-                               user.position?.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                                user.last_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+                                user.position?.toLowerCase().includes(assigneeSearch.toLowerCase()))
                             )
                             .map(user => (
                               <button
@@ -1083,14 +1134,14 @@ export default function TasksPage() {
                                 </div>
                               </button>
                             ))}
-                          {users.filter(user => 
+                          {users.filter(user =>
                             !selectedAssignees.includes(user.id) &&
                             (user.first_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-                             user.last_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-                             user.position?.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                              user.last_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+                              user.position?.toLowerCase().includes(assigneeSearch.toLowerCase()))
                           ).length === 0 && (
-                            <div className="p-3 text-slate-400 text-sm">Kişi bulunamadı</div>
-                          )}
+                              <div className="p-3 text-slate-400 text-sm">Kişi bulunamadı</div>
+                            )}
                         </div>
                       )}
                     </div>
@@ -1101,7 +1152,7 @@ export default function TasksPage() {
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Bilgi Kişileri
                     </label>
-                    
+
                     {/* Seçilen kişiler */}
                     {selectedInformed.length > 0 && (
                       <div className="mb-2 flex flex-wrap gap-2">
@@ -1143,16 +1194,16 @@ export default function TasksPage() {
                         className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50"
                         placeholder="Bilgi kişisi ara ve ekle..."
                       />
-                      
+
                       {/* Dropdown */}
                       {showInformedDropdown && (
                         <div className="absolute top-full left-0 right-0 mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
                           {users
-                            .filter(user => 
+                            .filter(user =>
                               !selectedInformed.includes(user.id) &&
                               (user.first_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
-                               user.last_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
-                               user.position?.toLowerCase().includes(informedSearch.toLowerCase()))
+                                user.last_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
+                                user.position?.toLowerCase().includes(informedSearch.toLowerCase()))
                             )
                             .map(user => (
                               <button
@@ -1175,14 +1226,14 @@ export default function TasksPage() {
                                 </div>
                               </button>
                             ))}
-                          {users.filter(user => 
+                          {users.filter(user =>
                             !selectedInformed.includes(user.id) &&
                             (user.first_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
-                             user.last_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
-                             user.position?.toLowerCase().includes(informedSearch.toLowerCase()))
+                              user.last_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
+                              user.position?.toLowerCase().includes(informedSearch.toLowerCase()))
                           ).length === 0 && (
-                            <div className="p-3 text-slate-400 text-sm">Kişi bulunamadı</div>
-                          )}
+                              <div className="p-3 text-slate-400 text-sm">Kişi bulunamadı</div>
+                            )}
                         </div>
                       )}
                     </div>
@@ -1275,6 +1326,51 @@ export default function TasksPage() {
           setTaskAttachments={setTaskAttachments}
         />
       )}
+
+      {/* Deep Linking Effect - Placed here to ensure fetchTaskDetails is defined */}
+      {(() => {
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        useEffect(() => {
+          const handleDeepLink = async () => {
+            if (!taskIdFromUrl || viewingTask) return;
+
+            const existingTask = tasks.find(t => t.id === taskIdFromUrl);
+            if (existingTask) {
+              setViewingTask(existingTask);
+              // fetchTaskDetails is now defined
+              fetchTaskDetails(taskIdFromUrl);
+              return;
+            }
+
+            try {
+              const { data: task, error } = await supabase
+                .from('tasks')
+                .select(`
+                  *,
+                  project:projects(id, name),
+                  assignee:user_profiles!tasks_assigned_to_fkey(id, first_name, last_name, personnel_number),
+                  assigner:user_profiles!tasks_assigned_by_fkey(id, first_name, last_name, personnel_number),
+                  informed:user_profiles!tasks_informed_person_fkey(id, first_name, last_name, personnel_number),
+                  creator:user_profiles!tasks_created_by_fkey(id, first_name, last_name, personnel_number)
+                `)
+                .eq('id', taskIdFromUrl)
+                .single();
+
+              if (error) throw error;
+              if (task) {
+                setViewingTask(task);
+                fetchTaskDetails(taskIdFromUrl);
+              }
+            } catch (error) {
+              console.error('Error fetching deep linked task:', error);
+            }
+          };
+
+          handleDeepLink();
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [taskIdFromUrl, tasks]);
+        return null;
+      })()}
     </div>
   );
 }

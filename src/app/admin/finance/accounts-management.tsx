@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Edit, Trash2, ChevronRight, ChevronDown, Building2, TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
 
 interface FinanceAccount {
@@ -28,6 +29,7 @@ interface AccountFormData {
 }
 
 const AccountsManagement: React.FC = () => {
+  const { user, session } = useAuth();
   const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,14 +55,25 @@ const AccountsManagement: React.FC = () => {
   ];
 
   useEffect(() => {
-    fetchAccounts();
-  }, []);
+    if (session) {
+      fetchAccounts();
+    }
+  }, [session]);
 
   const fetchAccounts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/finance-accounts/');
-      
+      console.log('Fetching accounts with token:', session?.access_token ? 'Present' : 'Missing');
+      const response = await fetch('/api/admin/finance-accounts/', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
+
+      if (response.status === 401) {
+        throw new Error('Oturum süresi dolmuş, lütfen tekrar giriş yapın');
+      }
+
       if (!response.ok) {
         throw new Error('Hesaplar yüklenemedi');
       }
@@ -76,12 +89,12 @@ const AccountsManagement: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       const url = '/api/admin/finance-accounts/';
       const method = editingAccount ? 'PUT' : 'POST';
-      
-      const payload = editingAccount 
+
+      const payload = editingAccount
         ? { ...formData, id: editingAccount.id }
         : formData;
 
@@ -89,6 +102,7 @@ const AccountsManagement: React.FC = () => {
         method,
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
           ...payload,
@@ -129,6 +143,9 @@ const AccountsManagement: React.FC = () => {
     try {
       const response = await fetch(`/api/admin/finance-accounts/?id=${account.id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
       });
 
       if (!response.ok) {
@@ -165,7 +182,7 @@ const AccountsManagement: React.FC = () => {
 
   const buildAccountTree = (accounts: FinanceAccount[]): FinanceAccountWithChildren[] => {
     const accountMap = new Map<string, FinanceAccountWithChildren>();
-    
+
     // Initialize all accounts with empty children array
     accounts.forEach(account => {
       accountMap.set(account.id, { ...account, children: [] });
@@ -176,7 +193,7 @@ const AccountsManagement: React.FC = () => {
     // Build the tree structure
     accounts.forEach(account => {
       const accountWithChildren = accountMap.get(account.id)!;
-      
+
       if (account.parent_account_id && accountMap.has(account.parent_account_id)) {
         const parent = accountMap.get(account.parent_account_id)!;
         parent.children.push(accountWithChildren);
@@ -203,10 +220,9 @@ const AccountsManagement: React.FC = () => {
 
     return (
       <div key={account.id} className="border-b border-slate-700/30">
-        <div 
-          className={`flex items-center justify-between p-3 hover:bg-slate-700/20 transition-colors ${
-            level > 0 ? `ml-${level * 6}` : ''
-          }`}
+        <div
+          className={`flex items-center justify-between p-3 hover:bg-slate-700/20 transition-colors ${level > 0 ? `ml-${level * 6}` : ''
+            }`}
           style={{ paddingLeft: `${level * 24 + 12}px` }}
         >
           <div className="flex items-center space-x-3 flex-1">
@@ -224,9 +240,9 @@ const AccountsManagement: React.FC = () => {
             ) : (
               <div className="w-6" />
             )}
-            
+
             <Icon className={`h-5 w-5 ${accountTypeInfo?.color || 'text-slate-400'}`} />
-            
+
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <span className="font-mono text-sm text-slate-300 bg-slate-700/50 px-2 py-1 rounded">
@@ -249,7 +265,7 @@ const AccountsManagement: React.FC = () => {
             <span className={`text-xs px-2 py-1 rounded-full ${accountTypeInfo?.color || 'text-slate-400'} bg-slate-700/30`}>
               {accountTypeInfo?.label || account.account_type}
             </span>
-            
+
             <button
               onClick={() => handleEdit(account)}
               className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors"
@@ -257,7 +273,7 @@ const AccountsManagement: React.FC = () => {
             >
               <Edit className="h-4 w-4" />
             </button>
-            
+
             <button
               onClick={() => handleDelete(account)}
               className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
@@ -278,8 +294,8 @@ const AccountsManagement: React.FC = () => {
   };
 
   const getParentAccountOptions = (currentAccountId?: string) => {
-    return accounts.filter(account => 
-      account.id !== currentAccountId && 
+    return accounts.filter(account =>
+      account.id !== currentAccountId &&
       account.account_type === formData.account_type
     );
   };
@@ -303,7 +319,7 @@ const AccountsManagement: React.FC = () => {
           <h2 className="text-2xl font-bold text-white">Hesap Planı Yönetimi</h2>
           <p className="text-slate-400 mt-1">Finans hesaplarını yönetin ve düzenleyin</p>
         </div>
-        
+
         <button
           onClick={() => {
             resetForm();
@@ -355,7 +371,7 @@ const AccountsManagement: React.FC = () => {
             Hesap Listesi ({filteredAccounts.length})
           </h3>
         </div>
-        
+
         <div className="divide-y divide-slate-700/30">
           {accountTree.length > 0 ? (
             accountTree.map(account => renderAccountNode(account, 0))
@@ -375,7 +391,7 @@ const AccountsManagement: React.FC = () => {
             <h3 className="text-lg font-semibold text-white mb-4">
               {editingAccount ? 'Hesap Düzenle' : 'Yeni Hesap Ekle'}
             </h3>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">
@@ -424,8 +440,8 @@ const AccountsManagement: React.FC = () => {
                 </label>
                 <select
                   value={formData.account_type}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
+                  onChange={(e) => setFormData({
+                    ...formData,
                     account_type: e.target.value as any,
                     parent_account_id: '' // Reset parent when type changes
                   })}

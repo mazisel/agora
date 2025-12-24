@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { authenticateUser, isAdmin } from '@/lib/auth-helper';
 
 // Service role key ile admin client oluştur
 const supabaseAdmin = createClient(
@@ -15,10 +16,22 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const fileName = formData.get('fileName') as string;
-    
+
     if (!file || !fileName) {
       return NextResponse.json(
         { error: 'Dosya ve dosya adı gerekli' },
@@ -46,14 +59,14 @@ export async function POST(request: NextRequest) {
     // Bucket kontrolü ve oluşturma
     const { data: buckets } = await supabaseAdmin.storage.listBuckets();
     const profilePhotosBucket = buckets?.find(bucket => bucket.name === 'profile-photos');
-    
+
     if (!profilePhotosBucket) {
       const { error: bucketError } = await supabaseAdmin.storage.createBucket('profile-photos', {
         public: true,
         allowedMimeTypes: allowedTypes,
         fileSizeLimit: 5242880 // 5MB
       });
-      
+
       if (bucketError) {
         console.error('Bucket creation error:', bucketError);
         return NextResponse.json(

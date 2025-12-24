@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { authenticateUser } from '@/lib/auth-helper';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,33 +15,40 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
+    // Authentication kontrolü - kullanıcı giriş yapmış olmalı
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const expenseId = formData.get('expenseId') as string;
-    const userId = formData.get('userId') as string;
+    // userId'yi token'dan al, güvenlik için body'den değil
+    const userId = authResult.user.id;
 
     if (!file || !expenseId || !userId) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'File, expense ID, and user ID are required' 
+      return NextResponse.json({
+        success: false,
+        error: 'File, expense ID, and user ID are required'
       }, { status: 400 });
     }
 
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Invalid file type. Only JPEG, PNG, GIF, WebP, and PDF files are allowed.' 
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid file type. Only JPEG, PNG, GIF, WebP, and PDF files are allowed.'
       }, { status: 400 });
     }
 
     // Validate file size (10MB max)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'File size too large. Maximum size is 10MB.' 
+      return NextResponse.json({
+        success: false,
+        error: 'File size too large. Maximum size is 10MB.'
       }, { status: 400 });
     }
 
@@ -62,9 +70,9 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Failed to upload file' 
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to upload file'
       }, { status: 500 });
     }
 
@@ -92,10 +100,10 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.storage
         .from('expense-attachments')
         .remove([fileName]);
-      
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Failed to save attachment record' 
+
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to save attachment record'
       }, { status: 500 });
     }
 
@@ -106,9 +114,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('API error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }
@@ -119,9 +127,9 @@ export async function DELETE(request: NextRequest) {
     const attachmentId = searchParams.get('id');
 
     if (!attachmentId) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Attachment ID is required' 
+      return NextResponse.json({
+        success: false,
+        error: 'Attachment ID is required'
       }, { status: 400 });
     }
 
@@ -133,9 +141,9 @@ export async function DELETE(request: NextRequest) {
       .single();
 
     if (fetchError || !attachment) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Attachment not found' 
+      return NextResponse.json({
+        success: false,
+        error: 'Attachment not found'
       }, { status: 404 });
     }
 
@@ -160,9 +168,9 @@ export async function DELETE(request: NextRequest) {
 
     if (dbError) {
       console.error('Database delete error:', dbError);
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Failed to delete attachment record' 
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to delete attachment record'
       }, { status: 500 });
     }
 
@@ -173,9 +181,9 @@ export async function DELETE(request: NextRequest) {
 
   } catch (error) {
     console.error('API error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }

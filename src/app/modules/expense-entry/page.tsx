@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  Receipt, 
-  Plus, 
-  Calendar, 
-  DollarSign, 
-  CheckCircle, 
-  XCircle, 
+import { supabase } from '@/lib/supabase';
+import {
+  Receipt,
+  Plus,
+  Calendar,
+  DollarSign,
+  CheckCircle,
+  XCircle,
   Clock,
   Eye,
   Edit3,
@@ -55,7 +56,7 @@ export default function ExpenseEntryPage() {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
-  const [departments, setDepartments] = useState<{id: string, name: string}[]>([]);
+  const [departments, setDepartments] = useState<{ id: string, name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [viewingExpense, setViewingExpense] = useState<ExpenseEntry | null>(null);
@@ -103,7 +104,12 @@ export default function ExpenseEntryPage() {
     if (!user) return;
 
     try {
-      const response = await fetch(`/api/modules/expense-entry?userId=${user.id}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`/api/modules/expense-entry?userId=${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -122,7 +128,12 @@ export default function ExpenseEntryPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/expense-categories');
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/expense-categories', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -137,7 +148,12 @@ export default function ExpenseEntryPage() {
 
   const fetchDepartments = async () => {
     try {
-      const response = await fetch('/api/departments');
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/departments', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -170,10 +186,12 @@ export default function ExpenseEntryPage() {
 
     try {
       // First create the expense
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/modules/expense-entry', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
           user_id: user.id,
@@ -190,7 +208,7 @@ export default function ExpenseEntryPage() {
         // Upload files if any
         if (uploadingFiles.length > 0) {
           setIsUploading(true);
-          
+
           for (const file of uploadingFiles) {
             try {
               const formData = new FormData();
@@ -200,6 +218,9 @@ export default function ExpenseEntryPage() {
 
               const uploadResponse = await fetch('/api/upload-expense-attachment', {
                 method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: formData,
               });
 
@@ -214,7 +235,7 @@ export default function ExpenseEntryPage() {
               setUploadError(`${file.name} yüklenirken hata oluştu.`);
             }
           }
-          
+
           setIsUploading(false);
         }
 
@@ -268,10 +289,12 @@ export default function ExpenseEntryPage() {
     setError('');
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/modules/expense-entry', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
           id: editingExpense.id,
@@ -585,7 +608,7 @@ export default function ExpenseEntryPage() {
                         </div>
                       </label>
                     </div>
-                    
+
                     {/* Uploaded Files */}
                     {uploadingFiles.length > 0 && (
                       <div className="mt-4 space-y-2">
@@ -608,7 +631,7 @@ export default function ExpenseEntryPage() {
                         ))}
                       </div>
                     )}
-                    
+
                     {uploadError && (
                       <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
                         <p className="text-red-400 text-sm">{uploadError}</p>
@@ -909,7 +932,7 @@ export default function ExpenseEntryPage() {
                     </button>
                   </div>
                 )}
-                
+
                 {/* Error fallback for images */}
                 <div className="hidden text-center py-12">
                   <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />

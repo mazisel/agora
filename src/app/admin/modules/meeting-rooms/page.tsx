@@ -58,7 +58,7 @@ const equipmentOptions = [
 ];
 
 export default function AdminMeetingRoomsPage() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [requests, setRequests] = useState<MeetingRoomRequest[]>([]);
   const [rooms, setRooms] = useState<MeetingRoom[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,15 +74,23 @@ export default function AdminMeetingRoomsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
-    fetchRequests();
+    if (session?.access_token) {
+      fetchRequests();
+    }
     fetchRooms();
-  }, []);
+  }, [session]);
 
   const fetchRequests = async () => {
+    if (!session?.access_token) return;
+
     try {
-      const response = await fetch('/api/admin/meeting-room-requests');
+      const response = await fetch('/api/admin/meeting-room-requests', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       const data = await response.json();
-      
+
       if (data.success) {
         setRequests(data.requests);
       }
@@ -97,7 +105,7 @@ export default function AdminMeetingRoomsPage() {
     try {
       const response = await fetch('/api/modules/meeting-rooms?available=true&active=true');
       const data = await response.json();
-      
+
       if (data.success) {
         setRooms(data.rooms);
       }
@@ -117,13 +125,14 @@ export default function AdminMeetingRoomsPage() {
   };
 
   const handleSubmitReview = async () => {
-    if (!selectedRequest || !reviewData.status) return;
+    if (!selectedRequest || !reviewData.status || !session?.access_token) return;
 
     try {
       const response = await fetch('/api/admin/meeting-room-requests', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           id: selectedRequest.id,
@@ -137,7 +146,7 @@ export default function AdminMeetingRoomsPage() {
       const data = await response.json();
 
       if (data.success) {
-        setRequests(requests.map(req => 
+        setRequests(requests.map(req =>
           req.id === selectedRequest.id ? data.request : req
         ));
         setShowReviewModal(false);
@@ -209,7 +218,7 @@ export default function AdminMeetingRoomsPage() {
           <Users className="w-8 h-8 text-blue-400" />
           <h1 className="text-3xl font-bold text-white">Toplantı Odası Talep Yönetimi</h1>
         </div>
-        
+
         <div className="flex items-center space-x-4">
           <select
             value={statusFilter}
@@ -229,22 +238,20 @@ export default function AdminMeetingRoomsPage() {
       <div className="flex space-x-1 mb-6 bg-slate-800/50 p-1 rounded-lg">
         <button
           onClick={() => setActiveTab('list')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-            activeTab === 'list'
-              ? 'bg-blue-600 text-white'
-              : 'text-slate-400 hover:text-white hover:bg-slate-700'
-          }`}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${activeTab === 'list'
+            ? 'bg-blue-600 text-white'
+            : 'text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
         >
           <Users className="w-4 h-4" />
           <span>Talep Listesi</span>
         </button>
         <button
           onClick={() => setActiveTab('calendar')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-            activeTab === 'calendar'
-              ? 'bg-blue-600 text-white'
-              : 'text-slate-400 hover:text-white hover:bg-slate-700'
-          }`}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${activeTab === 'calendar'
+            ? 'bg-blue-600 text-white'
+            : 'text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
         >
           <CalendarDays className="w-4 h-4" />
           <span>Rezervasyon Takvimi</span>
@@ -256,21 +263,21 @@ export default function AdminMeetingRoomsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-600">
             <h2 className="text-xl font-bold mb-4 text-white">Talep İnceleme</h2>
-            
+
             {/* Request Details */}
             <div className="bg-slate-700 rounded-lg p-4 mb-6">
               <h3 className="font-medium mb-2 text-white">Talep Detayları</h3>
               <div className="space-y-2 text-sm">
                 <div>
-                  <span className="font-medium text-gray-300">Talep Eden:</span> 
+                  <span className="font-medium text-gray-300">Talep Eden:</span>
                   <span className="text-white ml-2">{selectedRequest.user_profiles.first_name} {selectedRequest.user_profiles.last_name}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-300">Departman:</span> 
+                  <span className="font-medium text-gray-300">Departman:</span>
                   <span className="text-white ml-2">{selectedRequest.user_profiles.department || 'Belirtilmemiş'}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-300">Toplantı:</span> 
+                  <span className="font-medium text-gray-300">Toplantı:</span>
                   <span className="text-white ml-2">{selectedRequest.title}</span>
                 </div>
                 {selectedRequest.description && (
@@ -280,17 +287,17 @@ export default function AdminMeetingRoomsPage() {
                   </div>
                 )}
                 <div>
-                  <span className="font-medium text-gray-300">Tarih:</span> 
+                  <span className="font-medium text-gray-300">Tarih:</span>
                   <span className="text-white ml-2">
                     {new Date(selectedRequest.meeting_date).toLocaleDateString('tr-TR')}
                   </span>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-300">Saat:</span> 
+                  <span className="font-medium text-gray-300">Saat:</span>
                   <span className="text-white ml-2">{selectedRequest.start_time} - {selectedRequest.end_time}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-300">Katılımcı Sayısı:</span> 
+                  <span className="font-medium text-gray-300">Katılımcı Sayısı:</span>
                   <span className="text-white ml-2">{selectedRequest.participant_count} kişi</span>
                 </div>
                 {selectedRequest.equipment_needed.length > 0 && (
@@ -307,7 +314,7 @@ export default function AdminMeetingRoomsPage() {
                 )}
                 {selectedRequest.catering_needed && (
                   <div>
-                    <span className="font-medium text-gray-300">İkram:</span> 
+                    <span className="font-medium text-gray-300">İkram:</span>
                     <span className="text-white ml-2">Gerekli</span>
                     {selectedRequest.catering_details && (
                       <p className="text-gray-400 text-xs mt-1">{selectedRequest.catering_details}</p>
@@ -544,13 +551,13 @@ export default function AdminMeetingRoomsPage() {
               const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
               const startDate = new Date(firstDay);
               startDate.setDate(startDate.getDate() - (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1));
-              
+
               const cellDate = new Date(startDate);
               cellDate.setDate(cellDate.getDate() + i);
-              
+
               const isCurrentMonth = cellDate.getMonth() === currentDate.getMonth();
               const isToday = cellDate.toDateString() === new Date().toDateString();
-              
+
               // Find reservations for this date
               const dayReservations = requests.filter(req => {
                 if (req.status !== 'approved') return false;
@@ -561,16 +568,14 @@ export default function AdminMeetingRoomsPage() {
               return (
                 <div
                   key={i}
-                  className={`min-h-[100px] p-2 border border-slate-600 rounded ${
-                    isCurrentMonth ? 'bg-slate-700/30' : 'bg-slate-800/20'
-                  } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
+                  className={`min-h-[100px] p-2 border border-slate-600 rounded ${isCurrentMonth ? 'bg-slate-700/30' : 'bg-slate-800/20'
+                    } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
                 >
-                  <div className={`text-sm font-medium mb-1 ${
-                    isCurrentMonth ? 'text-white' : 'text-slate-500'
-                  }`}>
+                  <div className={`text-sm font-medium mb-1 ${isCurrentMonth ? 'text-white' : 'text-slate-500'
+                    }`}>
                     {cellDate.getDate()}
                   </div>
-                  
+
                   <div className="space-y-1">
                     {dayReservations.slice(0, 2).map((reservation) => (
                       <div

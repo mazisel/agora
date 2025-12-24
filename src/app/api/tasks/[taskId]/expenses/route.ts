@@ -14,29 +14,29 @@ const supabaseAdmin = createClient(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { taskId: string } }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
-    const { taskId } = params;
+    const { taskId } = await params;
     const body = await request.json();
-    
+
     // Get user from authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Authorization required' 
+      return NextResponse.json({
+        success: false,
+        error: 'Authorization required'
       }, { status: 401 });
     }
 
     const token = authHeader.substring(7);
-    
+
     // Verify the token with Supabase
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Invalid token' 
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid token'
       }, { status: 401 });
     }
 
@@ -52,18 +52,18 @@ export async function POST(
     } = body;
 
     if (!title || !amount || !expense_date) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Required fields are missing' 
+      return NextResponse.json({
+        success: false,
+        error: 'Required fields are missing'
       }, { status: 400 });
     }
 
     // Check if taskId is a valid UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(taskId)) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Invalid task ID format' 
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid task ID format'
       }, { status: 400 });
     }
 
@@ -75,9 +75,9 @@ export async function POST(
       .single();
 
     if (taskError || !task) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Task not found' 
+      return NextResponse.json({
+        success: false,
+        error: 'Task not found'
       }, { status: 404 });
     }
 
@@ -101,9 +101,9 @@ export async function POST(
 
     if (error) {
       console.error('Create expense error:', error);
-      return NextResponse.json({ 
-        success: false, 
-        error: error.message 
+      return NextResponse.json({
+        success: false,
+        error: error.message
       }, { status: 500 });
     }
 
@@ -114,26 +114,26 @@ export async function POST(
 
   } catch (error) {
     console.error('API error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { taskId: string } }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
-    const { taskId } = params;
+    const { taskId } = await params;
 
     // Check if taskId is a valid UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(taskId)) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Invalid task ID format' 
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid task ID format'
       }, { status: 400 });
     }
 
@@ -149,9 +149,9 @@ export async function GET(
 
     if (error) {
       console.error('Fetch expenses error:', error);
-      return NextResponse.json({ 
-        success: false, 
-        error: error.message 
+      return NextResponse.json({
+        success: false,
+        error: error.message
       }, { status: 500 });
     }
 
@@ -162,9 +162,9 @@ export async function GET(
 
   } catch (error) {
     console.error('API error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }

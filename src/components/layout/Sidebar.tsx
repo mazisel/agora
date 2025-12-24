@@ -7,9 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 
 import { supabase } from '@/lib/supabase';
-import { 
-  LayoutDashboard, 
-  FolderOpen, 
+import {
+  LayoutDashboard,
+  FolderOpen,
   Ticket,
   Settings,
   User,
@@ -156,20 +156,20 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
     if (href === '/') {
       return pathname === '/';
     }
-    
+
     // Özel durum: /modules path'i için
     if (href === '/modules') {
       // Sadece tam olarak /modules veya /modules/ ise aktif
       return pathname === '/modules' || pathname === '/modules/';
     }
-    
+
     // Özel durum: /quick-menu path'i için
     if (href === '/quick-menu') {
       // /quick-menu ile başlayan veya /modules/[moduleId] pattern'i ile eşleşen path'ler
-      return pathname.startsWith('/quick-menu') || 
-             (pathname.startsWith('/modules/') && pathname.split('/').length === 3);
+      return pathname.startsWith('/quick-menu') ||
+        (pathname.startsWith('/modules/') && pathname.split('/').length === 3);
     }
-    
+
     return pathname.startsWith(href);
   };
 
@@ -191,11 +191,11 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
       <div className="p-6 border-b border-slate-700/50">
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-4'}`}>
           <div className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center shadow-lg">
-            {userProfile?.profile_photo_url && 
-             !userProfile.profile_photo_url.startsWith('blob:') && 
-             userProfile.profile_photo_url.trim() !== '' ? (
-              <img 
-                src={userProfile.profile_photo_url} 
+            {userProfile?.profile_photo_url &&
+              !userProfile.profile_photo_url.startsWith('blob:') &&
+              userProfile.profile_photo_url.trim() !== '' ? (
+              <img
+                src={userProfile.profile_photo_url}
                 alt="Profil Fotoğrafı"
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -221,17 +221,17 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
             <div className="flex-1 min-w-0">
               {/* Name */}
               <h3 className="font-semibold text-white text-base truncate mb-1">
-                {userProfile && userProfile.first_name 
+                {userProfile && userProfile.first_name
                   ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim()
                   : user?.email?.split('@')[0] || 'Kullanıcı'
                 }
               </h3>
-              
+
               {/* Personnel Number */}
               <p className="text-sm text-slate-400 font-mono truncate mb-0.5">
                 {userProfile?.personnel_number || 'P0000'}
               </p>
-              
+
               {/* Position */}
               <p className="text-sm text-slate-500 truncate">
                 {userProfile?.position || 'Çalışan'}
@@ -247,26 +247,24 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
           {menuItems.map((item) => {
             const Icon = item.icon;
             const itemIsActive = isActive(item.href);
-            
-            
+
+
             return (
               <Link
                 key={item.id}
                 href={item.href}
-                className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-200 relative ${
-                  itemIsActive
+                className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-200 relative ${itemIsActive
                     ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-500/30 shadow-lg shadow-blue-500/10'
                     : 'text-slate-300 hover:bg-slate-800/50 hover:text-white border border-transparent hover:border-slate-600/50'
-                }`}
+                  }`}
               >
-                <div className={`p-2 rounded-lg ${
-                  itemIsActive 
-                    ? 'bg-blue-500/20 text-blue-300' 
+                <div className={`p-2 rounded-lg ${itemIsActive
+                    ? 'bg-blue-500/20 text-blue-300'
                     : 'text-slate-400 group-hover:text-white group-hover:bg-slate-700/50'
-                } transition-all duration-200`}>
+                  } transition-all duration-200`}>
                   <Icon className="w-4 h-4" />
                 </div>
-                
+
                 {!collapsed && (
                   <>
                     <span className="font-medium text-sm flex-1">{item.label}</span>
@@ -308,12 +306,12 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
         <div className="space-y-2">
           {bottomItems.map((item) => {
             const Icon = item.icon;
-            
+
             // Yönetim menüsünü manager ve üstü yetkiler veya modül sorumluları için göster
             if (item.id === 'admin' && !canAccess.manager() && !hasModules) {
               return null;
             }
-            
+
             if (item.id === 'logout') {
               return (
                 <button
@@ -324,7 +322,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
                   <div className="p-2 rounded-lg text-slate-400 group-hover:bg-red-500/10 group-hover:text-red-400 transition-all duration-200">
                     <Icon className="w-4 h-4" />
                   </div>
-                  
+
                   {!collapsed && (
                     <span className="font-medium text-sm">{item.label}</span>
                   )}
@@ -338,26 +336,24 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
                 </button>
               );
             }
-            
+
             const itemIsActive = isActive(item.href);
             return (
               <Link
                 key={item.id}
                 href={item.href}
-                className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-200 relative ${
-                  itemIsActive
+                className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-200 relative ${itemIsActive
                     ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-500/30 shadow-lg shadow-blue-500/10'
                     : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent hover:border-slate-600/50'
-                }`}
+                  }`}
               >
-                <div className={`p-2 rounded-lg ${
-                  itemIsActive 
-                    ? 'bg-blue-500/20 text-blue-300' 
+                <div className={`p-2 rounded-lg ${itemIsActive
+                    ? 'bg-blue-500/20 text-blue-300'
                     : 'text-slate-400 group-hover:bg-slate-700/50 group-hover:text-white'
-                } transition-all duration-200`}>
+                  } transition-all duration-200`}>
                   <Icon className="w-4 h-4" />
                 </div>
-                
+
                 {!collapsed && (
                   <span className="font-medium text-sm">{item.label}</span>
                 )}
@@ -383,7 +379,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
       {!collapsed && (
         <div className="p-4 border-t border-slate-700/50">
           <div className="text-center">
-            <p className="text-xs text-slate-500 mb-1">Li Teknoloji</p>
+            <p className="text-xs text-slate-500 mb-1">e4 Labs</p>
             <p className="text-xs text-slate-600">v1.0.1</p>
           </div>
         </div>

@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
-import { 
+import {
   ArrowLeft,
-  Plus, 
+  Plus,
   Save,
   X,
   UtensilsCrossed,
@@ -114,7 +114,7 @@ export default function ModuleDetailPage() {
   const params = useParams();
   const router = useRouter();
   const moduleId = params.moduleId as string;
-  
+
   const [module, setModule] = useState<Module | null>(null);
   const [menuData, setMenuData] = useState<MenuData[]>([]);
   const [serviceRoutes, setServiceRoutes] = useState<ServiceRoute[]>([]);
@@ -161,7 +161,7 @@ export default function ModuleDetailPage() {
     is_active: true,
     image_url: ''
   });
-  const { user } = useAuth();
+  const { user, session } = useAuth();
 
   // Fetch module details
   const fetchModule = async () => {
@@ -174,9 +174,11 @@ export default function ModuleDetailPage() {
 
       if (error) throw error;
       setModule(data);
+      // Don't set loading to false here, wait for second effect
     } catch (error) {
       console.error('Error fetching module:', error);
       setError('Modül bilgileri yüklenirken hata oluştu.');
+      setIsLoading(false);
     }
   };
 
@@ -200,11 +202,11 @@ export default function ModuleDetailPage() {
     try {
       const response = await fetch('/api/service-routes');
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(result.error || 'Failed to fetch service routes');
       }
-      
+
       setServiceRoutes(result.routes || []);
     } catch (error) {
       console.error('Error fetching service routes:', error);
@@ -216,11 +218,11 @@ export default function ModuleDetailPage() {
     try {
       const response = await fetch('/api/modules/meeting-rooms');
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(result.error || 'Failed to fetch meeting rooms');
       }
-      
+
       setMeetingRooms(result.rooms || []);
     } catch (error) {
       console.error('Error fetching meeting rooms:', error);
@@ -229,14 +231,20 @@ export default function ModuleDetailPage() {
 
   // Fetch meeting room requests data (only for meeting rooms module)
   const fetchMeetingRoomRequests = async () => {
+    if (!session?.access_token) return;
+
     try {
-      const response = await fetch('/api/admin/meeting-room-requests');
+      const response = await fetch('/api/admin/meeting-room-requests', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(result.error || 'Failed to fetch meeting room requests');
       }
-      
+
       setMeetingRoomRequests(result.requests || []);
     } catch (error) {
       console.error('Error fetching meeting room requests:', error);
@@ -247,17 +255,30 @@ export default function ModuleDetailPage() {
     const loadData = async () => {
       setIsLoading(true);
       await fetchModule();
-      if (moduleId) {
+    };
+    loadData();
+  }, [moduleId, session]);
+
+  // Effect to load module-specific data once module is loaded
+  useEffect(() => {
+    const loadModuleData = async () => {
+      if (!module) return;
+
+      if (module.name === 'Yemek Listesi') {
         await fetchMenuData();
+      } else if (module.name === 'Personel Servisleri') {
         await fetchServiceRoutes();
+      } else if (module.name === 'Toplantı Odaları') {
         await fetchMeetingRooms();
-        await fetchMeetingRoomRequests();
+        if (session?.access_token) {
+          await fetchMeetingRoomRequests();
+        }
       }
       setIsLoading(false);
     };
 
-    loadData();
-  }, [moduleId]);
+    loadModuleData();
+  }, [module, session]); // Dependency on module ensures this runs after fetchModule succeeds
 
   const handleSaveMenuData = async () => {
     try {
@@ -606,9 +627,9 @@ export default function ModuleDetailPage() {
       const response = await fetch(`/api/admin/meeting-room-requests`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          id: requestId, 
-          status, 
+        body: JSON.stringify({
+          id: requestId,
+          status,
           admin_notes: adminNotes || '',
           reviewed_by: user?.id,
           reviewed_at: new Date().toISOString()
@@ -679,11 +700,10 @@ export default function ModuleDetailPage() {
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          
+
           <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              module.is_active ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700/50 text-slate-500'
-            }`}>
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${module.is_active ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700/50 text-slate-500'
+              }`}>
               <IconComponent className="w-6 h-6" />
             </div>
             <div>
@@ -693,11 +713,10 @@ export default function ModuleDetailPage() {
           </div>
 
           <div className="ml-auto">
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-              module.is_active
-                ? 'bg-green-500/20 text-green-400'
-                : 'bg-red-500/20 text-red-400'
-            }`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${module.is_active
+              ? 'bg-green-500/20 text-green-400'
+              : 'bg-red-500/20 text-red-400'
+              }`}>
               {module.is_active ? 'Aktif' : 'Pasif'}
             </span>
           </div>
@@ -774,10 +793,9 @@ export default function ModuleDetailPage() {
                         </td>
                         <td className="py-4 px-6">
                           <span className="text-slate-300">
-                            {menu.extra ? `${menu.extra} (${
-                              menu.extra_type === 'dessert' ? 'Tatlı' :
+                            {menu.extra ? `${menu.extra} (${menu.extra_type === 'dessert' ? 'Tatlı' :
                               menu.extra_type === 'salad' ? 'Salata' : 'İçecek'
-                            })` : '-'}
+                              })` : '-'}
                           </span>
                         </td>
                         <td className="py-4 px-6">
@@ -913,11 +931,10 @@ export default function ModuleDetailPage() {
                           </div>
                         </td>
                         <td className="py-4 px-6">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            route.is_active
-                              ? 'bg-green-500/20 text-green-400'
-                              : 'bg-red-500/20 text-red-400'
-                          }`}>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${route.is_active
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-red-500/20 text-red-400'
+                            }`}>
                             {route.is_active ? 'Aktif' : 'Pasif'}
                           </span>
                         </td>
@@ -1020,11 +1037,10 @@ export default function ModuleDetailPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            room.is_available && room.is_active
-                              ? 'bg-green-500/20 text-green-400'
-                              : 'bg-red-500/20 text-red-400'
-                          }`}>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${room.is_available && room.is_active
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-red-500/20 text-red-400'
+                            }`}>
                             {room.is_available && room.is_active ? 'Müsait' : 'Müsait Değil'}
                           </span>
                         </div>
@@ -1035,7 +1051,7 @@ export default function ModuleDetailPage() {
                           <Users className="w-4 h-4" />
                           <span>{room.capacity} kişi kapasiteli</span>
                         </div>
-                        
+
 
                         {room.equipment && room.equipment.length > 0 && (
                           <div className="flex items-start gap-2 text-slate-300 text-sm">
@@ -1199,21 +1215,21 @@ export default function ModuleDetailPage() {
       )}
 
       {/* Default Module Content */}
-      {module.name !== 'Yemek Listesi' && 
-       module.name !== 'Servis Saat ve Güzergah' && 
-       module.name !== 'Masraf Girişi' && 
-       module.name !== 'Toplantı Odası Rezervasyon' && (
-        <div className="text-center py-16 bg-slate-800/30 rounded-2xl border border-slate-700/50">
-          <div className="w-16 h-16 bg-slate-700/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <IconComponent className="w-8 h-8 text-slate-600" />
+      {module.name !== 'Yemek Listesi' &&
+        module.name !== 'Servis Saat ve Güzergah' &&
+        module.name !== 'Masraf Girişi' &&
+        module.name !== 'Toplantı Odası Rezervasyon' && (
+          <div className="text-center py-16 bg-slate-800/30 rounded-2xl border border-slate-700/50">
+            <div className="w-16 h-16 bg-slate-700/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <IconComponent className="w-8 h-8 text-slate-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">Modül Yönetimi</h3>
+            <p className="text-slate-400 mb-6">Bu modül için henüz özel yönetim arayüzü bulunmuyor.</p>
+            <div className="text-sm text-slate-500">
+              Modül ID: {module.id}
+            </div>
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">Modül Yönetimi</h3>
-          <p className="text-slate-400 mb-6">Bu modül için henüz özel yönetim arayüzü bulunmuyor.</p>
-          <div className="text-sm text-slate-500">
-            Modül ID: {module.id}
-          </div>
-        </div>
-      )}
+        )}
 
       {/* Add/Edit Menu Modal */}
       {showMenuModal && (
@@ -1294,8 +1310,8 @@ export default function ModuleDetailPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    {newMenuData.extra_type === 'dessert' ? 'Tatlı' : 
-                     newMenuData.extra_type === 'salad' ? 'Salata' : 'İçecek'}
+                    {newMenuData.extra_type === 'dessert' ? 'Tatlı' :
+                      newMenuData.extra_type === 'salad' ? 'Salata' : 'İçecek'}
                   </label>
                   <input
                     type="text"
@@ -1304,7 +1320,7 @@ export default function ModuleDetailPage() {
                     className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                     placeholder={
                       newMenuData.extra_type === 'dessert' ? 'Sütlaç' :
-                      newMenuData.extra_type === 'salad' ? 'Çoban salatası' : 'Ayran'
+                        newMenuData.extra_type === 'salad' ? 'Çoban salatası' : 'Ayran'
                     }
                   />
                 </div>
@@ -1490,11 +1506,10 @@ export default function ModuleDetailPage() {
                         key={day}
                         type="button"
                         onClick={() => toggleDay(day)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                          newRouteData.days_of_week.includes(day)
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-slate-700/50 text-slate-400 border border-slate-600/30 hover:border-slate-500/50'
-                        }`}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${newRouteData.days_of_week.includes(day)
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-slate-700/50 text-slate-400 border border-slate-600/30 hover:border-slate-500/50'
+                          }`}
                       >
                         {getDayLabel(day).slice(0, 3)}
                       </button>
@@ -1653,11 +1668,10 @@ export default function ModuleDetailPage() {
                         key={equipment}
                         type="button"
                         onClick={() => toggleEquipment(equipment)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                          newRoomData.equipment.includes(equipment)
-                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                            : 'bg-slate-700/50 text-slate-400 border border-slate-600/30 hover:border-slate-500/50'
-                        }`}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${newRoomData.equipment.includes(equipment)
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                          : 'bg-slate-700/50 text-slate-400 border border-slate-600/30 hover:border-slate-500/50'
+                          }`}
                       >
                         {equipment}
                       </button>

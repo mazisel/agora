@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { authenticateUser, isAdmin } from '@/lib/auth-helper';
 
 export async function GET(request: NextRequest) {
   try {
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const supabase = supabaseServer;
-    
+
     // Get query parameters
     const { searchParams } = new URL(request.url);
     const accountType = searchParams.get('type');
@@ -35,9 +48,9 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching finance accounts:', error);
-      return NextResponse.json({ 
-        error: 'Failed to fetch accounts', 
-        details: error.message 
+      return NextResponse.json({
+        error: 'Failed to fetch accounts',
+        details: error.message
       }, { status: 500 });
     }
 
@@ -45,8 +58,8 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in finance accounts GET:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error', 
+    return NextResponse.json({
+      error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
@@ -54,23 +67,35 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const supabase = supabaseServer;
-    
+
     const body = await request.json();
     const { code, name, description, account_type, parent_account_id } = body;
 
     // Validate required fields
     if (!code || !name || !account_type) {
-      return NextResponse.json({ 
-        error: 'Code, name, and account type are required' 
+      return NextResponse.json({
+        error: 'Code, name, and account type are required'
       }, { status: 400 });
     }
 
     // Validate account type
     const validTypes = ['asset', 'liability', 'equity', 'income', 'expense'];
     if (!validTypes.includes(account_type)) {
-      return NextResponse.json({ 
-        error: 'Invalid account type' 
+      return NextResponse.json({
+        error: 'Invalid account type'
       }, { status: 400 });
     }
 
@@ -82,8 +107,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingAccount) {
-      return NextResponse.json({ 
-        error: 'Account code already exists' 
+      return NextResponse.json({
+        error: 'Account code already exists'
       }, { status: 400 });
     }
 
@@ -96,15 +121,15 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (!parentAccount) {
-        return NextResponse.json({ 
-          error: 'Parent account not found' 
+        return NextResponse.json({
+          error: 'Parent account not found'
         }, { status: 400 });
       }
 
       // Validate that parent and child have same account type
       if (parentAccount.account_type !== account_type) {
-        return NextResponse.json({ 
-          error: 'Child account must have same type as parent account' 
+        return NextResponse.json({
+          error: 'Child account must have same type as parent account'
         }, { status: 400 });
       }
     }
@@ -138,8 +163,20 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const supabase = supabaseServer;
-    
+
     const body = await request.json();
     const { id, code, name, description, account_type, parent_account_id, is_active } = body;
 
@@ -168,8 +205,8 @@ export async function PUT(request: NextRequest) {
         .single();
 
       if (duplicateAccount) {
-        return NextResponse.json({ 
-          error: 'Account code already exists' 
+        return NextResponse.json({
+          error: 'Account code already exists'
         }, { status: 400 });
       }
     }
@@ -178,8 +215,8 @@ export async function PUT(request: NextRequest) {
     if (account_type) {
       const validTypes = ['asset', 'liability', 'equity', 'income', 'expense'];
       if (!validTypes.includes(account_type)) {
-        return NextResponse.json({ 
-          error: 'Invalid account type' 
+        return NextResponse.json({
+          error: 'Invalid account type'
         }, { status: 400 });
       }
     }
@@ -194,23 +231,23 @@ export async function PUT(request: NextRequest) {
           .single();
 
         if (!parentAccount) {
-          return NextResponse.json({ 
-            error: 'Parent account not found' 
+          return NextResponse.json({
+            error: 'Parent account not found'
           }, { status: 400 });
         }
 
         // Validate that parent and child have same account type
         const finalAccountType = account_type || existingAccount.account_type;
         if (parentAccount.account_type !== finalAccountType) {
-          return NextResponse.json({ 
-            error: 'Child account must have same type as parent account' 
+          return NextResponse.json({
+            error: 'Child account must have same type as parent account'
           }, { status: 400 });
         }
 
         // Prevent circular reference
         if (parent_account_id === id) {
-          return NextResponse.json({ 
-            error: 'Account cannot be its own parent' 
+          return NextResponse.json({
+            error: 'Account cannot be its own parent'
           }, { status: 400 });
         }
       }
@@ -218,7 +255,7 @@ export async function PUT(request: NextRequest) {
 
     // Update account
     const updateData: any = { updated_at: new Date().toISOString() };
-    
+
     if (code !== undefined) updateData.code = code;
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
@@ -248,8 +285,20 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Authentication kontrolü
+    const authResult = await authenticateUser(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin yetkisi kontrolü
+    const userIsAdmin = await isAdmin(authResult.user.id);
+    if (!userIsAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const supabase = supabaseServer;
-    
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -275,8 +324,8 @@ export async function DELETE(request: NextRequest) {
       .eq('parent_account_id', id);
 
     if (childAccounts && childAccounts.length > 0) {
-      return NextResponse.json({ 
-        error: 'Alt hesapları olan hesap silinemez' 
+      return NextResponse.json({
+        error: 'Alt hesapları olan hesap silinemez'
       }, { status: 400 });
     }
 
@@ -288,8 +337,8 @@ export async function DELETE(request: NextRequest) {
       .limit(1);
 
     if (transactions && transactions.length > 0) {
-      return NextResponse.json({ 
-        error: 'İşlem geçmişi olan hesap silinemez' 
+      return NextResponse.json({
+        error: 'İşlem geçmişi olan hesap silinemez'
       }, { status: 400 });
     }
 
@@ -301,9 +350,9 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       console.error('Error deleting finance account:', error);
-      return NextResponse.json({ 
-        error: 'Hesap silinirken hata oluştu', 
-        details: error.message 
+      return NextResponse.json({
+        error: 'Hesap silinirken hata oluştu',
+        details: error.message
       }, { status: 500 });
     }
 
@@ -311,8 +360,8 @@ export async function DELETE(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in finance accounts DELETE:', error);
-    return NextResponse.json({ 
-      error: 'Sunucu hatası', 
+    return NextResponse.json({
+      error: 'Sunucu hatası',
       details: error instanceof Error ? error.message : 'Bilinmeyen hata'
     }, { status: 500 });
   }

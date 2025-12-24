@@ -19,7 +19,7 @@ export async function PATCH(
 
     const token = authHeader.substring(7);
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
+
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -54,14 +54,14 @@ export async function PATCH(
     }
 
     // Yetki kontrolü
-    const canApprove = 
+    const canApprove =
       transfer.to_user_id === user.id || // Hedef kullanıcı
       ['manager', 'director', 'admin'].includes(userProfile.authority_level) || // Yöneticiler
       (transfer.task?.project?.project_manager_id === user.id); // Proje yöneticisi
 
     if (!canApprove) {
-      return NextResponse.json({ 
-        error: 'Bu yönlendirme talebini onaylama/reddetme yetkiniz yok' 
+      return NextResponse.json({
+        error: 'Bu yönlendirme talebini onaylama/reddetme yetkiniz yok'
       }, { status: 403 });
     }
 
@@ -78,8 +78,8 @@ export async function PATCH(
 
       if (approveError || !approveResult) {
         console.error('Approve transfer error:', approveError);
-        return NextResponse.json({ 
-          error: 'Yönlendirme talebi onaylanamadı' 
+        return NextResponse.json({
+          error: 'Yönlendirme talebi onaylanamadı'
         }, { status: 500 });
       }
 
@@ -88,7 +88,7 @@ export async function PATCH(
 
       // Bildirimler gönder
       const taskTitle = transfer.task?.title || 'Görev';
-      
+
       // Eski sorumluya bildirim
       if (transfer.from_user_id !== user.id) {
         await supabase
@@ -142,8 +142,8 @@ export async function PATCH(
 
       if (rejectError || !rejectResult) {
         console.error('Reject transfer error:', rejectError);
-        return NextResponse.json({ 
-          error: 'Yönlendirme talebi reddedilemedi' 
+        return NextResponse.json({
+          error: 'Yönlendirme talebi reddedilemedi'
         }, { status: 500 });
       }
 
@@ -164,8 +164,8 @@ export async function PATCH(
         });
 
     } else {
-      return NextResponse.json({ 
-        error: 'Geçersiz işlem. "approve" veya "reject" olmalı' 
+      return NextResponse.json({
+        error: 'Geçersiz işlem. "approve" veya "reject" olmalı'
       }, { status: 400 });
     }
 
@@ -177,8 +177,8 @@ export async function PATCH(
 
   } catch (error) {
     console.error('Transfer action error:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }
@@ -186,10 +186,10 @@ export async function PATCH(
 // Transfer talebini görüntüleme
 export async function GET(
   request: NextRequest,
-  { params }: { params: { transferId: string } }
+  { params }: { params: Promise<{ transferId: string }> }
 ) {
   try {
-    const { transferId } = params;
+    const { transferId } = await params;
 
     // Authorization header'dan token al
     const authHeader = request.headers.get('authorization');
@@ -199,7 +199,7 @@ export async function GET(
 
     const token = authHeader.substring(7);
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
+
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -232,8 +232,8 @@ export async function GET(
 
   } catch (error) {
     console.error('Get transfer error:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }
@@ -241,10 +241,10 @@ export async function GET(
 // Transfer talebini iptal etme (sadece talep eden kişi)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { transferId: string } }
+  { params }: { params: Promise<{ transferId: string }> }
 ) {
   try {
-    const { transferId } = params;
+    const { transferId } = await params;
 
     // Authorization header'dan token al
     const authHeader = request.headers.get('authorization');
@@ -254,7 +254,7 @@ export async function DELETE(
 
     const token = authHeader.substring(7);
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
+
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -269,8 +269,8 @@ export async function DELETE(
       .single();
 
     if (transferError || !transfer) {
-      return NextResponse.json({ 
-        error: 'Transfer request not found or cannot be cancelled' 
+      return NextResponse.json({
+        error: 'Transfer request not found or cannot be cancelled'
       }, { status: 404 });
     }
 
@@ -282,8 +282,8 @@ export async function DELETE(
 
     if (deleteError) {
       console.error('Delete transfer error:', deleteError);
-      return NextResponse.json({ 
-        error: 'Yönlendirme talebi iptal edilemedi' 
+      return NextResponse.json({
+        error: 'Yönlendirme talebi iptal edilemedi'
       }, { status: 500 });
     }
 
@@ -294,8 +294,8 @@ export async function DELETE(
 
   } catch (error) {
     console.error('Cancel transfer error:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }
