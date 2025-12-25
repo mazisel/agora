@@ -2,9 +2,17 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// Fallback to placeholder during build if env vars are missing
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
+
+// Create a local admin client for this helper
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 export interface AuthResult {
   success: boolean;
@@ -24,7 +32,7 @@ export async function authenticateUser(request: NextRequest): Promise<AuthResult
   try {
     // Auth token'ı al - önce header'dan, sonra cookie'den
     let authToken = null;
-    
+
     const authHeader = request.headers.get('authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
       authToken = authHeader.substring(7);
@@ -32,7 +40,7 @@ export async function authenticateUser(request: NextRequest): Promise<AuthResult
       // Cookie'den al
       const cookieStore = await cookies();
       const authCookie = cookieStore.get('sb-riacmnpxjsbrppzfjeur-auth-token');
-      
+
       if (authCookie?.value) {
         try {
           const parsed = JSON.parse(authCookie.value);
@@ -49,7 +57,7 @@ export async function authenticateUser(request: NextRequest): Promise<AuthResult
 
     // Kullanıcı doğrulama
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(authToken);
-    
+
     if (error || !user) {
       return { success: false, error: 'Invalid token' };
     }

@@ -2,10 +2,11 @@ import { createClient } from '@supabase/supabase-js';
 import { buildTelegramMessage, sendTelegramMessages, TelegramNotificationType } from '@/lib/telegram';
 import { scheduleTaskAssignmentReminders } from '@/lib/task-reminders';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Fallback to placeholder during build if env vars are missing
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 type NotificationType = TelegramNotificationType | 'user_welcome' | 'password_reset';
 type NotificationPayload = Record<string, unknown>;
