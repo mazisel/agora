@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
+import { JWT } from 'google-auth-library';
 
 function parseServiceAccountFromEnv(): { serviceAccount: any; source: string } {
     // Prefer explicit base64 JSON
@@ -59,6 +60,49 @@ function getFirebaseAdmin() {
     return admin;
 }
 
+async function sendHttpV1(serviceAccount: any, token: string, title: string, body: string, data?: Record<string, string>) {
+    if (!serviceAccount?.client_email || !serviceAccount?.private_key || !serviceAccount?.project_id) {
+        throw new Error('Service account missing required fields for HTTP v1 FCM call');
+    }
+
+    const jwtClient = new JWT({
+        email: serviceAccount.client_email,
+        key: serviceAccount.private_key,
+        scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
+    });
+
+    const accessToken = await jwtClient.getAccessToken();
+    if (!accessToken || !accessToken.token) {
+        throw new Error('Failed to obtain access token for FCM HTTP v1');
+    }
+
+    const message = {
+        message: {
+            token,
+            notification: { title, body },
+            data,
+        },
+    };
+
+    const resp = await fetch(`https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken.token}`,
+        },
+        body: JSON.stringify(message),
+    });
+
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+        console.error('[FCM] HTTP v1 API error:', resp.status, json);
+        throw new Error(`FCM HTTP v1 error: ${resp.status}`);
+    }
+
+    console.log('[FCM] HTTP v1 API success:', json);
+    return json;
+}
+
 export async function POST(request: Request) {
     try {
         const { token, title, body, data } = await request.json();
@@ -67,6 +111,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'Token is required' }, { status: 400 });
         }
 
+        const parsed = parseServiceAccountFromEnv();
         const firebaseAdmin = getFirebaseAdmin();
 
         // Sanitize data to ensure all values are strings (required by FCM)
@@ -101,6 +146,54 @@ export async function POST(request: Request) {
                 stack: error.stack,
                 errorInfo: error.errorInfo,
             });
+
+            // Fallback to HTTP v1 API using service account directly
+            const retryable = error.code === 'messaging/third-party-auth-error' || error.code === 'app/network-timeout';
+            if (retryable) {
+                try {
+                    const v1 = await sendHttpV1(parsed.serviceAccount, token, title, body, sanitizedData);
+                    return NextResponse.json({ success: true, via: 'http_v1', response: v1 });
+                } catch (v1err: any) {
+                    console.error('[FCM] HTTP v1 fallback failed:', v1err);
+                }
+            }
+
+            // Fallback: use legacy HTTP API with server key if available
+            const serverKey = process.env.FCM_SERVER_KEY;
+            if (serverKey) {
+                try {
+                    console.log('[FCM] Trying legacy HTTP API fallback');
+                    const legacyRes = await fetch('https://fcm.googleapis.com/fcm/send', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `key=${serverKey}`,
+                        },
+                        body: JSON.stringify({
+                            to: token,
+                            notification: { title, body },
+                            data: sanitizedData,
+                        }),
+                    });
+
+                    const legacyJson = await legacyRes.json().catch(() => ({}));
+                    if (!legacyRes.ok) {
+                        console.error('[FCM] Legacy API error:', legacyRes.status, legacyJson);
+                        return NextResponse.json({
+                            success: false,
+                            legacy: true,
+                            status: legacyRes.status,
+                            error: legacyJson,
+                        }, { status: 500 });
+                    }
+
+                    console.log('[FCM] Legacy API success:', legacyJson);
+                    return NextResponse.json({ success: true, legacy: true, response: legacyJson });
+                } catch (legacyErr: any) {
+                    console.error('[FCM] Legacy API fallback failed:', legacyErr);
+                    // continue to known issue response below
+                }
+            }
 
             // Known issue: Next.js runtime interferes with firebase-admin HTTP requests
             // DryRun works but actual send fails with third-party-auth-error
