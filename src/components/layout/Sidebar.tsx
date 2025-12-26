@@ -152,6 +152,12 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
     await signOut();
   };
 
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [userProfile?.profile_photo_url]);
+
   const isActive = (href: string) => {
     if (href === '/') {
       return pathname === '/';
@@ -191,27 +197,14 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
       <div className="p-6 border-b border-slate-700/50">
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-4'}`}>
           <div className={`${collapsed ? 'w-10 h-10' : 'w-14 h-14'} aspect-square rounded-xl overflow-hidden flex-shrink-0 shadow-lg`}>
-            {userProfile?.profile_photo_url &&
+            {!imgError && userProfile?.profile_photo_url &&
               !userProfile.profile_photo_url.startsWith('blob:') &&
               userProfile.profile_photo_url.trim() !== '' ? (
               <img
                 src={userProfile.profile_photo_url}
                 alt="Profil Fotoğrafı"
                 className="w-full h-full object-cover"
-                onError={(e) => {
-                  // Fotoğraf yüklenemezse baş harfleri göster
-                  const target = e.currentTarget;
-                  const parent = target.parentElement;
-                  if (parent) {
-                    const size = collapsed ? 'w-10 h-10' : 'w-14 h-14';
-                    const fontSize = collapsed ? 'text-sm' : 'text-lg';
-                    parent.innerHTML = `
-                      <div class="${size} bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold ${fontSize} shadow-lg">
-                        ${userProfile?.first_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
-                      </div>
-                    `;
-                  }
-                }}
+                onError={() => setImgError(true)}
               />
             ) : (
               <div className={`${collapsed ? 'w-10 h-10 text-sm' : 'w-14 h-14 text-lg'} bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg`}>
