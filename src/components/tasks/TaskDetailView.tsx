@@ -38,6 +38,7 @@ export default function TaskDetailView({
   // Expense states
   const [taskExpenses, setTaskExpenses] = useState<TaskExpense[]>([]);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [newExpense, setNewExpense] = useState({
     title: '',
     description: '',
@@ -46,11 +47,19 @@ export default function TaskDetailView({
     category: 'material' as const,
     vendor: '',
     receipt_number: '',
-    expense_date: new Date().toISOString().split('T')[0]
+    expense_date: '' // Set in useEffect to prevent hydration mismatch
   });
 
   // Transfer modal state
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    setNewExpense(prev => ({
+      ...prev,
+      expense_date: prev.expense_date || new Date().toISOString().split('T')[0]
+    }));
+  }, []);
 
   useEffect(() => {
     fetchTaskDetailsWithExpenses(task.id);
@@ -393,6 +402,7 @@ export default function TaskDetailView({
   };
 
   const isOverdue = (dueDate: string) => {
+    if (!mounted) return false; // Prevent hydration mismatch
     return new Date(dueDate) < new Date() && task.status !== 'done';
   };
 

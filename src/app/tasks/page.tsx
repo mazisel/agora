@@ -75,8 +75,18 @@ function TasksContent() {
     category: 'material' as const,
     vendor: '',
     receipt_number: '',
-    expense_date: new Date().toISOString().split('T')[0]
+    expense_date: '' // Set in useEffect to prevent hydration mismatch
   });
+
+  // Set expense_date after mount to prevent hydration mismatch
+  useEffect(() => {
+    if (mounted) {
+      setNewExpense(prev => ({
+        ...prev,
+        expense_date: prev.expense_date || new Date().toISOString().split('T')[0]
+      }));
+    }
+  }, [mounted]);
 
   // Fetch data from Supabase and API
   const fetchData = async () => {

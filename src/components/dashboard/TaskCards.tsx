@@ -37,6 +37,10 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
 
   useEffect(() => {
     setMounted(true);
+    setNewExpense(prev => ({
+      ...prev,
+      expense_date: prev.expense_date || new Date().toISOString().split('T')[0]
+    }));
   }, []);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<{
@@ -57,7 +61,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
     category: 'material' as const,
     vendor: '',
     receipt_number: '',
-    expense_date: new Date().toISOString().split('T')[0]
+    expense_date: '' // Set dynamically to prevent hydration mismatch
   });
 
   const { user, userProfile } = useAuth();
