@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import { JWT } from 'google-auth-library';
+import dns from 'node:dns';
+
+// Prefer IPv4 to avoid IPv6 timeouts in some environments
+dns.setDefaultResultOrder('ipv4first');
 
 function parseServiceAccountFromEnv(): { serviceAccount: any; source: string } {
     // Prefer explicit base64 JSON
