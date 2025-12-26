@@ -93,12 +93,10 @@ export default function ProjectCards() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: 'TRY',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
+    if (amount === undefined || amount === null || isNaN(amount)) return '0 ₺';
+    const str = Math.floor(Math.abs(amount)).toString();
+    const formatted = str.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `${amount < 0 ? '-' : ''}${formatted} ₺`;
   };
 
   const calculateProgress = (project: Project) => {
@@ -183,11 +181,10 @@ export default function ProjectCards() {
                   <span className="text-xs text-slate-400">{calculateProgress(project)}%</span>
                 </div>
                 <div className="w-full bg-slate-700 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      calculateProgress(project) > 90 ? 'bg-red-500' : 
-                      calculateProgress(project) > 70 ? 'bg-yellow-500' : 'bg-green-500'
-                    }`}
+                  <div
+                    className={`h-2 rounded-full transition-all duration-300 ${calculateProgress(project) > 90 ? 'bg-red-500' :
+                        calculateProgress(project) > 70 ? 'bg-yellow-500' : 'bg-green-500'
+                      }`}
                     style={{ width: `${Math.min(calculateProgress(project), 100)}%` }}
                   ></div>
                 </div>
@@ -209,9 +206,8 @@ export default function ProjectCards() {
                 </div>
                 <div>
                   <span className="text-xs text-slate-400 block">Tahmini Bitiş</span>
-                  <span className={`text-xs ${
-                    isOverdue(project.estimated_end_date) ? 'text-red-400' : 'text-slate-300'
-                  }`}>
+                  <span className={`text-xs ${isOverdue(project.estimated_end_date) ? 'text-red-400' : 'text-slate-300'
+                    }`}>
                     {formatDate(project.estimated_end_date)}
                     {isOverdue(project.estimated_end_date) && ' (Gecikmiş)'}
                   </span>

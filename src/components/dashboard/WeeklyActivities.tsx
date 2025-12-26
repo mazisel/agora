@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTimeSafe } from '@/lib/dateUtils';
 import { useState, useEffect } from 'react';
 import { Calendar, Plus, Edit3, Save, X, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -36,13 +37,13 @@ function getCurrentWeek(): WeekInfo {
   const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday as start of week
   startOfWeek.setDate(diff);
   startOfWeek.setHours(0, 0, 0, 0);
-  
+
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 4); // Friday
   endOfWeek.setHours(23, 59, 59, 999);
-  
+
   const weekNumber = getWeekNumber(startOfWeek);
-  
+
   return {
     startDate: startOfWeek,
     endDate: endOfWeek,
@@ -65,11 +66,11 @@ function generateWeekDays(startDate: Date): WeekDay[] {
   const days = [];
   const dayNames = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
   const dayShorts = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum'];
-  
+
   for (let i = 0; i < 5; i++) {
     const date = new Date(startDate);
     date.setDate(startDate.getDate() + i);
-    
+
     days.push({
       name: dayNames[i],
       date: `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}`,
@@ -77,7 +78,7 @@ function generateWeekDays(startDate: Date): WeekDay[] {
       fullDate: date
     });
   }
-  
+
   return days;
 }
 
@@ -85,7 +86,7 @@ export default function WeeklyActivities() {
   const [notes, setNotes] = useState<DailyNote[]>([]);
   const [currentWeek, setCurrentWeek] = useState<WeekInfo>(getCurrentWeek());
   const [isLoading, setIsLoading] = useState(true);
-  const [editingNote, setEditingNote] = useState<{date: string, dayName: string} | null>(null);
+  const [editingNote, setEditingNote] = useState<{ date: string, dayName: string } | null>(null);
   const [editContent, setEditContent] = useState('');
   const [selectedMood, setSelectedMood] = useState<DailyNote['mood']>('good');
   const [viewingNote, setViewingNote] = useState<DailyNote | null>(null);
@@ -99,7 +100,7 @@ export default function WeeklyActivities() {
     try {
       setIsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         setNotes([]);
         return;
@@ -178,7 +179,7 @@ export default function WeeklyActivities() {
       if (!user) return;
 
       const existingNote = getNoteForDate(editingNote.date);
-      
+
       if (existingNote) {
         // Update existing note
         const { error } = await supabase
@@ -224,13 +225,13 @@ export default function WeeklyActivities() {
   const navigateWeek = (direction: 'prev' | 'next') => {
     const newStartDate = new Date(currentWeek.startDate);
     newStartDate.setDate(newStartDate.getDate() + (direction === 'next' ? 7 : -7));
-    
+
     const newEndDate = new Date(newStartDate);
     newEndDate.setDate(newStartDate.getDate() + 4);
     newEndDate.setHours(23, 59, 59, 999);
-    
+
     const weekNumber = getWeekNumber(newStartDate);
-    
+
     setCurrentWeek({
       startDate: newStartDate,
       endDate: newEndDate,
@@ -250,7 +251,7 @@ export default function WeeklyActivities() {
   const formatWeekRange = () => {
     const start = currentWeek.startDate;
     const end = currentWeek.endDate;
-    
+
     return `${start.getDate().toString().padStart(2, '0')}.${(start.getMonth() + 1).toString().padStart(2, '0')}.${start.getFullYear()} - ${end.getDate().toString().padStart(2, '0')}.${(end.getMonth() + 1).toString().padStart(2, '0')}.${end.getFullYear()}`;
   };
 
@@ -277,7 +278,7 @@ export default function WeeklyActivities() {
           <h2 className="text-2xl font-bold text-white">Haftalık Güncem</h2>
           <p className="text-sm text-slate-400 mt-1">Bu haftaki deneyimlerinizi kaydedin</p>
         </div>
-        
+
         {/* Week Navigation */}
         <div className="flex items-center gap-2">
           {/* Week Navigation with integrated buttons */}
@@ -288,14 +289,14 @@ export default function WeeklyActivities() {
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            
+
             <div className="px-4 py-2 flex-1 text-center">
               <span className="text-sm text-slate-300 font-medium">{formatWeekRange()}</span>
               <div className="text-xs text-slate-500 mt-1">
                 {currentWeek.year} - Hafta {currentWeek.weekNumber}
               </div>
             </div>
-            
+
             <button
               onClick={() => navigateWeek('next')}
               className="p-3 text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all border-l border-slate-700/50"
@@ -326,12 +327,11 @@ export default function WeeklyActivities() {
       <div className="lg:hidden pl-4 mb-4">
         <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
           {weekDays.map(day => (
-            <button 
+            <button
               key={day.name}
               onClick={() => setSelectedDay(day)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 ${
-                selectedDay?.date === day.date ? 'bg-blue-500 text-white' : 'bg-slate-700/50 text-slate-300'
-              }`}>
+              className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 ${selectedDay?.date === day.date ? 'bg-blue-500 text-white' : 'bg-slate-700/50 text-slate-300'
+                }`}>
               {day.short}
             </button>
           ))}
@@ -347,11 +347,10 @@ export default function WeeklyActivities() {
             <div className="h-3 bg-slate-700/70 rounded w-3/4 mt-1"></div>
           </div>
         ) : selectedDay && (
-          <div className={`relative bg-slate-800/50 backdrop-blur-sm rounded-2xl border transition-all duration-300 p-4 ${
-            selectedDay.fullDate.toDateString() === today.toDateString() 
-              ? 'border-blue-500/50' 
-              : 'border-slate-700/50'
-          }`}>
+          <div className={`relative bg-slate-800/50 backdrop-blur-sm rounded-2xl border transition-all duration-300 p-4 ${selectedDay.fullDate.toDateString() === today.toDateString()
+            ? 'border-blue-500/50'
+            : 'border-slate-700/50'
+            }`}>
             {selectedNote ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -373,7 +372,7 @@ export default function WeeklyActivities() {
                     </button>
                   )}
                 </div>
-                <p 
+                <p
                   onClick={() => setViewingNote(selectedNote)}
                   className="text-sm text-slate-300 leading-relaxed line-clamp-3 cursor-pointer hover:text-white transition-colors"
                 >
@@ -434,11 +433,10 @@ export default function WeeklyActivities() {
             const canEdit = canEditDate(day.fullDate);
 
             return (
-              <div key={day.name} className={`relative bg-slate-800/50 backdrop-blur-sm rounded-2xl border transition-all duration-300 ${
-                isToday 
-                  ? 'border-blue-500/50 ring-2 ring-blue-500/20' 
-                  : 'border-slate-700/50 hover:border-slate-600/50'
-              }`}>
+              <div key={day.name} className={`relative bg-slate-800/50 backdrop-blur-sm rounded-2xl border transition-all duration-300 ${isToday
+                ? 'border-blue-500/50 ring-2 ring-blue-500/20'
+                : 'border-slate-700/50 hover:border-slate-600/50'
+                }`}>
                 {/* Day Header */}
                 <div className="p-4 border-b border-slate-700/50">
                   <div className="flex items-center justify-between">
@@ -468,7 +466,7 @@ export default function WeeklyActivities() {
                       </div>
 
                       {/* Note Content - Clickable */}
-                      <p 
+                      <p
                         onClick={() => setViewingNote(note)}
                         className="text-sm text-slate-300 leading-relaxed line-clamp-4 cursor-pointer hover:text-white transition-colors"
                       >
@@ -483,7 +481,7 @@ export default function WeeklyActivities() {
                       <p className="text-xs text-slate-500 mb-3">
                         {canEdit ? 'Henüz not eklenmemiş' : 'Bu güne not ekleyemezsiniz'}
                       </p>
-                      
+
                       {/* Add Icon Button */}
                       {canEdit && (
                         <button
@@ -496,7 +494,7 @@ export default function WeeklyActivities() {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Edit Icon Button - Outside content area, positioned on card */}
                 {note && canEdit && (
                   <button
@@ -549,22 +547,20 @@ export default function WeeklyActivities() {
                       <button
                         key={mood}
                         onClick={() => setSelectedMood(mood)}
-                        className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
-                          selectedMood === mood 
-                            ? `bg-gradient-to-r ${getMoodColor(mood)} border-transparent text-white scale-105` 
-                            : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50 hover:border-slate-500'
-                        }`}
+                        className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${selectedMood === mood
+                          ? `bg-gradient-to-r ${getMoodColor(mood)} border-transparent text-white scale-105`
+                          : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50 hover:border-slate-500'
+                          }`}
                       >
-                        <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-2xl ${
-                          selectedMood === mood ? 'bg-white/20' : 'bg-slate-600'
-                        }`}>
+                        <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-2xl ${selectedMood === mood ? 'bg-white/20' : 'bg-slate-600'
+                          }`}>
                           {getMoodEmoji(mood)}
                         </div>
                         <span className="text-sm font-medium">
                           {mood === 'great' ? 'Harika' :
-                           mood === 'good' ? 'İyi' :
-                           mood === 'okay' ? 'Orta' :
-                           mood === 'bad' ? 'Kötü' : mood}
+                            mood === 'good' ? 'İyi' :
+                              mood === 'okay' ? 'Orta' :
+                                mood === 'bad' ? 'Kötü' : mood}
                         </span>
                       </button>
                     ))}
@@ -660,7 +656,7 @@ export default function WeeklyActivities() {
                 <div className="flex items-center gap-2 text-sm text-slate-400">
                   <Clock className="w-4 h-4" />
                   <span>
-                    Oluşturulma: {new Date(viewingNote.created_at).toLocaleString('tr-TR')}
+                    Oluşturulma: {formatDateTimeSafe(viewingNote.created_at)}
                   </span>
                 </div>
 
@@ -678,7 +674,7 @@ export default function WeeklyActivities() {
             <div className="p-6 border-t border-slate-700/50">
               <div className="flex items-center justify-between">
                 <div className="text-xs text-slate-500">
-                  {canEditDate(new Date(viewingNote.date)) 
+                  {canEditDate(new Date(viewingNote.date))
                     ? 'Düzenlemek için kartın üzerindeki ✏️ butonunu kullanın'
                     : 'Bu günce sadece görüntülenebilir'
                   }

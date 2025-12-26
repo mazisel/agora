@@ -731,12 +731,10 @@ function TasksContent() {
   };
 
   const formatCurrency = (amount: number, currency: string) => {
-    const formatter = new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2
-    });
-    return formatter.format(amount);
+    if (amount === undefined || amount === null || isNaN(amount)) return `0 ${currency}`;
+    const str = Math.floor(Math.abs(amount)).toString();
+    const formatted = str.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `${amount < 0 ? '-' : ''}${formatted} ${currency}`;
   };
 
   return (

@@ -11,8 +11,8 @@ export default function NoSSR({ children }: { children: React.ReactNode }) {
     }, []);
 
     return (
-        <div suppressHydrationWarning={true}>
+        <>
             {mounted ? children : null}
-        </div>
+        </>
     );
 }

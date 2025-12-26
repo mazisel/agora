@@ -1,4 +1,4 @@
-'use client';
+import { formatCurrencySafe, formatDateTimeSafe, formatDateSafe } from '@/lib/dateUtils';
 
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Clock, User, Calendar, MessageSquare, Paperclip, CheckCircle2, Eye, X, Send, Download, AlertCircle, FileText, Users, Image, Smile, Save, XCircle, Edit3, DollarSign, Plus, ArrowRight } from 'lucide-react';
@@ -281,11 +281,7 @@ export default function TaskDetailView({
   };
 
   const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2
-    }).format(amount);
+    return formatCurrencySafe(amount, currency);
   };
 
   const getCategoryLabel = (category: string) => {
@@ -700,7 +696,7 @@ export default function TaskDetailView({
                                   </div>
                                   <div className="flex items-center gap-2 text-xs text-slate-400">
                                     <Clock className="w-3 h-3" />
-                                    <span>{new Date(comment.created_at).toLocaleString('tr-TR')}</span>
+                                    <span>{formatDateTimeSafe(comment.created_at)}</span>
                                   </div>
                                 </div>
 
@@ -745,7 +741,7 @@ export default function TaskDetailView({
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4" />
-                        <span>Son güncelleme: {new Date(taskComments[taskComments.length - 1]?.created_at).toLocaleString('tr-TR')}</span>
+                        <span>Son güncelleme: {formatDateTimeSafe(taskComments[taskComments.length - 1]?.created_at)}</span>
                       </div>
                     </div>
                   </div>
@@ -1001,7 +997,7 @@ export default function TaskDetailView({
                             <div className="pt-3 border-t border-slate-600/30">
                               <p className="text-xs text-green-400">
                                 ✓ {expense.approver.first_name} {expense.approver.last_name} tarafından onaylandı
-                                {expense.approved_at && ` - ${new Date(expense.approved_at).toLocaleString('tr-TR')}`}
+                                {expense.approved_at && ` - ${formatDateTimeSafe(expense.approved_at)}`}
                               </p>
                             </div>
                           )}
@@ -1009,7 +1005,7 @@ export default function TaskDetailView({
                             <div className="pt-3 border-t border-slate-600/30">
                               <p className="text-xs text-red-400 mb-1">
                                 ✗ {expense.approver?.first_name} {expense.approver?.last_name} tarafından reddedildi
-                                {expense.approved_at && ` - ${new Date(expense.approved_at).toLocaleString('tr-TR')}`}
+                                {expense.approved_at && ` - ${formatDateTimeSafe(expense.approved_at)}`}
                               </p>
                               {expense.rejection_reason && (
                                 <p className="text-xs text-slate-400">Neden: {expense.rejection_reason}</p>
@@ -1135,7 +1131,7 @@ export default function TaskDetailView({
                     <div>
                       <p className="text-xs text-slate-400 mb-1">Oluşturulma</p>
                       <p className="text-white text-sm">
-                        {new Date(task.created_at).toLocaleString('tr-TR')}
+                        {formatDateTimeSafe(task.created_at)}
                       </p>
                     </div>
                   </div>
@@ -1145,7 +1141,7 @@ export default function TaskDetailView({
                       <div>
                         <p className="text-xs text-slate-400 mb-1">Son Teslim</p>
                         <p className={`text-sm ${isOverdue(task.due_date) ? 'text-red-400' : 'text-white'}`}>
-                          {new Date(task.due_date).toLocaleString('tr-TR')}
+                          {formatDateSafe(task.due_date)}
                         </p>
                       </div>
                     </div>
@@ -1156,7 +1152,7 @@ export default function TaskDetailView({
                       <div>
                         <p className="text-xs text-slate-400 mb-1">Tamamlanma</p>
                         <p className="text-white text-sm">
-                          {new Date(task.completed_at).toLocaleString('tr-TR')}
+                          {formatDateTimeSafe(task.completed_at)}
                         </p>
                       </div>
                     </div>

@@ -31,12 +31,15 @@ export function formatDateTimeSafe(dateString: string | Date | null | undefined)
     return `${day}.${month}.${year} ${hours}:${minutes}`;
 }
 
-export function formatCurrencySafe(amount: number): string {
-    // Use fixed format to prevent locale-based hydration mismatch
-    return `₺${amount.toLocaleString('en-US', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).replace(/,/g, '.')}`;
+export function formatCurrencySafe(amount: number | null | undefined, currency: string = '₺'): string {
+    if (amount === undefined || amount === null || isNaN(amount)) return `0 ${currency}`;
+
+    // Manual formatting for Turkish locale (dot as thousand separator) that doesn't rely on Intl
+    // Example: 12345 -> 12.345
+    const str = Math.floor(Math.abs(amount)).toString();
+    const formatted = str.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+    return `${amount < 0 ? '-' : ''}${formatted} ${currency}`;
 }
 
 // Turkish month names (SSR-safe, no locale dependency)

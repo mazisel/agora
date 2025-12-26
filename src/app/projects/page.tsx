@@ -358,12 +358,10 @@ function ProjectsContent() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: 'TRY',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
+    if (amount === undefined || amount === null || isNaN(amount)) return '0 TRY';
+    const str = Math.floor(Math.abs(amount)).toString();
+    const formatted = str.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `${amount < 0 ? '-' : ''}${formatted} TRY`;
   };
 
   const calculateProgress = (project: Project) => {

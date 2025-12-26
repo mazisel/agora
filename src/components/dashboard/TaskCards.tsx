@@ -696,11 +696,10 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   };
 
   const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2
-    }).format(amount);
+    if (amount === undefined || amount === null || isNaN(amount)) return `0 ${currency}`;
+    const str = Math.floor(Math.abs(amount)).toString();
+    const formatted = str.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `${amount < 0 ? '-' : ''}${formatted} ${currency}`;
   };
 
   const getCategoryLabel = (category: string) => {
