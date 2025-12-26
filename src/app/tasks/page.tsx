@@ -253,8 +253,11 @@ function TasksContent() {
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
-  const handleCreateTask = async () => {
-    if (!newTask.title || !newTask.project_id) {
+  const handleCreateTask = async (taskData?: any) => {
+    // Use passed taskData or fall back to state
+    const taskToCreate = taskData || newTask;
+
+    if (!taskToCreate.title || !taskToCreate.project_id) {
       alert('Başlık ve proje seçimi zorunludur.');
       return;
     }
@@ -270,14 +273,14 @@ function TasksContent() {
       const { data, error } = await supabase
         .from('tasks')
         .insert([{
-          title: newTask.title,
-          description: newTask.description,
-          project_id: newTask.project_id,
-          assigned_to: newTask.assigned_to || null,
-          informed_person: newTask.informed_person || null,
-          priority: newTask.priority,
-          due_date: newTask.due_date || null,
-          status: newTask.status,
+          title: taskToCreate.title,
+          description: taskToCreate.description,
+          project_id: taskToCreate.project_id,
+          assigned_to: taskToCreate.assigned_to || null,
+          informed_person: taskToCreate.informed_person || null,
+          priority: taskToCreate.priority,
+          due_date: taskToCreate.due_date || null,
+          status: taskToCreate.status,
           created_by: user.id
         }])
         .select()
@@ -289,18 +292,18 @@ function TasksContent() {
 
       const assigneeIds = selectedAssignees.length > 0
         ? selectedAssignees
-        : (newTask.assigned_to ? [newTask.assigned_to] : []);
+        : (taskToCreate.assigned_to ? [taskToCreate.assigned_to] : []);
 
       const assigneeNames = selectedAssignees.length > 0
         ? selectedAssignees
           .map(id => {
-            const user = users.find(u => u.id === id);
-            return user ? `${user.first_name} ${user.last_name}`.trim() : null;
+            const foundUser = users.find(u => u.id === id);
+            return foundUser ? `${foundUser.first_name} ${foundUser.last_name}`.trim() : null;
           })
           .filter(Boolean)
-        : (newTask.assigned_to ? (() => {
-          const user = users.find(u => u.id === newTask.assigned_to);
-          return user ? [`${user.first_name} ${user.last_name}`.trim()] : [];
+        : (taskToCreate.assigned_to ? (() => {
+          const foundUser = users.find(u => u.id === taskToCreate.assigned_to);
+          return foundUser ? [`${foundUser.first_name} ${foundUser.last_name}`.trim()] : [];
         })() : []);
 
       if (assigneeIds.length > 0 && data?.id) {
@@ -318,10 +321,10 @@ function TasksContent() {
                 taskId: data.id,
                 assignedToIds: assigneeIds,
                 assignedByName,
-                taskTitle: newTask.title,
-                dueDate: newTask.due_date || null,
-                priority: newTask.priority,
-                projectName: projects.find(p => p.id === newTask.project_id)?.name || '',
+                taskTitle: taskToCreate.title,
+                dueDate: taskToCreate.due_date || null,
+                priority: taskToCreate.priority,
+                projectName: projects.find(p => p.id === taskToCreate.project_id)?.name || '',
                 assigneeNames,
               },
             }),
