@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Task, TaskComment, TaskAttachment, TaskExpense } from '@/types';
+import { Task, TaskComment, TaskAttachment, TaskExpense, Project } from '@/types';
 import { Plus, Clock, User, Play, CheckCircle2, Eye, AlertCircle, X, MessageSquare, FileText, Users, Calendar, Paperclip, Download, Send, Image, Smile, Edit3, Save, XCircle, DollarSign, LayoutGrid } from 'lucide-react';
 import TaskDetailView from '@/components/tasks/TaskDetailView';
+import CreateTaskView from '@/components/tasks/CreateTaskView';
 import KanbanView from './KanbanView';
 
 interface TaskCardsProps {
@@ -31,6 +32,15 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   }>({ status: '' });
   const [commentsSubscription, setCommentsSubscription] = useState<any>(null);
   const [showKanban, setShowKanban] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [users, setUsers] = useState<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    personnel_number: string;
+    position?: string;
+  }[]>([]);
 
   // Expense states
   const [isAddingExpense, setIsAddingExpense] = useState(false);
@@ -114,10 +124,66 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         .slice(0, 10); // Limit to 10 for dashboard
 
       setTasks(allTasks);
+
+      // Fetch projects
+      const { data: projectsData } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('status', 'ongoing')
+        .order('name');
+      setProjects(projectsData || []);
+
+      // Fetch users
+      const { data: usersData } = await supabase
+        .from('user_profiles')
+        .select('id, first_name, last_name, personnel_number, position')
+        .eq('status', 'active')
+        .order('first_name');
+      setUsers(usersData || []);
+
     } catch (error) {
       console.error('Error fetching tasks:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Handle create task from dashboard
+  const handleCreateTask = async (taskData: any) => {
+    if (!taskData.title || !taskData.project_id) {
+      alert('Başlık ve proje seçimi zorunludur.');
+      return;
+    }
+
+    try {
+      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+      if (userError || !authUser) {
+        console.error('User not authenticated');
+        alert('Oturum doğrulanamadı. Lütfen tekrar giriş yapın.');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('tasks')
+        .insert([{
+          title: taskData.title,
+          description: taskData.description,
+          project_id: taskData.project_id,
+          assigned_to: taskData.assigned_to || null,
+          informed_person: taskData.informed_person || null,
+          priority: taskData.priority,
+          due_date: taskData.due_date || null,
+          status: taskData.status,
+          created_by: authUser.id
+        }]);
+
+      if (error) throw error;
+
+      setIsCreating(false);
+      await fetchTasks();
+    } catch (error) {
+      console.error('Error creating task:', error);
+      alert('Görev oluşturulurken hata oluştu.');
     }
   };
 
@@ -769,7 +835,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
             <span className="font-medium hidden sm:inline">Kanban</span>
           </button>
           <button
-            onClick={() => router.push('/tasks')}
+            onClick={() => setIsCreating(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl text-sm"
           >
             <Plus className="w-3 h-3" />
@@ -1069,7 +1135,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
                 </p>
                 {activeTab === 'tasks' && (
                   <button
-                    onClick={() => router.push('/tasks')}
+                    onClick={() => setIsCreating(true)}
                     className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl font-medium"
                   >
                     İlk Görevi Oluştur
@@ -1103,6 +1169,21 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
           // Kanban kapatıldığında görevleri yeniden yükle
           fetchTasks();
         }} />,
+        document.body
+      )}
+
+      {/* Create Task Modal */}
+      {isCreating && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-slate-800/95 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+            <CreateTaskView
+              onClose={() => setIsCreating(false)}
+              onSave={handleCreateTask}
+              projects={projects}
+              users={users}
+            />
+          </div>
+        </div>,
         document.body
       )}
     </div>
