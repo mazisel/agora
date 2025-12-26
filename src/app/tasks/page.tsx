@@ -328,6 +328,8 @@ function TasksContent() {
       console.warn('Görev oluşturma validasyonu başarısız', {
         title: taskToCreate.title,
         project_id: taskToCreate.project_id,
+        taskDataPassed: Boolean(taskData),
+        newTaskState: newTask,
       });
       alert('Başlık ve proje seçimi zorunludur.');
       return;

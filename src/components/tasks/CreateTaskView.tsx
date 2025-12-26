@@ -48,6 +48,8 @@ export default function CreateTaskView({ onClose, onSave, projects, users }: Cre
       alert('Başlık ve proje seçimi zorunludur.');
       return;
     }
+
+    console.log('Görev oluşturma için gönderilen veri (mobile view):', newTask);
     onSave(newTask);
   };
 

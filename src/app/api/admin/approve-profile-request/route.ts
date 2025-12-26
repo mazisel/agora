@@ -1,17 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Service role client for admin operations
-const serviceSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+import { supabaseAdmin } from '@/lib/supabase-admin';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the request details
-    const { data: profileRequest, error: requestError } = await serviceSupabase
+    const { data: profileRequest, error: requestError } = await supabaseAdmin
       .from('profile_update_requests')
       .select('*')
       .eq('id', requestId)
@@ -48,13 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.split(' ')[1];
-    const { createClient: createAuthClient } = await import('@supabase/supabase-js');
-    const authSupabase = createAuthClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    const { data: { user }, error: userError } = await authSupabase.auth.getUser(token);
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
       return NextResponse.json(
@@ -108,7 +91,7 @@ export async function POST(request: NextRequest) {
       console.log('Updating user profile with data:', updateData);
       console.log('User ID:', profileRequest.user_id);
 
-      const { error: profileError } = await serviceSupabase
+      const { error: profileError } = await supabaseAdmin
         .from('user_profiles')
         .update(updateData)
         .eq('user_id', profileRequest.user_id);
