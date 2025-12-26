@@ -379,31 +379,30 @@ function TasksContent() {
         })() : []);
 
       if (assigneeIds.length > 0 && data?.id) {
-        try {
-          const assignedByName = `${userProfile?.first_name || 'Kullanıcı'} ${userProfile?.last_name || ''}`.trim();
-          await fetch('/api/tasks/notifications', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        const assignedByName = `${userProfile?.first_name || 'Kullanıcı'} ${userProfile?.last_name || ''}`.trim();
+        // Bildirimleri arkada çalıştır, hata olursa kullanıcıyı bekletme
+        void fetch('/api/tasks/notifications', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({
+            type: 'taskAssigned',
+            payload: {
+              taskId: data.id,
+              assignedToIds: assigneeIds,
+              assignedByName,
+              taskTitle: taskToCreate.title,
+              dueDate: taskToCreate.due_date || null,
+              priority: taskToCreate.priority,
+              projectName: projects.find(p => p.id === taskToCreate.project_id)?.name || '',
+              assigneeNames,
             },
-            body: JSON.stringify({
-              type: 'taskAssigned',
-              payload: {
-                taskId: data.id,
-                assignedToIds: assigneeIds,
-                assignedByName,
-                taskTitle: taskToCreate.title,
-                dueDate: taskToCreate.due_date || null,
-                priority: taskToCreate.priority,
-                projectName: projects.find(p => p.id === taskToCreate.project_id)?.name || '',
-                assigneeNames,
-              },
-            }),
-          });
-        } catch (notifyError) {
+          }),
+        }).catch((notifyError) => {
           console.error('Task assignment notification error:', notifyError);
-        }
+        });
       }
 
       setNewTask({
