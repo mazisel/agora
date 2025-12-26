@@ -2,11 +2,13 @@
 import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
-import { JWT } from 'google-auth-library';
 import dns from 'node:dns';
+import { Agent, fetch as undiciFetch } from 'undici';
+import { createSign } from 'node:crypto';
 
 // Prefer IPv4 to avoid IPv6 timeouts in some environments
 dns.setDefaultResultOrder('ipv4first');
+const ipv4Agent = new Agent({ connect: { family: 4, timeout: 10000 } });
 
 function parseServiceAccountFromEnv(): { serviceAccount: any; source: string } {
     // Prefer explicit base64 JSON
@@ -69,15 +71,41 @@ async function sendHttpV1(serviceAccount: any, token: string, title: string, bod
         throw new Error('Service account missing required fields for HTTP v1 FCM call');
     }
 
-    const jwtClient = new JWT({
-        email: serviceAccount.client_email,
-        key: serviceAccount.private_key,
-        scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
+    // Build JWT assertion manually to control transport (IPv4)
+    const iat = Math.floor(Date.now() / 1000);
+    const exp = iat + 3600;
+    const scope = 'https://www.googleapis.com/auth/firebase.messaging';
+    const aud = 'https://oauth2.googleapis.com/token';
+
+    const base64url = (obj: any) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+    const header = { alg: 'RS256', typ: 'JWT' };
+    const claimSet = {
+        iss: serviceAccount.client_email,
+        scope,
+        aud,
+        exp,
+        iat,
+    };
+    const unsigned = `${base64url(header)}.${base64url(claimSet)}`;
+    const signer = createSign('RSA-SHA256');
+    signer.update(unsigned);
+    const signature = signer.sign(serviceAccount.private_key, 'base64url');
+    const assertion = `${unsigned}.${signature}`;
+
+    const tokenResp = await undiciFetch(aud, {
+        method: 'POST',
+        dispatcher: ipv4Agent,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+            assertion,
+        }).toString(),
     });
 
-    const accessToken = await jwtClient.getAccessToken();
-    if (!accessToken || !accessToken.token) {
-        throw new Error('Failed to obtain access token for FCM HTTP v1');
+    const tokenJson: any = await tokenResp.json().catch(() => ({}));
+    if (!tokenResp.ok || !tokenJson.access_token) {
+        console.error('[FCM] OAuth token error:', tokenResp.status, tokenJson);
+        throw new Error(`FCM token error: ${tokenResp.status}`);
     }
 
     const message = {
@@ -88,14 +116,18 @@ async function sendHttpV1(serviceAccount: any, token: string, title: string, bod
         },
     };
 
-    const resp = await fetch(`https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken.token}`,
-        },
-        body: JSON.stringify(message),
-    });
+    const resp = await undiciFetch(
+        `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
+        {
+            method: 'POST',
+            dispatcher: ipv4Agent,
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${tokenJson.access_token}`,
+            },
+            body: JSON.stringify(message),
+        }
+    );
 
     const json = await resp.json().catch(() => ({}));
     if (!resp.ok) {
@@ -115,9 +147,6 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'Token is required' }, { status: 400 });
         }
 
-        const parsed = parseServiceAccountFromEnv();
-        const firebaseAdmin = getFirebaseAdmin();
-
         // Sanitize data to ensure all values are strings (required by FCM)
         const sanitizedData: Record<string, string> = {};
         if (data) {
@@ -129,40 +158,46 @@ export async function POST(request: Request) {
             });
         }
 
-        const message = {
-            notification: {
-                title,
-                body,
-            },
-            data: sanitizedData,
-            token: token,
-        };
-
+        // Try HTTP v1 API first (more reliable in Docker environments)
         try {
-            console.log('[FCM] Sending message...');
+            const parsed = parseServiceAccountFromEnv();
+            console.log('[FCM] Trying HTTP v1 API first...');
+            const v1Result = await sendHttpV1(parsed.serviceAccount, token, title, body, sanitizedData);
+            return NextResponse.json({ success: true, via: 'http_v1', response: v1Result });
+        } catch (v1Error: any) {
+            console.warn('[FCM] HTTP v1 API failed, trying Firebase Admin SDK:', v1Error.message);
+        }
+
+        // Fallback to Firebase Admin SDK
+        try {
+            const firebaseAdmin = getFirebaseAdmin();
+            const message = {
+                notification: { title, body },
+                data: sanitizedData,
+                token: token,
+            };
+
+            console.log('[FCM] Sending message via Firebase Admin SDK...');
             const response = await firebaseAdmin.messaging().send(message);
             console.log('[FCM] Successfully sent message:', response);
             return NextResponse.json({ success: true, messageId: response });
-        } catch (error: any) {
-            console.error('[FCM] Error sending message:', {
-                code: error.code,
-                message: error.message,
-                stack: error.stack,
-                errorInfo: error.errorInfo,
+        } catch (sdkError: any) {
+            console.error('[FCM] Firebase Admin SDK error:', {
+                code: sdkError.code,
+                message: sdkError.message,
             });
 
-            // Fallback to HTTP v1 API using service account directly
-            const retryable = error.code === 'messaging/third-party-auth-error' || error.code === 'app/network-timeout';
-            if (retryable) {
-                try {
-                    const v1 = await sendHttpV1(parsed.serviceAccount, token, title, body, sanitizedData);
-                    return NextResponse.json({ success: true, via: 'http_v1', response: v1 });
-                } catch (v1err: any) {
-                    console.error('[FCM] HTTP v1 fallback failed:', v1err);
-                }
+            // If the error is about invalid token, that's actually success for auth
+            if (sdkError.code === 'messaging/invalid-argument' ||
+                sdkError.code === 'messaging/registration-token-not-registered') {
+                return NextResponse.json({
+                    success: false,
+                    error: 'Invalid FCM token - user may have uninstalled the app or token expired',
+                    authWorked: true
+                }, { status: 400 });
             }
 
-            // Fallback: use legacy HTTP API with server key if available
+            // Try legacy HTTP API with server key if available
             const serverKey = process.env.FCM_SERVER_KEY;
             if (serverKey) {
                 try {
@@ -195,35 +230,20 @@ export async function POST(request: Request) {
                     return NextResponse.json({ success: true, legacy: true, response: legacyJson });
                 } catch (legacyErr: any) {
                     console.error('[FCM] Legacy API fallback failed:', legacyErr);
-                    // continue to known issue response below
                 }
             }
 
-            // Known issue: Next.js runtime interferes with firebase-admin HTTP requests
-            // DryRun works but actual send fails with third-party-auth-error
-            // This is a documented incompatibility between Next.js and firebase-admin FCM
-
-            // If the error is about invalid token, that's actually success for auth
-            if (error.code === 'messaging/invalid-argument' ||
-                error.code === 'messaging/registration-token-not-registered') {
+            // Return error
+            if (sdkError.code === 'messaging/third-party-auth-error' || sdkError.code === 'app/network-timeout') {
+                console.warn('[FCM] Known Docker/Next.js compatibility issue');
                 return NextResponse.json({
                     success: false,
-                    error: 'Invalid FCM token - user may have uninstalled the app or token expired',
-                    authWorked: true
-                }, { status: 400 });
-            }
-
-            // For auth errors, return a specific message
-            if (error.code === 'messaging/third-party-auth-error') {
-                console.warn('[FCM] Known Next.js compatibility issue - FCM disabled temporarily');
-                return NextResponse.json({
-                    success: false,
-                    error: 'FCM temporarily unavailable due to environment issue',
+                    error: 'FCM temporarily unavailable due to network/environment issue',
                     knownIssue: true
                 }, { status: 503 });
             }
 
-            return NextResponse.json({ success: false, error: error.message || 'Failed to send message' }, { status: 500 });
+            return NextResponse.json({ success: false, error: sdkError.message || 'Failed to send message' }, { status: 500 });
         }
 
     } catch (error: any) {

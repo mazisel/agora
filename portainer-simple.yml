@@ -25,6 +25,15 @@ services:
       - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
       - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME}
       - TASK_REMINDER_SECRET=${TASK_REMINDER_SECRET}
+      # Firebase/FCM Configuration
+      - GOOGLE_APPLICATION_CREDENTIALS_JSON=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FCM_SERVER_KEY=${FCM_SERVER_KEY}
+      # App URL for notifications
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     volumes:
       - .:/app
     command: sh -c "npm ci && npm run build && npm start"
