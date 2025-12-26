@@ -1046,7 +1046,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
                       <div className="flex items-center gap-1">
                         <Clock className="w-3 h-3 text-orange-400" />
                         <span className="text-xs text-orange-300">
-                          {new Date(transfer.created_at).toLocaleDateString('tr-TR')}
+                          {(() => { const d = new Date(transfer.created_at); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; })()}
                         </span>
                       </div>
                     </div>

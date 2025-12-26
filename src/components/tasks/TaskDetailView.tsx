@@ -426,7 +426,7 @@ export default function TaskDetailView({
                   {task.due_date && (
                     <div className={`flex items-center gap-2 ${isOverdue(task.due_date) ? 'text-red-400' : 'text-slate-300'}`}>
                       <Calendar className="w-4 h-4" />
-                      <span>{new Date(task.due_date).toLocaleDateString('tr-TR')}</span>
+                      <span>{(() => { const d = new Date(task.due_date); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; })()}</span>
                       {isOverdue(task.due_date) && <span className="text-xs font-medium">(Gecikmiş)</span>}
                     </div>
                   )}
@@ -961,7 +961,7 @@ export default function TaskDetailView({
                                   {getCategoryLabel(expense.category)}
                                 </span>
                                 <span className="text-slate-400">
-                                  {new Date(expense.expense_date).toLocaleDateString('tr-TR')}
+                                  {(() => { const d = new Date(expense.expense_date); return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`; })()}
                                 </span>
                               </div>
                               {expense.description && (
