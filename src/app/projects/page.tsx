@@ -377,8 +377,8 @@ export default function ProjectsPage() {
     return today > endDate;
   };
 
-  // Show loading while checking authentication
-  if (loading) {
+  // Show loading while checking authentication or if not mounted (client-side rendering only)
+  if (loading || !mounted) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -537,7 +537,7 @@ export default function ProjectsPage() {
                             <div className="w-full bg-slate-700 rounded-full h-1.5 mt-1">
                               <div
                                 className={`h-1.5 rounded-full transition-all duration-300 ${calculateProgress(project) > 90 ? 'bg-red-500' :
-                                    calculateProgress(project) > 70 ? 'bg-yellow-500' : 'bg-green-500'
+                                  calculateProgress(project) > 70 ? 'bg-yellow-500' : 'bg-green-500'
                                   }`}
                                 style={{ width: `${Math.min(calculateProgress(project), 100)}%` }}
                               ></div>
@@ -645,7 +645,7 @@ export default function ProjectsPage() {
                       <div className="w-full bg-slate-700 rounded-full h-1.5 mt-1">
                         <div
                           className={`h-1.5 rounded-full transition-all duration-300 ${calculateProgress(project) > 90 ? 'bg-red-500' :
-                              calculateProgress(project) > 70 ? 'bg-yellow-500' : 'bg-green-500'
+                            calculateProgress(project) > 70 ? 'bg-yellow-500' : 'bg-green-500'
                             }`}
                           style={{ width: `${Math.min(calculateProgress(project), 100)}%` }}
                         ></div>
@@ -1039,7 +1039,7 @@ export default function ProjectsPage() {
                           <div className="w-full bg-slate-700 rounded-full h-3">
                             <div
                               className={`h-3 rounded-full transition-all duration-300 ${calculateProgress(viewingProject) > 90 ? 'bg-red-500' :
-                                  calculateProgress(viewingProject) > 70 ? 'bg-yellow-500' : 'bg-green-500'
+                                calculateProgress(viewingProject) > 70 ? 'bg-yellow-500' : 'bg-green-500'
                                 }`}
                               style={{ width: `${Math.min(calculateProgress(viewingProject), 100)}%` }}
                             ></div>
