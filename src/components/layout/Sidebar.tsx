@@ -255,7 +255,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
               <Link
                 key={item.id}
                 href={item.href}
-                className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-200 relative hover:z-50 ${itemIsActive
+                className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-colors duration-200 relative hover:z-50 ${itemIsActive
                   ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-500/30 shadow-lg shadow-blue-500/10'
                   : 'text-slate-300 hover:bg-slate-800/50 hover:text-white border border-transparent hover:border-slate-600/50'
                   }`}
@@ -287,7 +287,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
 
                 {/* Tooltip for collapsed state */}
                 {collapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-[100] shadow-xl border border-slate-700">
                     {item.label}
                     {item.id === 'tasks' && taskCount > 0 && (
                       <span className="ml-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">

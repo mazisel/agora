@@ -33,6 +33,11 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   const [commentsSubscription, setCommentsSubscription] = useState<any>(null);
   const [showKanban, setShowKanban] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<{
     id: string;
@@ -1148,7 +1153,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
       </div>
 
       {/* Use TaskDetailView Component with Portal */}
-      {viewingTask && typeof window !== 'undefined' && createPortal(
+      {mounted && viewingTask && createPortal(
         <TaskDetailView
           task={viewingTask}
           onClose={() => setViewingTask(null)}
@@ -1163,7 +1168,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
       )}
 
       {/* Kanban View */}
-      {showKanban && typeof window !== 'undefined' && createPortal(
+      {mounted && showKanban && createPortal(
         <KanbanView onClose={() => {
           setShowKanban(false);
           // Kanban kapatıldığında görevleri yeniden yükle
@@ -1173,7 +1178,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
       )}
 
       {/* Create Task Modal */}
-      {isCreating && typeof window !== 'undefined' && createPortal(
+      {mounted && isCreating && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="relative bg-slate-800/95 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-2xl w-full h-[85vh] overflow-hidden shadow-2xl">
             <CreateTaskView
