@@ -190,7 +190,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
       {/* User Profile */}
       <div className="p-6 border-b border-slate-700/50">
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-4'}`}>
-          <div className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center shadow-lg">
+          <div className={`${collapsed ? 'w-10 h-10' : 'w-14 h-14'} aspect-square rounded-xl overflow-hidden flex-shrink-0 shadow-lg`}>
             {userProfile?.profile_photo_url &&
               !userProfile.profile_photo_url.startsWith('blob:') &&
               userProfile.profile_photo_url.trim() !== '' ? (
@@ -203,8 +203,10 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
                   const target = e.currentTarget;
                   const parent = target.parentElement;
                   if (parent) {
+                    const size = collapsed ? 'w-10 h-10' : 'w-14 h-14';
+                    const fontSize = collapsed ? 'text-sm' : 'text-lg';
                     parent.innerHTML = `
-                      <div class="w-14 h-14 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                      <div class="${size} bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold ${fontSize} shadow-lg">
                         ${userProfile?.first_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
                       </div>
                     `;
@@ -212,7 +214,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
                 }}
               />
             ) : (
-              <div className="w-14 h-14 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+              <div className={`${collapsed ? 'w-10 h-10 text-sm' : 'w-14 h-14 text-lg'} bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg`}>
                 {userProfile?.first_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
               </div>
             )}
