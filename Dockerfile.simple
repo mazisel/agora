@@ -1,8 +1,9 @@
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+# ICU ve timezone verisi ekleyerek returnNaN ve /dev/lrt hatalarını engelle
+RUN apk add --no-cache libc6-compat icu-libs icu-data-full tzdata
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
@@ -11,6 +12,7 @@ RUN npm ci
 
 # Rebuild the source code only when needed
 FROM base AS builder
+RUN apk add --no-cache libc6-compat icu-libs icu-data-full tzdata
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -35,8 +37,12 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+RUN apk add --no-cache icu-libs icu-data-full tzdata
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+# Türkiye saat dilimi için
+ENV TZ=Europe/Istanbul
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -52,7 +58,7 @@ USER nextjs
 
 EXPOSE 3001
 
-ENV PORT 3001
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3001
+ENV HOSTNAME="0.0.0.0"
 
 CMD ["npm", "start"]

@@ -159,7 +159,14 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
 
   // Handle create task from dashboard
   const handleCreateTask = async (taskData: any) => {
-    if (!taskData.title || !taskData.project_id) {
+    const hasTitle = Boolean(taskData.title?.toString().trim());
+    const hasProject = Boolean((taskData.project_id ?? '').toString().trim());
+
+    if (!hasTitle || !hasProject) {
+      console.warn('Görev oluşturma validasyonu başarısız (dashboard)', {
+        title: taskData.title,
+        project_id: taskData.project_id,
+      });
       alert('Başlık ve proje seçimi zorunludur.');
       return;
     }

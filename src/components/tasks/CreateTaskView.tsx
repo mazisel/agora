@@ -37,7 +37,14 @@ export default function CreateTaskView({ onClose, onSave, projects, users }: Cre
   const [showInformedDropdown, setShowInformedDropdown] = useState(false);
 
   const handleSave = () => {
-    if (!newTask.title || !newTask.project_id) {
+    const hasTitle = Boolean(newTask.title?.toString().trim());
+    const hasProject = Boolean((newTask.project_id ?? '').toString().trim());
+
+    if (!hasTitle || !hasProject) {
+      console.warn('Görev oluşturma validasyonu başarısız (mobile view)', {
+        title: newTask.title,
+        project_id: newTask.project_id,
+      });
       alert('Başlık ve proje seçimi zorunludur.');
       return;
     }

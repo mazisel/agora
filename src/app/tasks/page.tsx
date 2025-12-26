@@ -321,7 +321,14 @@ function TasksContent() {
     // Use passed taskData or fall back to state
     const taskToCreate = taskData || newTask;
 
-    if (!taskToCreate.title || !taskToCreate.project_id) {
+    const hasTitle = Boolean(taskToCreate.title?.toString().trim());
+    const hasProject = Boolean((taskToCreate.project_id ?? '').toString().trim());
+
+    if (!hasTitle || !hasProject) {
+      console.warn('Görev oluşturma validasyonu başarısız', {
+        title: taskToCreate.title,
+        project_id: taskToCreate.project_id,
+      });
       alert('Başlık ve proje seçimi zorunludur.');
       return;
     }
