@@ -159,26 +159,19 @@ function TasksContent() {
 
       setTasks(allTasks);
 
-      // Fetch projects
-      const { data: projectsData, error: projectsError } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('status', 'ongoing')
-        .order('name');
-
-      if (projectsError) throw projectsError;
-
-      // Fetch users
-      const { data: usersData, error: usersError } = await supabase
-        .from('user_profiles')
-        .select('id, first_name, last_name, personnel_number, position')
-        .eq('status', 'active')
-        .order('first_name');
-
-      if (usersError) throw usersError;
-
-      setProjects(projectsData || []);
-      setUsers(usersData || []);
+      // Fetch metadata (projects + users) via server API to avoid client-side CORS/RLS
+      try {
+        const metaRes = await fetch('/api/tasks/metadata', { headers: authHeaders });
+        if (metaRes.ok) {
+          const metaJson = await metaRes.json();
+          setProjects(metaJson.projects || []);
+          setUsers(metaJson.users || []);
+        } else {
+          console.error('Metadata fetch failed:', await metaRes.text());
+        }
+      } catch (metaError) {
+        console.error('Metadata fetch error:', metaError);
+      }
 
     } catch (error) {
       console.error('Error fetching data:', error);
