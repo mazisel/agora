@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, Suspense } from 'react';
+import { useEffect, useRef, Suspense, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import NProgress from 'nprogress';
 
@@ -17,13 +17,22 @@ function ProgressProviderInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Set mounted after initial render to prevent SSR issues
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
+    // Only track changes after mount to avoid hydration issues
+    if (!mounted) return;
+
     // Sayfa değişikliğinde progress bar'ı tamamla
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
-    
+
     // Kısa bir gecikme ile progress bar'ı tamamla
     timeoutRef.current = setTimeout(() => {
       NProgress.done();
@@ -34,19 +43,19 @@ function ProgressProviderInner({ children }: { children: React.ReactNode }) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [pathname, searchParams]);
+  }, [pathname, searchParams, mounted]);
 
   useEffect(() => {
     // Link tıklamalarını dinle
     const handleAnchorClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       const anchor = target.closest('a');
-      
+
       if (anchor && anchor.href) {
         try {
           const url = new URL(anchor.href);
           const currentUrl = new URL(window.location.href);
-          
+
           // Aynı origin'de ve farklı path'te ise progress bar'ı başlat
           if (
             url.origin === currentUrl.origin &&
