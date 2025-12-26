@@ -63,7 +63,10 @@ export class NotificationService {
     chatIds: (string | number)[],
     data: NotificationPayload
   ): Promise<boolean> {
+    console.log('[Telegram] sendTelegramNotification called:', { type, chatIdsCount: chatIds?.length, chatIds });
+
     if (!chatIds || chatIds.length === 0) {
+      console.warn('[Telegram] No chat IDs provided, skipping notification');
       return false;
     }
 
@@ -126,28 +129,32 @@ export class NotificationService {
 
   // Get user Telegram chat IDs by user IDs
   private static async getUserTelegramChatIds(userIds: string[]): Promise<string[]> {
+    console.log('[Telegram] getUserTelegramChatIds called with userIds:', userIds);
+
     if (!userIds || userIds.length === 0) {
+      console.warn('[Telegram] No user IDs provided');
       return [];
     }
 
     try {
       const { data: users, error } = await supabase
         .from('user_profiles')
-        .select('telegram_chat_id, telegram_notifications_enabled')
-        .in('id', userIds)
-        .eq('telegram_notifications_enabled', true)
-        .not('telegram_chat_id', 'is', null);
+        .select('id, telegram_chat_id, telegram_notifications_enabled')
+        .in('id', userIds);
+
+      console.log('[Telegram] Raw user data from DB:', users);
 
       if (error) {
-        console.error('Error fetching Telegram chat IDs:', error);
+        console.error('[Telegram] Error fetching Telegram chat IDs:', error);
         return [];
       }
 
-      if (!users) {
+      if (!users || users.length === 0) {
+        console.warn('[Telegram] No users found for provided IDs');
         return [];
       }
 
-      return users
+      const filteredChatIds = users
         .filter(
           (user: any): user is TelegramContactRow & { telegram_chat_id: string } =>
             Boolean(user.telegram_notifications_enabled) &&
@@ -155,6 +162,9 @@ export class NotificationService {
             user.telegram_chat_id.trim().length > 0
         )
         .map((user: any) => user.telegram_chat_id);
+
+      console.log('[Telegram] Filtered chat IDs:', filteredChatIds);
+      return filteredChatIds;
     } catch (error) {
       console.error('Error fetching Telegram chat IDs:', error);
       return [];
