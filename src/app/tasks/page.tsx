@@ -187,6 +187,61 @@ function TasksContent() {
     }
   };
 
+  const fetchTaskDetails = async (taskId: string) => {
+    try {
+      // Talep görevleri için detay getirme işlemini atla
+      if (taskId.startsWith('leave_') || taskId.startsWith('advance_') || taskId.startsWith('suggestion_')) {
+        setTaskComments([]);
+        setTaskAttachments([]);
+        setTaskExpenses([]);
+        return;
+      }
+
+      // Fetch comments
+      const { data: commentsData, error: commentsError } = await supabase
+        .from('task_comments')
+        .select(`
+          *,
+          user:user_profiles(id, first_name, last_name, profile_photo_url)
+        `)
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: true });
+
+      if (commentsError) throw commentsError;
+
+      // Fetch attachments
+      const { data: attachmentsData, error: attachmentsError } = await supabase
+        .from('task_attachments')
+        .select(`
+          *,
+          uploader:user_profiles!task_attachments_uploaded_by_fkey(id, first_name, last_name)
+        `)
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: false });
+
+      if (attachmentsError) throw attachmentsError;
+
+      // Fetch expenses
+      const { data: expensesData, error: expensesError } = await supabase
+        .from('task_expenses')
+        .select(`
+          *,
+          creator:user_profiles!task_expenses_created_by_fkey(id, first_name, last_name),
+          approver:user_profiles!task_expenses_approved_by_fkey(id, first_name, last_name)
+        `)
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: false });
+
+      if (expensesError) throw expensesError;
+
+      setTaskComments(commentsData || []);
+      setTaskAttachments(attachmentsData || []);
+      setTaskExpenses(expensesData || []);
+    } catch (error) {
+      console.error('Error fetching task details:', error);
+    }
+  };
+
   useEffect(() => {
     if (userProfile) {
       fetchData();
@@ -379,60 +434,7 @@ function TasksContent() {
     }
   };
 
-  const fetchTaskDetails = async (taskId: string) => {
-    try {
-      // Talep görevleri için detay getirme işlemini atla
-      if (taskId.startsWith('leave_') || taskId.startsWith('advance_') || taskId.startsWith('suggestion_')) {
-        setTaskComments([]);
-        setTaskAttachments([]);
-        setTaskExpenses([]);
-        return;
-      }
 
-      // Fetch comments
-      const { data: commentsData, error: commentsError } = await supabase
-        .from('task_comments')
-        .select(`
-          *,
-          user:user_profiles(id, first_name, last_name, profile_photo_url)
-        `)
-        .eq('task_id', taskId)
-        .order('created_at', { ascending: true });
-
-      if (commentsError) throw commentsError;
-
-      // Fetch attachments
-      const { data: attachmentsData, error: attachmentsError } = await supabase
-        .from('task_attachments')
-        .select(`
-          *,
-          uploader:user_profiles!task_attachments_uploaded_by_fkey(id, first_name, last_name)
-        `)
-        .eq('task_id', taskId)
-        .order('created_at', { ascending: false });
-
-      if (attachmentsError) throw attachmentsError;
-
-      // Fetch expenses
-      const { data: expensesData, error: expensesError } = await supabase
-        .from('task_expenses')
-        .select(`
-          *,
-          creator:user_profiles!task_expenses_created_by_fkey(id, first_name, last_name),
-          approver:user_profiles!task_expenses_approved_by_fkey(id, first_name, last_name)
-        `)
-        .eq('task_id', taskId)
-        .order('created_at', { ascending: false });
-
-      if (expensesError) throw expensesError;
-
-      setTaskComments(commentsData || []);
-      setTaskAttachments(attachmentsData || []);
-      setTaskExpenses(expensesData || []);
-    } catch (error) {
-      console.error('Error fetching task details:', error);
-    }
-  };
 
   const handleAddComment = async (taskId: string) => {
     if (!newComment.trim()) return;
