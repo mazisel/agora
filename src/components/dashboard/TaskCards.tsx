@@ -761,6 +761,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   };
 
   const isOverdueForModal = (dueDate: string) => {
+    if (!mounted) return false; // Prevent hydration mismatch
     return new Date(dueDate) < new Date() && viewingTask?.status !== 'done';
   };
 
@@ -795,6 +796,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   };
 
   const isOverdue = (dueDateString?: string) => {
+    if (!mounted) return false; // Prevent hydration mismatch
     if (!dueDateString) return false;
     const dueDate = new Date(dueDateString);
     const today = new Date();

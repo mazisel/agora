@@ -58,9 +58,12 @@ function TasksContent() {
   const [taskAttachments, setTaskAttachments] = useState<TaskAttachment[]>([]);
   const [taskExpenses, setTaskExpenses] = useState<TaskExpense[]>([]);
   const [isEditing, setIsEditing] = useState(false);
-  const [editingTask, setEditingTask] = useState<{
-    status: string;
-  }>({ status: '' });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const [editingTask, setEditingTask] = useState<{ status?: string }>({});
 
   // Expense states
   const [isAddingExpense, setIsAddingExpense] = useState(false);
@@ -577,6 +580,8 @@ function TasksContent() {
   };
 
   const isOverdue = (dueDate: string) => {
+    // Return false during SSR to prevent hydration mismatch
+    if (!mounted) return false;
     return new Date(dueDate) < new Date() && viewingTask?.status !== 'done';
   };
 
