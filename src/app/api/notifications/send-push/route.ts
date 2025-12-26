@@ -68,8 +68,29 @@ function getFirebaseAdmin() {
 
 async function sendHttpV1(serviceAccount: any, token: string, title: string, body: string, data?: Record<string, string>) {
     if (!serviceAccount?.client_email || !serviceAccount?.private_key || !serviceAccount?.project_id) {
+        console.error('[FCM] Service account missing fields:', {
+            hasClientEmail: !!serviceAccount?.client_email,
+            hasPrivateKey: !!serviceAccount?.private_key,
+            hasProjectId: !!serviceAccount?.project_id,
+        });
         throw new Error('Service account missing required fields for HTTP v1 FCM call');
     }
+
+    // Fix private key format - replace literal \n with real newlines
+    let privateKey = serviceAccount.private_key;
+    if (typeof privateKey === 'string') {
+        privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+
+    console.log('[FCM] Service account debug:', {
+        clientEmail: serviceAccount.client_email,
+        projectId: serviceAccount.project_id,
+        privateKeyLength: privateKey?.length,
+        privateKeyStart: privateKey?.substring(0, 40),
+        privateKeyEnd: privateKey?.substring(privateKey.length - 40),
+        hasBeginMarker: privateKey?.includes('-----BEGIN PRIVATE KEY-----'),
+        hasEndMarker: privateKey?.includes('-----END PRIVATE KEY-----'),
+    });
 
     // Build JWT assertion manually to control transport (IPv4)
     const iat = Math.floor(Date.now() / 1000);
@@ -87,9 +108,17 @@ async function sendHttpV1(serviceAccount: any, token: string, title: string, bod
         iat,
     };
     const unsigned = `${base64url(header)}.${base64url(claimSet)}`;
-    const signer = createSign('RSA-SHA256');
-    signer.update(unsigned);
-    const signature = signer.sign(serviceAccount.private_key, 'base64url');
+
+    let signature: string;
+    try {
+        const signer = createSign('RSA-SHA256');
+        signer.update(unsigned);
+        signature = signer.sign(privateKey, 'base64url');
+    } catch (signError: any) {
+        console.error('[FCM] JWT signing error:', signError.message);
+        throw new Error(`JWT signing failed: ${signError.message}`);
+    }
+
     const assertion = `${unsigned}.${signature}`;
 
     const tokenResp = await undiciFetch(aud, {
