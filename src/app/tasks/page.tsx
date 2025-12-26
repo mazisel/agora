@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { Plus, Search, Edit3, Trash2, Clock, User, Calendar, MessageSquare, Paperclip, CheckCircle2, Eye, X, Send, Download, AlertCircle, FileText, Users, Image, Smile, Save, XCircle, DollarSign, Receipt, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1403,10 +1404,15 @@ function TasksContent() {
   );
 }
 
+// Dynamic import with SSR disabled - this completely prevents hydration mismatch
+const DynamicTasksContent = dynamic(
+  () => Promise.resolve(TasksContent),
+  {
+    ssr: false,
+    loading: () => <LoadingScreen message="Yükleniyor..." />
+  }
+);
+
 export default function TasksPage() {
-  return (
-    <Suspense fallback={<LoadingScreen message="Yükleniyor..." />}>
-      <TasksContent />
-    </Suspense>
-  );
+  return <DynamicTasksContent />;
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { Plus, Search, Edit3, Trash2, Building, Calendar, DollarSign, User, Eye, X, Clock, CheckCircle, AlertCircle, Users, FileText, Target } from 'lucide-react';
 import { Project, Task } from '@/types';
 import LoadingScreen from '@/components/ui/LoadingScreen';
@@ -26,7 +27,7 @@ const statusOptions = [
   { value: 'cancelled', label: 'İptal Edildi', color: 'bg-red-500' }
 ];
 
-export default function ProjectsPage() {
+function ProjectsContent() {
   const { user, loading } = useAuth();
   const { userProfile } = usePermissions();
   const router = useRouter();
@@ -1452,4 +1453,17 @@ export default function ProjectsPage() {
       </div>
     </MainLayout>
   );
+}
+
+// Dynamic import with SSR disabled - this completely prevents hydration mismatch
+const DynamicProjectsContent = dynamic(
+  () => Promise.resolve(ProjectsContent),
+  {
+    ssr: false,
+    loading: () => <LoadingScreen message="Yükleniyor..." />
+  }
+);
+
+export default function ProjectsPage() {
+  return <DynamicProjectsContent />;
 }
