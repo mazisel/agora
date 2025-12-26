@@ -22,6 +22,7 @@ import {
   EyeOff,
   Building2
 } from 'lucide-react';
+import { formatCurrencySafe, formatDateTimeSafe, formatDateSafe } from '@/lib/dateUtils';
 
 export default function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -1646,7 +1647,7 @@ export default function AdminPage() {
                             <p>Bağlantı tamamlandı (Chat ID: {editingUser.telegram_chat_id})</p>
                             {editingUser.telegram_linked_at && (
                               <p className="text-slate-500">
-                                Son bağlantı: {new Date(editingUser.telegram_linked_at).toLocaleString()}
+                                Son bağlantı: {formatDateTimeSafe(editingUser.telegram_linked_at)}
                               </p>
                             )}
                           </div>
@@ -1747,7 +1748,7 @@ export default function AdminPage() {
                               </div>
                               {telegramLinkState.currentLink.expiresAt && (
                                 <p className="text-xs text-slate-500">
-                                  Geçerlilik: {new Date(telegramLinkState.currentLink.expiresAt).toLocaleString()}
+                                  Geçerlilik: {formatDateTimeSafe(telegramLinkState.currentLink.expiresAt)}
                                 </p>
                               )}
                             </>
@@ -1787,9 +1788,9 @@ export default function AdminPage() {
                                   const isExpired =
                                     !isConsumed && token.expires_at && new Date(token.expires_at) < new Date();
                                   const statusLabel = isConsumed
-                                    ? `Kullanıldı (${new Date(token.consumed_at).toLocaleString()})`
+                                    ? `Kullanıldı (${formatDateTimeSafe(token.consumed_at)})`
                                     : isExpired
-                                      ? `Süresi doldu (${new Date(token.expires_at).toLocaleString()})`
+                                      ? `Süresi doldu (${formatDateTimeSafe(token.expires_at)})`
                                       : 'Aktif';
 
                                   return (
@@ -2745,7 +2746,7 @@ export default function AdminPage() {
                     <div>
                       <span className="text-slate-400 text-sm">Maaş:</span>
                       {renderSensitiveField(
-                        viewingUser.salary ? `${viewingUser.salary.toLocaleString('tr-TR')} TL` : null,
+                        viewingUser.salary ? `${formatCurrencySafe(viewingUser.salary, '₺')}` : null,
                         `salary-${viewingUser.id}`,
                         '••••••• TL'
                       )}

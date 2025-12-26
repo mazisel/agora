@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  Receipt, 
-  CheckCircle, 
-  XCircle, 
+import { formatCurrencySafe, formatDateSafe, formatDateTimeSafe } from '@/lib/dateUtils';
+import {
+  Receipt,
+  CheckCircle,
+  XCircle,
   Clock,
   Eye,
   Filter,
@@ -332,7 +333,7 @@ export default function AdminExpenseEntryPage() {
               <span className="text-2xl font-bold text-blue-400">{stats.total}</span>
             </div>
             <h3 className="text-white font-semibold mb-1">Toplam Masraf</h3>
-            <p className="text-slate-400 text-sm">{stats.totalAmount.toLocaleString('tr-TR')} TL</p>
+            <p className="text-slate-400 text-sm">{formatCurrencySafe(stats.totalAmount, '₺')} TL</p>
           </div>
 
           {/* Pending */}
@@ -344,7 +345,7 @@ export default function AdminExpenseEntryPage() {
               <span className="text-2xl font-bold text-yellow-400">{stats.pending}</span>
             </div>
             <h3 className="text-white font-semibold mb-1">Beklemede</h3>
-            <p className="text-slate-400 text-sm">{stats.pendingAmount.toLocaleString('tr-TR')} TL</p>
+            <p className="text-slate-400 text-sm">{formatCurrencySafe(stats.pendingAmount, '₺')} TL</p>
           </div>
 
           {/* Approved */}
@@ -356,7 +357,7 @@ export default function AdminExpenseEntryPage() {
               <span className="text-2xl font-bold text-green-400">{stats.approved}</span>
             </div>
             <h3 className="text-white font-semibold mb-1">Onaylanan</h3>
-            <p className="text-slate-400 text-sm">{stats.approvedAmount.toLocaleString('tr-TR')} TL</p>
+            <p className="text-slate-400 text-sm">{formatCurrencySafe(stats.approvedAmount, '₺')} TL</p>
           </div>
 
           {/* Monthly */}
@@ -368,7 +369,7 @@ export default function AdminExpenseEntryPage() {
               <span className="text-2xl font-bold text-purple-400">{monthlyStats.total}</span>
             </div>
             <h3 className="text-white font-semibold mb-1">Bu Ay</h3>
-            <p className="text-slate-400 text-sm">{monthlyStats.amount.toLocaleString('tr-TR')} TL</p>
+            <p className="text-slate-400 text-sm">{formatCurrencySafe(monthlyStats.amount, '₺')} TL</p>
           </div>
         </div>
 
@@ -473,7 +474,7 @@ export default function AdminExpenseEntryPage() {
                     </td>
                     <td className="py-4 px-6">
                       <span className="text-green-400 font-semibold">
-                        {expense.amount.toLocaleString('tr-TR')} {expense.currency}
+                        {formatCurrencySafe(expense.amount, expense.currency)}
                       </span>
                     </td>
                     <td className="py-4 px-6">
@@ -584,7 +585,7 @@ export default function AdminExpenseEntryPage() {
                     <div>
                       <h4 className="text-sm font-medium text-slate-400 mb-2">Tutar</h4>
                       <p className="text-green-400 font-bold text-lg">
-                        {viewingExpense.amount.toLocaleString('tr-TR')} {viewingExpense.currency}
+                        {formatCurrencySafe(viewingExpense.amount, viewingExpense.currency)}
                       </p>
                     </div>
                     <div>
@@ -789,11 +790,10 @@ export default function AdminExpenseEntryPage() {
                   <button
                     onClick={() => handleExpenseAction(actionData.action)}
                     disabled={isLoading || (actionData.action === 'reject' && !actionData.rejectionReason.trim())}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-xl transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                      actionData.action === 'approve'
-                        ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
-                        : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'
-                    } text-white`}
+                    className={`flex items-center gap-2 px-6 py-2 rounded-xl transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed ${actionData.action === 'approve'
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
+                      : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'
+                      } text-white`}
                   >
                     {isLoading ? (
                       <>
@@ -886,11 +886,10 @@ export default function AdminExpenseEntryPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                            category.is_active 
-                              ? 'bg-green-500/20 text-green-400' 
-                              : 'bg-red-500/20 text-red-400'
-                          }`}>
+                          <span className={`px-2 py-1 rounded-lg text-xs font-medium ${category.is_active
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-red-500/20 text-red-400'
+                            }`}>
                             {category.is_active ? 'Aktif' : 'Pasif'}
                           </span>
                         </div>

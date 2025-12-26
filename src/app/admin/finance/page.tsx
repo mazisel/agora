@@ -37,6 +37,7 @@ import {
   ChevronRight,
   ChevronDown
 } from 'lucide-react';
+import { formatCurrencySafe } from '@/lib/dateUtils';
 import AccountsManagement from './accounts-management';
 
 interface FinanceTransaction {
@@ -319,9 +320,8 @@ export default function FinancePage() {
     return employee ? `${employee.first_name} ${employee.last_name}` : '';
   };
 
-  const formatAmount = (amount: number) => {
-    return showAmounts ? `${amount.toLocaleString('tr-TR')} TL` : '••••••• TL';
-  };
+  const formatAmount = (amount: number) =>
+    showAmounts ? formatCurrencySafe(amount, '₺') : '••••••• TL';
 
   const handleCreateTransaction = async () => {
     if (!newTransaction.category || !newTransaction.amount || !newTransaction.description) {
@@ -632,8 +632,8 @@ export default function FinancePage() {
             <button
               onClick={() => setActiveTab('transactions')}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${activeTab === 'transactions'
-                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
                 }`}
             >
               <DollarSign className="w-4 h-4" />
@@ -642,8 +642,8 @@ export default function FinancePage() {
             <button
               onClick={() => setActiveTab('accounts')}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${activeTab === 'accounts'
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
                 }`}
             >
               <FolderTree className="w-4 h-4" />
@@ -1598,8 +1598,8 @@ export default function FinancePage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${viewingTransaction.type === 'income'
-                      ? 'bg-green-500/20 text-green-400'
-                      : 'bg-red-500/20 text-red-400'
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-red-500/20 text-red-400'
                     }`}>
                     {viewingTransaction.type === 'income' ? (
                       <TrendingUp className="w-6 h-6" />
@@ -1657,7 +1657,7 @@ export default function FinancePage() {
                         <span className={`text-2xl font-bold ${viewingTransaction.type === 'income' ? 'text-green-400' : 'text-red-400'
                           }`}>
                           {viewingTransaction.type === 'income' ? '+' : '-'}
-                          {viewingTransaction.amount.toLocaleString('tr-TR')} TL
+                          {formatCurrencySafe(viewingTransaction.amount, '₺')} TL
                         </span>
                       </div>
                     </div>

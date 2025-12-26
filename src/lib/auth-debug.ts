@@ -12,14 +12,14 @@ export const debugAndClearAuthStorage = () => {
   if (typeof window === 'undefined') return;
 
   console.log('🔍 Auth Debug: Checking storage...');
-  
+
   // Mevcut storage'ı logla
-  const authKeys = Object.keys(localStorage).filter(key => 
+  const authKeys = Object.keys(localStorage).filter(key =>
     key.includes('supabase') || key.includes('auth') || key.startsWith('sb-')
   );
-  
+
   console.log('📦 Found auth-related storage keys:', authKeys);
-  
+
   authKeys.forEach(key => {
     const value = localStorage.getItem(key);
     console.log(`🔑 ${key}:`, value ? 'Has value' : 'Empty');
@@ -40,14 +40,14 @@ export const debugAndClearAuthStorage = () => {
 export const debugSupabaseSession = async () => {
   try {
     console.log('🔍 Checking Supabase session...');
-    
+
     const { data: { session }, error } = await supabase.auth.getSession();
-    
+
     if (error) {
       console.error('❌ Session error:', error);
       return { session: null, error };
     }
-    
+
     if (session) {
       console.log('✅ Active session found:', {
         userId: session.user?.id,
@@ -58,7 +58,7 @@ export const debugSupabaseSession = async () => {
     } else {
       console.log('ℹ️ No active session');
     }
-    
+
     return { session, error: null };
   } catch (error) {
     console.error('💥 Unexpected error checking session:', error);
@@ -71,14 +71,14 @@ export const debugSupabaseSession = async () => {
  */
 export const resetAuthState = async () => {
   console.log('🔄 Resetting auth state...');
-  
+
   try {
     // Supabase oturumunu kapat
     await supabase.auth.signOut();
-    
+
     // Storage'ı temizle
     debugAndClearAuthStorage();
-    
+
     // Sayfayı yenile
     if (typeof window !== 'undefined') {
       console.log('🔄 Reloading page...');
@@ -94,20 +94,20 @@ export const resetAuthState = async () => {
  */
 export const logAuthState = async () => {
   console.log('📊 === AUTH STATE DEBUG ===');
-  
+
   // Storage durumu
   debugAndClearAuthStorage();
-  
+
   // Session durumu
   await debugSupabaseSession();
-  
+
   // Environment variables
   console.log('🌍 Environment check:', {
     hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
     hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     nodeEnv: process.env.NODE_ENV
   });
-  
+
   console.log('📊 === END AUTH DEBUG ===');
 };
 
@@ -119,6 +119,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     reset: resetAuthState,
     log: logAuthState
   };
-  
+
   console.log('🛠️ Auth debug tools available: window.authDebug');
 }

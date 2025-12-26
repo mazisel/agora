@@ -1358,50 +1358,6 @@ function TasksContent() {
           />
         )}
 
-        {/* Deep Linking Effect - Placed here to ensure fetchTaskDetails is defined */}
-        {(() => {
-          // eslint-disable-next-line react-hooks/rules-of-hooks
-          useEffect(() => {
-            const handleDeepLink = async () => {
-              if (!taskIdFromUrl || viewingTask) return;
-
-              const existingTask = tasks.find(t => t.id === taskIdFromUrl);
-              if (existingTask) {
-                setViewingTask(existingTask);
-                // fetchTaskDetails is now defined
-                fetchTaskDetails(taskIdFromUrl);
-                return;
-              }
-
-              try {
-                const { data: task, error } = await supabase
-                  .from('tasks')
-                  .select(`
-                  *,
-                  project:projects(id, name),
-                  assignee:user_profiles!tasks_assigned_to_fkey(id, first_name, last_name, personnel_number, profile_photo_url),
-                  assigner:user_profiles!tasks_assigned_by_fkey(id, first_name, last_name, personnel_number),
-                  informed:user_profiles!tasks_informed_person_fkey(id, first_name, last_name, personnel_number),
-                  creator:user_profiles!tasks_created_by_fkey(id, first_name, last_name, personnel_number)
-                `)
-                  .eq('id', taskIdFromUrl)
-                  .single();
-
-                if (error) throw error;
-                if (task) {
-                  setViewingTask(task);
-                  fetchTaskDetails(taskIdFromUrl);
-                }
-              } catch (error) {
-                console.error('Error fetching deep linked task:', error);
-              }
-            };
-
-            handleDeepLink();
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-          }, [taskIdFromUrl, tasks]);
-          return null;
-        })()}
       </div>
     </MainLayout>
   );

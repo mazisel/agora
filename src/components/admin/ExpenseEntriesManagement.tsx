@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatCurrencySafe, formatDateSafe, formatDateTimeSafe } from '@/lib/dateUtils';
 import {
   Receipt,
   CheckCircle,
@@ -278,7 +279,7 @@ export default function ExpenseEntriesManagement() {
             <span className="text-2xl font-bold text-blue-400">{stats.total}</span>
           </div>
           <h3 className="text-white font-semibold mb-1">Toplam Masraf</h3>
-          <p className="text-slate-400 text-sm">{stats.totalAmount.toLocaleString('tr-TR')} TL</p>
+          <p className="text-slate-400 text-sm">{formatCurrencySafe(stats.totalAmount, '₺')} TL</p>
         </div>
 
         <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-sm rounded-2xl border border-yellow-500/20 p-6">
@@ -289,7 +290,7 @@ export default function ExpenseEntriesManagement() {
             <span className="text-2xl font-bold text-yellow-400">{stats.pending}</span>
           </div>
           <h3 className="text-white font-semibold mb-1">Beklemede</h3>
-          <p className="text-slate-400 text-sm">{stats.pendingAmount.toLocaleString('tr-TR')} TL</p>
+          <p className="text-slate-400 text-sm">{formatCurrencySafe(stats.pendingAmount, '₺')} TL</p>
         </div>
 
         <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-2xl border border-green-500/20 p-6">
@@ -301,7 +302,7 @@ export default function ExpenseEntriesManagement() {
           </div>
           <h3 className="text-white font-semibold mb-1">Onaylanan</h3>
           <p className="text-slate-400 text-sm">
-            {expenses.filter(e => e.status === 'approved').reduce((sum, e) => sum + e.amount, 0).toLocaleString('tr-TR')} TL
+            {formatCurrencySafe(expenses.filter(e => e.status === 'approved').reduce((sum, e) => sum + e.amount, 0), '₺')} TL
           </p>
         </div>
 
@@ -314,7 +315,7 @@ export default function ExpenseEntriesManagement() {
           </div>
           <h3 className="text-white font-semibold mb-1">Reddedilen</h3>
           <p className="text-slate-400 text-sm">
-            {expenses.filter(e => e.status === 'rejected').reduce((sum, e) => sum + e.amount, 0).toLocaleString('tr-TR')} TL
+            {formatCurrencySafe(expenses.filter(e => e.status === 'rejected').reduce((sum, e) => sum + e.amount, 0), '₺')} TL
           </p>
         </div>
       </div>
@@ -428,12 +429,12 @@ export default function ExpenseEntriesManagement() {
                   </td>
                   <td className="py-4 px-6">
                     <span className="text-green-400 font-semibold">
-                      {expense.amount.toLocaleString('tr-TR')} {expense.currency}
+                      {formatCurrencySafe(expense.amount, expense.currency)}
                     </span>
                   </td>
                   <td className="py-4 px-6">
                     <span className="text-slate-300">
-                      {new Date(expense.expense_date).toLocaleDateString('tr-TR')}
+                      {formatDateSafe(expense.expense_date)}
                     </span>
                   </td>
                   <td className="py-4 px-6">
@@ -539,7 +540,7 @@ export default function ExpenseEntriesManagement() {
                   <div>
                     <h4 className="text-sm font-medium text-slate-400 mb-2">Tutar</h4>
                     <p className="text-green-400 font-bold text-lg">
-                      {viewingExpense.amount.toLocaleString('tr-TR')} {viewingExpense.currency}
+                      {formatCurrencySafe(viewingExpense.amount, viewingExpense.currency)}
                     </p>
                   </div>
                   <div>
@@ -639,12 +640,12 @@ export default function ExpenseEntriesManagement() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <h4 className="text-sm font-medium text-slate-400 mb-2">Gönderilme Tarihi</h4>
-                    <p className="text-white">{new Date(viewingExpense.submitted_at).toLocaleDateString('tr-TR')}</p>
+                    <p className="text-white">{formatDateTimeSafe(viewingExpense.submitted_at)}</p>
                   </div>
                   {viewingExpense.approved_at && (
                     <div>
                       <h4 className="text-sm font-medium text-slate-400 mb-2">Onaylanma Tarihi</h4>
-                      <p className="text-white">{new Date(viewingExpense.approved_at).toLocaleDateString('tr-TR')}</p>
+                      <p className="text-white">{formatDateTimeSafe(viewingExpense.approved_at)}</p>
                     </div>
                   )}
                 </div>
@@ -822,8 +823,8 @@ export default function ExpenseEntriesManagement() {
                   onClick={() => handleExpenseAction(actionData.action)}
                   disabled={isLoading || (actionData.action === 'reject' && !actionData.rejectionReason.trim())}
                   className={`flex items-center gap-2 px-6 py-2 rounded-xl transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed ${actionData.action === 'approve'
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
-                      : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
+                    : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'
                     } text-white`}
                 >
                   {isLoading ? (
