@@ -6,22 +6,38 @@ import * as fs from 'fs';
 // Initialize Firebase Admin if not already initialized
 function getFirebaseAdmin() {
     if (admin.apps.length === 0) {
-        const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        if (!credPath) {
-            throw new Error('GOOGLE_APPLICATION_CREDENTIALS not set');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let serviceAccount: any;
+
+        // Method 1: Base64 encoded JSON (for server deployment)
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+            try {
+                const jsonStr = Buffer.from(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON, 'base64').toString('utf8');
+                serviceAccount = JSON.parse(jsonStr);
+                console.log('[FCM] Loaded credentials from GOOGLE_APPLICATION_CREDENTIALS_JSON (base64)');
+            } catch (e) {
+                throw new Error('Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON: ' + (e as Error).message);
+            }
+        }
+        // Method 2: File path (for local development)
+        else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+            console.log('[FCM] Loading credentials from file:', credPath);
+
+            if (!fs.existsSync(credPath)) {
+                throw new Error(`Credentials file not found: ${credPath}`);
+            }
+
+            serviceAccount = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+            console.log('[FCM] Loaded credentials from file');
+        } else {
+            throw new Error('Firebase credentials not configured. Set GOOGLE_APPLICATION_CREDENTIALS_JSON (base64) or GOOGLE_APPLICATION_CREDENTIALS (file path)');
         }
 
-        console.log('[FCM] Loading credentials from:', credPath);
-
-        if (!fs.existsSync(credPath)) {
-            throw new Error(`Credentials file not found: ${credPath}`);
-        }
-
-        const serviceAccount = JSON.parse(fs.readFileSync(credPath, 'utf8'));
         console.log('[FCM] Project ID:', serviceAccount.project_id);
 
         admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+            credential: admin.credential.cert(serviceAccount),
             projectId: serviceAccount.project_id,
         });
 
