@@ -34,7 +34,9 @@ export class NotificationService {
     data: NotificationPayload
   ): Promise<boolean> {
     try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const appUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        `http://localhost:${process.env.PORT || 3000}`;
       const response = await fetch(`${appUrl}/api/notifications/send-email`, {
         method: 'POST',
         headers: {
@@ -189,7 +191,9 @@ export class NotificationService {
   ): Promise<boolean> {
     if (!tokens || tokens.length === 0) return false;
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      `http://localhost:${process.env.PORT || 3000}`;
 
     // We send individual requests for now, could be batched in the API
     const promises = tokens.map(token =>
