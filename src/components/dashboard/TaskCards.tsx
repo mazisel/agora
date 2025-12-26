@@ -791,10 +791,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('tr-TR', {
-      day: 'numeric',
-      month: 'short'
-    });
+    return `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getFullYear()}`;
   };
 
   const isOverdue = (dueDateString?: string) => {

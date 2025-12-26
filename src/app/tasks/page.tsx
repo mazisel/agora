@@ -523,6 +523,13 @@ function TasksContent() {
     }
   };
 
+  // Helper function for stable date formatting
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+  };
+
   const handleEditTask = () => {
     if (viewingTask) {
       setEditingTask({
@@ -829,10 +836,9 @@ function TasksContent() {
               {task.due_date && (
                 <div>
                   <p className="text-sm text-slate-400">Son Teslim</p>
-                  <p className={`text-white font-medium ${isOverdue(task.due_date) ? 'text-red-400' : ''}`}>
-                    {new Date(task.due_date).toLocaleDateString('tr-TR')}
-                    {isOverdue(task.due_date) && <span className="text-xs"> (Gecikmiş)</span>}
-                  </p>
+                  <span className={`text-xs px-2 py-1 rounded-full ${isOverdue(task.due_date) ? 'bg-red-500/20 text-red-300' : 'bg-slate-700 text-slate-300'}`}>
+                    {formatDate(task.due_date)}
+                  </span>  {isOverdue(task.due_date) && <span className="text-xs"> (Gecikmiş)</span>}
                 </div>
               )}
             </div>
@@ -957,7 +963,7 @@ function TasksContent() {
                       <td className="px-6 py-4">
                         {task.due_date ? (
                           <div className={`text-sm ${isOverdue(task.due_date) ? 'text-red-400' : 'text-slate-300'}`}>
-                            {new Date(task.due_date).toLocaleDateString('tr-TR')}
+                            {formatDate(task.due_date)}
                             {isOverdue(task.due_date) && (
                               <div className="text-xs text-red-400">Gecikmiş</div>
                             )}
