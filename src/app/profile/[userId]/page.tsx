@@ -6,17 +6,17 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/lib/supabase';
 import MainLayout from '@/components/layout/MainLayout';
 import { useRouter } from 'next/navigation';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar, 
-  Briefcase, 
-  Users, 
-  FolderOpen, 
-  CheckCircle2, 
-  Clock, 
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Briefcase,
+  Users,
+  FolderOpen,
+  CheckCircle2,
+  Clock,
   AlertCircle,
   Shield,
   Award,
@@ -93,7 +93,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
   const fetchUserProfile = async () => {
     try {
       setLoading(true);
-      
+
       // Kullanıcı profilini getir
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
@@ -113,14 +113,14 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
       }
 
       setUserProfile(profileData);
-      
+
       // Paralel olarak diğer verileri yükle
       await Promise.all([
         fetchProfileStats(resolvedParams.userId),
         fetchRecentActivities(resolvedParams.userId),
         fetchTeamData(profileData)
       ]);
-      
+
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
       router.push('/');
@@ -137,7 +137,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
           .from('projects')
           .select('status, created_at')
           .or(`project_manager_id.eq.${userId},project_members.cs.{${userId}}`),
-        
+
         // Görev istatistikleri
         supabase
           .from('tasks')
@@ -159,9 +159,9 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
         totalTasks: tasks.length,
         completedTasks: tasks.filter(t => t.status === 'done').length,
         pendingTasks: tasks.filter(t => ['todo', 'in_progress', 'review'].includes(t.status)).length,
-        overdueTasks: tasks.filter(t => 
-          t.due_date && 
-          new Date(t.due_date) < now && 
+        overdueTasks: tasks.filter(t =>
+          t.due_date &&
+          new Date(t.due_date) < now &&
           t.status !== 'done'
         ).length
       };
@@ -181,7 +181,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
           .or(`project_manager_id.eq.${userId},project_members.cs.{${userId}}`)
           .order('updated_at', { ascending: false })
           .limit(5),
-        
+
         supabase
           .from('tasks')
           .select('id, title, status, updated_at, description')
@@ -219,7 +219,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
     try {
       const [managerResult, colleaguesResult, subordinatesResult] = await Promise.all([
         // Yönetici bilgisi
-        profile.manager_id ? 
+        profile.manager_id ?
           supabase
             .from('user_profiles')
             .select(`
@@ -232,7 +232,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
             .eq('status', 'active')
             .single()
           : Promise.resolve({ data: null }),
-        
+
         // Departman arkadaşları
         profile.department_id ?
           supabase
@@ -247,7 +247,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
             .eq('status', 'active')
             .neq('id', profile.id)
           : Promise.resolve({ data: [] }),
-        
+
         // Alt çalışanlar
         supabase
           .from('user_profiles')
@@ -389,7 +389,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
               <p className="text-slate-400 mt-1">Kullanıcı Profili</p>
             </div>
           </div>
-          
+
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -404,7 +404,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
                     <img
                       src={userProfile.profile_photo_url}
                       alt={`${userProfile.first_name} ${userProfile.last_name}`}
-                      className="w-24 h-24 rounded-2xl object-cover"
+                      className="w-24 h-24 aspect-square rounded-2xl object-cover"
                     />
                   ) : (
                     <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
@@ -425,11 +425,10 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
 
                 {/* Durum Rozetleri */}
                 <div className="flex flex-wrap gap-2 justify-center mb-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                    userProfile.status === 'active' 
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${userProfile.status === 'active'
                       ? 'bg-green-500/20 text-green-400 border-green-500/30'
                       : 'bg-red-500/20 text-red-400 border-red-500/30'
-                  }`}>
+                    }`}>
                     {userProfile.status === 'active' ? 'Aktif' : 'Pasif'}
                   </span>
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
@@ -504,9 +503,8 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
                 ) : (
                   recentActivities.slice(0, 5).map((activity) => (
                     <div key={`${activity.type}-${activity.id}`} className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-xl border border-slate-600/30 hover:border-slate-500/50 transition-colors">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        activity.type === 'project' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
-                      }`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${activity.type === 'project' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
+                        }`}>
                         {activity.type === 'project' ? <FolderOpen className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -624,7 +622,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
                 <Users className="w-5 h-5 text-orange-400" />
                 Takım Bilgileri
               </h3>
-              
+
               <div className="relative flex flex-col items-center space-y-8">
                 {/* Yönetici */}
                 {teamData.manager && (
@@ -636,7 +634,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
                             <img
                               src={teamData.manager.profile_photo_url}
                               alt={`${teamData.manager.first_name} ${teamData.manager.last_name}`}
-                              className="w-12 h-12 rounded-lg object-cover"
+                              className="w-12 h-12 aspect-square rounded-lg object-cover"
                             />
                           ) : (
                             <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
@@ -677,14 +675,14 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {teamData.colleagues.map((colleague) => (
                           <div key={colleague.id} className="bg-slate-700/30 border border-slate-600/30 rounded-lg p-3 hover:border-slate-500/50 transition-colors cursor-pointer"
-                               onClick={() => router.push(`/profile/${colleague.id}`)}>
+                            onClick={() => router.push(`/profile/${colleague.id}`)}>
                             <div className="flex items-center gap-2">
                               <div className="relative">
                                 {colleague.profile_photo_url ? (
                                   <img
                                     src={colleague.profile_photo_url}
                                     alt={`${colleague.first_name} ${colleague.last_name}`}
-                                    className="w-10 h-10 rounded-lg object-cover"
+                                    className="w-10 h-10 aspect-square rounded-lg object-cover"
                                   />
                                 ) : (
                                   <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">
@@ -725,14 +723,14 @@ export default function UserProfilePage({ params }: { params: Promise<{ userId: 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {teamData.subordinates.map((subordinate) => (
                           <div key={subordinate.id} className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-3 hover:border-green-400/30 transition-colors cursor-pointer"
-                               onClick={() => router.push(`/profile/${subordinate.id}`)}>
+                            onClick={() => router.push(`/profile/${subordinate.id}`)}>
                             <div className="flex items-center gap-2">
                               <div className="relative">
                                 {subordinate.profile_photo_url ? (
                                   <img
                                     src={subordinate.profile_photo_url}
                                     alt={`${subordinate.first_name} ${subordinate.last_name}`}
-                                    className="w-8 h-8 rounded object-cover"
+                                    className="w-8 h-8 aspect-square rounded object-cover"
                                   />
                                 ) : (
                                   <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded flex items-center justify-center text-white font-bold text-xs">

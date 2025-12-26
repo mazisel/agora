@@ -34,7 +34,7 @@ export default function TaskDetailView({
   const [editingTask, setEditingTask] = useState<{
     status: string;
   }>({ status: task.status });
-  
+
   // Expense states
   const [taskExpenses, setTaskExpenses] = useState<TaskExpense[]>([]);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
@@ -73,7 +73,7 @@ export default function TaskDetailView({
 
       // Fetch task details with project info
       await fetchTaskDetails(taskId);
-      
+
       // Fetch expenses
       const { data: expensesData, error: expensesError } = await supabase
         .from('task_expenses')
@@ -240,7 +240,7 @@ export default function TaskDetailView({
 
       // Refresh expenses
       await fetchTaskDetailsWithExpenses(task.id);
-      
+
       alert('Harcama onaylandı ve finans sistemine kaydedildi!');
     } catch (error) {
       console.error('Error approving expense:', error);
@@ -458,7 +458,7 @@ export default function TaskDetailView({
               </button>
             </div>
           </div>
-          
+
           {/* Status and Priority Row */}
           <div className="mt-4 space-y-3">
             {/* Status ve Priority Badges */}
@@ -488,7 +488,7 @@ export default function TaskDetailView({
                 {getPriorityLabel(task.priority)}
               </span>
             </div>
-            
+
           </div>
         </div>
 
@@ -523,7 +523,7 @@ export default function TaskDetailView({
                     </span>
                   </div>
                 </div>
-                
+
                 {/* Enhanced Add Comment */}
                 <div className="mb-8 bg-slate-800/50 rounded-xl p-6 border border-slate-600/30">
                   <div className="flex items-start gap-4">
@@ -532,7 +532,7 @@ export default function TaskDetailView({
                         <img
                           src={userProfile.profile_photo_url}
                           alt={`${userProfile.first_name} ${userProfile.last_name}`}
-                          className="w-12 h-12 rounded-xl object-cover"
+                          className="w-12 h-12 aspect-square rounded-xl object-cover"
                         />
                       ) : (
                         <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
@@ -553,7 +553,7 @@ export default function TaskDetailView({
                             rows={4}
                             placeholder="Görüşlerinizi, güncellemelerinizi veya sorularınızı paylaşın..."
                           />
-                          
+
                           {/* Comment Toolbar */}
                           <div className="absolute bottom-3 left-3 flex items-center gap-2">
                             <input
@@ -661,7 +661,7 @@ export default function TaskDetailView({
                           {index < taskComments.length - 1 && (
                             <div className="absolute left-6 top-16 w-0.5 h-full bg-gradient-to-b from-slate-600/50 to-transparent"></div>
                           )}
-                          
+
                           <div className="bg-slate-800/60 rounded-xl p-6 border border-slate-600/30 hover:border-slate-500/50 transition-all duration-300 hover:shadow-lg">
                             <div className="flex items-start gap-4">
                               {/* Enhanced Avatar */}
@@ -670,7 +670,7 @@ export default function TaskDetailView({
                                   <img
                                     src={comment.user.profile_photo_url}
                                     alt={`${comment.user.first_name} ${comment.user.last_name}`}
-                                    className="w-12 h-12 rounded-xl object-cover shadow-lg"
+                                    className="w-12 h-12 aspect-square rounded-xl object-cover shadow-lg"
                                   />
                                 ) : (
                                   <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
@@ -679,7 +679,7 @@ export default function TaskDetailView({
                                 )}
                                 <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-800"></div>
                               </div>
-                              
+
                               <div className="flex-1 min-w-0">
                                 {/* Comment Header */}
                                 <div className="flex items-center justify-between mb-3">
@@ -693,14 +693,14 @@ export default function TaskDetailView({
                                     <span>{new Date(comment.created_at).toLocaleString('tr-TR')}</span>
                                   </div>
                                 </div>
-                                
+
                                 {/* Comment Content */}
                                 <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/20">
                                   <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">
                                     {comment.comment}
                                   </p>
                                 </div>
-                                
+
                                 {/* Comment Actions */}
                                 <div className="flex items-center gap-4 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-400 transition-colors">

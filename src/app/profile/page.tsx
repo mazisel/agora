@@ -5,17 +5,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/lib/supabase';
 import MainLayout from '@/components/layout/MainLayout';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar, 
-  Briefcase, 
-  Users, 
-  FolderOpen, 
-  CheckCircle2, 
-  Clock, 
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Briefcase,
+  Users,
+  FolderOpen,
+  CheckCircle2,
+  Clock,
   AlertCircle,
   Edit3,
   Save,
@@ -120,13 +120,13 @@ export default function ProfilePage() {
             .from('projects')
             .select('status, total_budget, spent_budget, created_at')
             .or(`project_manager_id.eq.${user.id},project_members.cs.{${user.id}}`),
-          
+
           // Görev istatistikleri - daha detaylı
           supabase
             .from('tasks')
             .select('status, due_date, created_at, completed_at, priority')
             .or(`assigned_to.eq.${user.id},created_by.eq.${user.id},informed_person.eq.${user.id}`),
-          
+
           // Bu ayki görevler
           supabase
             .from('tasks')
@@ -134,7 +134,7 @@ export default function ProfilePage() {
             .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
             .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
             .lte('created_at', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString()),
-          
+
           // Günlük notlar
           supabase
             .from('daily_notes')
@@ -158,9 +158,9 @@ export default function ProfilePage() {
             totalTasks: tasks.length,
             completedTasks: tasks.filter(t => t.status === 'done').length,
             pendingTasks: tasks.filter(t => ['todo', 'in_progress', 'review'].includes(t.status)).length,
-            overdueTasks: tasks.filter(t => 
-              t.due_date && 
-              new Date(t.due_date) < now && 
+            overdueTasks: tasks.filter(t =>
+              t.due_date &&
+              new Date(t.due_date) < now &&
               t.status !== 'done'
             ).length
           };
@@ -172,8 +172,8 @@ export default function ProfilePage() {
           const urgentTasks = tasks.filter(t => t.priority === 'urgent' && t.status !== 'done').length;
           const thisMonthNotes = notes.length;
 
-          setStats({ 
-            ...projectStats, 
+          setStats({
+            ...projectStats,
             ...taskStats,
             monthlyCompletedTasks,
             totalBudget,
@@ -200,7 +200,7 @@ export default function ProfilePage() {
           .or(`project_manager_id.eq.${user.id},project_members.cs.{${user.id}}`)
           .order('updated_at', { ascending: false })
           .limit(5),
-        
+
         supabase
           .from('tasks')
           .select('id, title, status, updated_at, description')
@@ -241,7 +241,7 @@ export default function ProfilePage() {
       await withLoading(
         Promise.all([
           // Yönetici bilgisi (eğer varsa)
-          userProfile.manager_id ? 
+          userProfile.manager_id ?
             supabase
               .from('user_profiles')
               .select(`
@@ -254,7 +254,7 @@ export default function ProfilePage() {
               .eq('status', 'active')
               .single()
             : Promise.resolve({ data: null }),
-          
+
           // Departman arkadaşları (aynı departmanda olanlar, kendisi hariç)
           userProfile.department_id ?
             supabase
@@ -269,7 +269,7 @@ export default function ProfilePage() {
               .eq('status', 'active')
               .neq('id', user.id)
             : Promise.resolve({ data: [] }),
-          
+
           // Alt çalışanlar (kendisini yönetici olarak görenler)
           supabase
             .from('user_profiles')
@@ -449,7 +449,7 @@ export default function ProfilePage() {
                     <img
                       src={userProfile.profile_photo_url}
                       alt={`${userProfile.first_name} ${userProfile.last_name}`}
-                      className="w-24 h-24 rounded-2xl object-cover"
+                      className="w-24 h-24 aspect-square rounded-2xl object-cover"
                     />
                   ) : (
                     <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
@@ -470,11 +470,10 @@ export default function ProfilePage() {
 
                 {/* Durum Rozetleri */}
                 <div className="flex flex-wrap gap-2 justify-center mb-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                    userProfile.status === 'active' 
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${userProfile.status === 'active'
                       ? 'bg-green-500/20 text-green-400 border-green-500/30'
                       : 'bg-red-500/20 text-red-400 border-red-500/30'
-                  }`}>
+                    }`}>
                     {userProfile.status === 'active' ? 'Aktif' : 'Pasif'}
                   </span>
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
@@ -508,7 +507,7 @@ export default function ProfilePage() {
                   <Mail className="w-4 h-4 text-slate-400" />
                   <span className="text-slate-300 text-sm">{user?.email}</span>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-slate-400" />
                   <span className="text-slate-300 text-sm">
@@ -555,9 +554,8 @@ export default function ProfilePage() {
                 ) : (
                   recentActivities.slice(0, 5).map((activity) => (
                     <div key={`${activity.type}-${activity.id}`} className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-xl border border-slate-600/30 hover:border-slate-500/50 transition-colors">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        activity.type === 'project' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
-                      }`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${activity.type === 'project' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
+                        }`}>
                         {activity.type === 'project' ? <FolderOpen className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -675,7 +673,7 @@ export default function ProfilePage() {
                 <Users className="w-5 h-5 text-orange-400" />
                 Takımım
               </h3>
-              
+
               <div className="space-y-6">
                 {/* Yönetici */}
                 {teamData.manager && (
@@ -691,7 +689,7 @@ export default function ProfilePage() {
                             <img
                               src={teamData.manager.profile_photo_url}
                               alt={`${teamData.manager.first_name} ${teamData.manager.last_name}`}
-                              className="w-12 h-12 rounded-lg object-cover"
+                              className="w-12 h-12 aspect-square rounded-lg object-cover"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 target.style.display = 'none';
@@ -745,7 +743,7 @@ export default function ProfilePage() {
                                 <img
                                   src={colleague.profile_photo_url}
                                   alt={`${colleague.first_name} ${colleague.last_name}`}
-                                  className="w-10 h-10 rounded-lg object-cover"
+                                  className="w-10 h-10 aspect-square rounded-lg object-cover"
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
                                     target.style.display = 'none';
@@ -798,7 +796,7 @@ export default function ProfilePage() {
                                 <img
                                   src={subordinate.profile_photo_url}
                                   alt={`${subordinate.first_name} ${subordinate.last_name}`}
-                                  className="w-10 h-10 rounded-lg object-cover"
+                                  className="w-10 h-10 aspect-square rounded-lg object-cover"
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
                                     target.style.display = 'none';
