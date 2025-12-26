@@ -39,9 +39,9 @@ export default function RootLayout({
       >
         <AuthProvider>
           <LoadingProvider>
-            <ProgressProvider>
-              {children}
-            </ProgressProvider>
+            {/* <ProgressProvider> */}
+            {children}
+            {/* </ProgressProvider> */}
           </LoadingProvider>
         </AuthProvider>
       </body>
