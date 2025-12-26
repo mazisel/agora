@@ -1175,7 +1175,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
       {/* Create Task Modal */}
       {isCreating && typeof window !== 'undefined' && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-slate-800/95 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+          <div className="relative bg-slate-800/95 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-2xl w-full h-[85vh] overflow-hidden shadow-2xl">
             <CreateTaskView
               onClose={() => setIsCreating(false)}
               onSave={handleCreateTask}

@@ -28,7 +28,7 @@ export default function CreateTaskView({ onClose, onSave, projects, users }: Cre
     status: 'todo' as const,
     due_date: ''
   });
-  
+
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [selectedInformed, setSelectedInformed] = useState<string[]>([]);
   const [assigneeSearch, setAssigneeSearch] = useState('');
@@ -45,7 +45,7 @@ export default function CreateTaskView({ onClose, onSave, projects, users }: Cre
   };
 
   return (
-    <div className="absolute inset-0 bg-slate-900 z-40 flex flex-col">
+    <div className="w-full h-full bg-slate-900 flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 p-4 bg-slate-800/50 border-b border-slate-700/50 flex items-center justify-between">
         <div>
@@ -103,7 +103,7 @@ export default function CreateTaskView({ onClose, onSave, projects, users }: Cre
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Sorumlu Kişiler</label>
-            
+
             {/* Seçilen kişiler */}
             {selectedAssignees.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-2">
@@ -145,16 +145,16 @@ export default function CreateTaskView({ onClose, onSave, projects, users }: Cre
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                 placeholder="Kişi ara ve ekle..."
               />
-              
+
               {/* Dropdown */}
               {showAssigneeDropdown && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
                   {users
-                    .filter(user => 
+                    .filter(user =>
                       !selectedAssignees.includes(user.id) &&
                       (user.first_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-                       user.last_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-                       user.position?.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                        user.last_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+                        user.position?.toLowerCase().includes(assigneeSearch.toLowerCase()))
                     )
                     .map(user => (
                       <button
@@ -177,14 +177,14 @@ export default function CreateTaskView({ onClose, onSave, projects, users }: Cre
                         </div>
                       </button>
                     ))}
-                  {users.filter(user => 
+                  {users.filter(user =>
                     !selectedAssignees.includes(user.id) &&
                     (user.first_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-                     user.last_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-                     user.position?.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                      user.last_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+                      user.position?.toLowerCase().includes(assigneeSearch.toLowerCase()))
                   ).length === 0 && (
-                    <div className="p-3 text-slate-400 text-sm">Kişi bulunamadı</div>
-                  )}
+                      <div className="p-3 text-slate-400 text-sm">Kişi bulunamadı</div>
+                    )}
                 </div>
               )}
             </div>
@@ -192,7 +192,7 @@ export default function CreateTaskView({ onClose, onSave, projects, users }: Cre
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Bilgi Kişileri</label>
-            
+
             {/* Seçilen kişiler */}
             {selectedInformed.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-2">
@@ -234,16 +234,16 @@ export default function CreateTaskView({ onClose, onSave, projects, users }: Cre
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50"
                 placeholder="Bilgi kişisi ara ve ekle..."
               />
-              
+
               {/* Dropdown */}
               {showInformedDropdown && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
                   {users
-                    .filter(user => 
+                    .filter(user =>
                       !selectedInformed.includes(user.id) &&
                       (user.first_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
-                       user.last_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
-                       user.position?.toLowerCase().includes(informedSearch.toLowerCase()))
+                        user.last_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
+                        user.position?.toLowerCase().includes(informedSearch.toLowerCase()))
                     )
                     .map(user => (
                       <button
@@ -266,14 +266,14 @@ export default function CreateTaskView({ onClose, onSave, projects, users }: Cre
                         </div>
                       </button>
                     ))}
-                  {users.filter(user => 
+                  {users.filter(user =>
                     !selectedInformed.includes(user.id) &&
                     (user.first_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
-                     user.last_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
-                     user.position?.toLowerCase().includes(informedSearch.toLowerCase()))
+                      user.last_name.toLowerCase().includes(informedSearch.toLowerCase()) ||
+                      user.position?.toLowerCase().includes(informedSearch.toLowerCase()))
                   ).length === 0 && (
-                    <div className="p-3 text-slate-400 text-sm">Kişi bulunamadı</div>
-                  )}
+                      <div className="p-3 text-slate-400 text-sm">Kişi bulunamadı</div>
+                    )}
                 </div>
               )}
             </div>
