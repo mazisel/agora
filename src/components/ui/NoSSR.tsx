@@ -10,9 +10,9 @@ export default function NoSSR({ children }: { children: React.ReactNode }) {
         setMounted(true);
     }, []);
 
-    if (!mounted) {
-        return null;
-    }
-
-    return <>{children}</>;
+    return (
+        <div suppressHydrationWarning={true}>
+            {mounted ? children : null}
+        </div>
+    );
 }
