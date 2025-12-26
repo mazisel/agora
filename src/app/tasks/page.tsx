@@ -93,7 +93,7 @@ function TasksContent() {
         .select(`
           *,
           project:projects(id, name),
-          assignee:user_profiles!tasks_assigned_to_fkey(id, first_name, last_name, personnel_number),
+          assignee:user_profiles!tasks_assigned_to_fkey(id, first_name, last_name, personnel_number, profile_photo_url),
           assigner:user_profiles!tasks_assigned_by_fkey(id, first_name, last_name, personnel_number),
           informed:user_profiles!tasks_informed_person_fkey(id, first_name, last_name, personnel_number),
           creator:user_profiles!tasks_created_by_fkey(id, first_name, last_name, personnel_number)
@@ -197,7 +197,7 @@ function TasksContent() {
           .select(`
             *,
             project:projects(id, name),
-            assignee:user_profiles!tasks_assigned_to_fkey(id, first_name, last_name, personnel_number),
+            assignee:user_profiles!tasks_assigned_to_fkey(id, first_name, last_name, personnel_number, profile_photo_url),
             assigner:user_profiles!tasks_assigned_by_fkey(id, first_name, last_name, personnel_number),
             informed:user_profiles!tasks_informed_person_fkey(id, first_name, last_name, personnel_number),
             creator:user_profiles!tasks_created_by_fkey(id, first_name, last_name, personnel_number)
@@ -933,8 +933,18 @@ function TasksContent() {
                       <td className="px-6 py-4">
                         {task.assignee ? (
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              {task.assignee.first_name?.charAt(0)}
+                            <div className="w-8 h-8 flex-shrink-0">
+                              {task.assignee.profile_photo_url ? (
+                                <img
+                                  src={task.assignee.profile_photo_url}
+                                  alt={`${task.assignee.first_name} ${task.assignee.last_name}`}
+                                  className="w-8 h-8 rounded-full object-cover aspect-square"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                  {task.assignee.first_name?.charAt(0)}
+                                </div>
+                              )}
                             </div>
                             <span className="text-sm text-slate-300">
                               {task.assignee.first_name} {task.assignee.last_name}
@@ -1351,7 +1361,7 @@ function TasksContent() {
                 .select(`
                   *,
                   project:projects(id, name),
-                  assignee:user_profiles!tasks_assigned_to_fkey(id, first_name, last_name, personnel_number),
+                  assignee:user_profiles!tasks_assigned_to_fkey(id, first_name, last_name, personnel_number, profile_photo_url),
                   assigner:user_profiles!tasks_assigned_by_fkey(id, first_name, last_name, personnel_number),
                   informed:user_profiles!tasks_informed_person_fkey(id, first_name, last_name, personnel_number),
                   creator:user_profiles!tasks_created_by_fkey(id, first_name, last_name, personnel_number)

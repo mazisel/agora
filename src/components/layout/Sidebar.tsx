@@ -255,7 +255,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
               <Link
                 key={item.id}
                 href={item.href}
-                className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-200 relative ${itemIsActive
+                className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-200 relative hover:z-50 ${itemIsActive
                   ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-500/30 shadow-lg shadow-blue-500/10'
                   : 'text-slate-300 hover:bg-slate-800/50 hover:text-white border border-transparent hover:border-slate-600/50'
                   }`}
