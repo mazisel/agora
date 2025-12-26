@@ -1,4 +1,4 @@
-package com.agora.agora_mobile
+package com.agora.oguzart
 
 import io.flutter.embedding.android.FlutterActivity
 

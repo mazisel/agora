@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "279196749848",
+    "project_id": "agora-cea40",
+    "storage_bucket": "agora-cea40.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:279196749848:android:910936ab44f026e5ef736d",
+        "android_client_info": {
+          "package_name": "com.agora.oguzart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_sWwh8XYKdoh3LGdu9074T2P2e23A_dE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

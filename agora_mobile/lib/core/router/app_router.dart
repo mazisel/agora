@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../data/models/task_model.dart';
 import '../../presentation/screens/auth/login_screen.dart';
 import '../../presentation/screens/dashboard/dashboard_screen.dart';
+import '../../presentation/screens/tasks/create_edit_task_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -24,6 +26,17 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/dashboard',
       builder: (context, state) => const DashboardScreen(),
+    ),
+    GoRoute(
+      path: '/tasks/create',
+      builder: (context, state) => const CreateEditTaskScreen(),
+    ),
+    GoRoute(
+      path: '/tasks/edit',
+      builder: (context, state) {
+        final task = state.extra as TaskModel;
+        return CreateEditTaskScreen(task: task);
+      },
     ),
   ],
   redirect: (context, state) {

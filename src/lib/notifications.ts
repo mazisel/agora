@@ -159,6 +159,53 @@ export class NotificationService {
     }
   }
 
+  // Get user FCM tokens by user IDs
+  private static async getUserFcmTokens(userIds: string[]): Promise<string[]> {
+    if (!userIds || userIds.length === 0) return [];
+    try {
+      const { data: users, error } = await supabase
+        .from('user_profiles')
+        .select('fcm_token')
+        .in('id', userIds)
+        .not('fcm_token', 'is', null);
+
+      if (error) {
+        console.error('Error fetching FCM tokens:', error);
+        return [];
+      }
+      return users?.map(u => u.fcm_token).filter(Boolean) || [];
+    } catch (error) {
+      console.error('Error fetching FCM tokens:', error);
+      return [];
+    }
+  }
+
+  // Send Push Notification
+  private static async sendPushNotification(
+    tokens: string[],
+    title: string,
+    body: string,
+    data?: NotificationPayload
+  ): Promise<boolean> {
+    if (!tokens || tokens.length === 0) return false;
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+    // We send individual requests for now, could be batched in the API
+    const promises = tokens.map(token =>
+      fetch(`${appUrl}/api/notifications/send-push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, title, body, data })
+      })
+        .then(res => res.json())
+        .catch(err => ({ success: false, error: err }))
+    );
+
+    const results = await Promise.all(promises);
+    return results.some((r: any) => r.success);
+  }
+
   // Get user emails by role
   private static async getUserEmailsByRole(role: string): Promise<string[]> {
     try {
@@ -234,12 +281,13 @@ export class NotificationService {
     dueDate?: string,
     context?: TaskAssignmentContext
   ): Promise<boolean> {
-    const [emails, telegramChatIds] = await Promise.all([
+    const [emails, telegramChatIds, fcmTokens] = await Promise.all([
       NotificationService.getUserEmails(assignedToIds),
-      NotificationService.getUserTelegramChatIds(assignedToIds)
+      NotificationService.getUserTelegramChatIds(assignedToIds),
+      NotificationService.getUserFcmTokens(assignedToIds)
     ]);
 
-    if (emails.length === 0 && telegramChatIds.length === 0) {
+    if (emails.length === 0 && telegramChatIds.length === 0 && fcmTokens.length === 0) {
       console.warn('No valid recipients found for task assignment notification');
       return false;
     }
@@ -266,6 +314,28 @@ export class NotificationService {
       );
     }
 
+    if (fcmTokens.length > 0) {
+      deliveries.push(
+        NotificationService.sendPushNotification(
+          fcmTokens,
+          `Yeni Görev: ${taskTitle}`,
+          `${assignedByName} size bir görev atadı.`,
+          { type: 'task_assigned', taskId, ...payload }
+        )
+      );
+    }
+
+    if (fcmTokens.length > 0) {
+      deliveries.push(
+        NotificationService.sendPushNotification(
+          fcmTokens,
+          `Yeni Görev: ${taskTitle}`,
+          `${assignedByName} size bir görev atadı.`,
+          { type: 'task_assigned', taskId, ...payload }
+        )
+      );
+    }
+
     const results = await Promise.all(deliveries);
 
     await scheduleTaskAssignmentReminders(taskId, assignedToIds, {
@@ -289,12 +359,13 @@ export class NotificationService {
     updatedByName: string,
     notifyUserIds: string[]
   ): Promise<boolean> {
-    const [emails, telegramChatIds] = await Promise.all([
+    const [emails, telegramChatIds, fcmTokens] = await Promise.all([
       NotificationService.getUserEmails(notifyUserIds),
-      NotificationService.getUserTelegramChatIds(notifyUserIds)
+      NotificationService.getUserTelegramChatIds(notifyUserIds),
+      NotificationService.getUserFcmTokens(notifyUserIds)
     ]);
 
-    if (emails.length === 0 && telegramChatIds.length === 0) {
+    if (emails.length === 0 && telegramChatIds.length === 0 && fcmTokens.length === 0) {
       console.warn('No valid recipients found for task status update notification');
       return false;
     }
@@ -316,6 +387,17 @@ export class NotificationService {
     if (telegramChatIds.length > 0) {
       deliveries.push(
         NotificationService.sendTelegramNotification('task_status_update', telegramChatIds, payload)
+      );
+    }
+
+    if (fcmTokens.length > 0) {
+      deliveries.push(
+        NotificationService.sendPushNotification(
+          fcmTokens,
+          `Görev Güncellendi: ${taskTitle}`,
+          `Durum: ${oldStatus} -> ${newStatus}`,
+          { type: 'task_status_update', taskId, ...payload }
+        )
       );
     }
 

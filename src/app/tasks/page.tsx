@@ -1000,15 +1000,15 @@ function TasksContent() {
       {/* Create Task Modal for Desktop */}
       {isCreating && (
         <div className="hidden lg:flex fixed inset-0 bg-black/50 backdrop-blur-sm items-center justify-center z-50 p-4">
-          <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-2xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-slate-700/50 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-700/50">
+            <div className="p-6 border-b border-slate-700/50 flex-none">
               <h3 className="text-xl font-bold text-white">Yeni Görev Oluştur</h3>
               <p className="text-slate-400 mt-1">Görev bilgilerini girin</p>
             </div>
 
             {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] pb-24 md:pb-6">
+            <div className="p-6 overflow-y-auto flex-1 min-h-0">
               <div className="space-y-4">
                 {/* Title */}
                 <div>
@@ -1291,7 +1291,7 @@ function TasksContent() {
             </div>
 
             {/* Fixed Modal Footer */}
-            <div className="sticky bottom-0 bg-slate-800/95 backdrop-blur-sm border-t border-slate-700/50 p-4">
+            <div className="bg-slate-800/95 backdrop-blur-sm border-t border-slate-700/50 p-4 flex-none">
               <div className="flex flex-wrap gap-3 justify-center">
                 <button
                   onClick={() => setIsCreating(false)}

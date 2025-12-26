@@ -32,7 +32,7 @@ const nextConfig: NextConfig = {
   //     }
   //   ]
   // },
-  serverExternalPackages: ['@supabase/supabase-js']
+  serverExternalPackages: ['@supabase/supabase-js', 'firebase-admin', 'google-auth-library']
 };
 
 export default nextConfig;
