@@ -3,42 +3,55 @@ import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 
+function parseServiceAccountFromEnv(): { serviceAccount: any; source: string } {
+    // Prefer explicit base64 JSON
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+        try {
+            // Trim to avoid accidental quotes/whitespace
+            const raw = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON.trim();
+            const jsonStr = Buffer.from(raw, 'base64').toString('utf8');
+            const serviceAccount = JSON.parse(jsonStr);
+            return { serviceAccount, source: 'GOOGLE_APPLICATION_CREDENTIALS_JSON' };
+        } catch (e) {
+            throw new Error('Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON: ' + (e as Error).message);
+        }
+    }
+
+    const gac = process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim();
+    if (gac) {
+        // If it's a path and exists, read it
+        if (fs.existsSync(gac)) {
+            const serviceAccount = JSON.parse(fs.readFileSync(gac, 'utf8'));
+            return { serviceAccount, source: `GOOGLE_APPLICATION_CREDENTIALS path (${gac})` };
+        }
+
+        // Some setups put base64 into GOOGLE_APPLICATION_CREDENTIALS; try to decode if it looks like base64
+        const looksLikeBase64 = /^[A-Za-z0-9+/=]+$/.test(gac) && gac.length > 100;
+        if (looksLikeBase64) {
+            try {
+                const jsonStr = Buffer.from(gac, 'base64').toString('utf8');
+                const serviceAccount = JSON.parse(jsonStr);
+                return { serviceAccount, source: 'GOOGLE_APPLICATION_CREDENTIALS (base64 payload)' };
+            } catch (e) {
+                throw new Error('Failed to parse GOOGLE_APPLICATION_CREDENTIALS as base64 JSON: ' + (e as Error).message);
+            }
+        }
+
+        throw new Error(`Credentials file not found: ${gac}`);
+    }
+
+    throw new Error('Firebase credentials not configured. Set GOOGLE_APPLICATION_CREDENTIALS_JSON (base64) or GOOGLE_APPLICATION_CREDENTIALS (file path)');
+}
+
 // Initialize Firebase Admin if not already initialized
 function getFirebaseAdmin() {
     if (admin.apps.length === 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let serviceAccount: any;
-
-        // Method 1: Base64 encoded JSON (for server deployment)
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-            try {
-                const jsonStr = Buffer.from(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON, 'base64').toString('utf8');
-                serviceAccount = JSON.parse(jsonStr);
-                console.log('[FCM] Loaded credentials from GOOGLE_APPLICATION_CREDENTIALS_JSON (base64)');
-            } catch (e) {
-                throw new Error('Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON: ' + (e as Error).message);
-            }
-        }
-        // Method 2: File path (for local development)
-        else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-            const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-            console.log('[FCM] Loading credentials from file:', credPath);
-
-            if (!fs.existsSync(credPath)) {
-                throw new Error(`Credentials file not found: ${credPath}`);
-            }
-
-            serviceAccount = JSON.parse(fs.readFileSync(credPath, 'utf8'));
-            console.log('[FCM] Loaded credentials from file');
-        } else {
-            throw new Error('Firebase credentials not configured. Set GOOGLE_APPLICATION_CREDENTIALS_JSON (base64) or GOOGLE_APPLICATION_CREDENTIALS (file path)');
-        }
-
-        console.log('[FCM] Project ID:', serviceAccount.project_id);
+        const { serviceAccount, source } = parseServiceAccountFromEnv();
+        console.log('[FCM] Loaded credentials from', source, 'project_id:', serviceAccount.project_id);
 
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            projectId: serviceAccount.project_id,
+            projectId: serviceAccount.project_id || process.env.FIREBASE_PROJECT_ID,
         });
 
         console.log('[FCM] Firebase Admin initialized successfully');
@@ -85,6 +98,8 @@ export async function POST(request: Request) {
             console.error('[FCM] Error sending message:', {
                 code: error.code,
                 message: error.message,
+                stack: error.stack,
+                errorInfo: error.errorInfo,
             });
 
             // Known issue: Next.js runtime interferes with firebase-admin HTTP requests
