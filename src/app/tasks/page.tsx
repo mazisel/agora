@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
+import NoSSR from '@/components/ui/NoSSR';
 import { Plus, Search, Edit3, Trash2, Clock, User, Calendar, MessageSquare, Paperclip, CheckCircle2, Eye, X, Send, Download, AlertCircle, FileText, Users, Image, Smile, Save, XCircle, DollarSign, Receipt, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1407,15 +1407,11 @@ function TasksContent() {
   );
 }
 
-// Dynamic import with SSR disabled - this completely prevents hydration mismatch
-const DynamicTasksContent = dynamic(
-  () => Promise.resolve(TasksContent),
-  {
-    ssr: false,
-    loading: () => <LoadingScreen message="Yükleniyor..." />
-  }
-);
-
+// Main page component with NoSSR wrapper to prevent hydration errors
 export default function TasksPage() {
-  return <DynamicTasksContent />;
+  return (
+    <NoSSR>
+      <TasksContent />
+    </NoSSR>
+  );
 }

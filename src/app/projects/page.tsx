@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
+import NoSSR from '@/components/ui/NoSSR';
 import { Plus, Search, Edit3, Trash2, Building, Calendar, DollarSign, User, Eye, X, Clock, CheckCircle, AlertCircle, Users, FileText, Target } from 'lucide-react';
 import { Project, Task } from '@/types';
 import LoadingScreen from '@/components/ui/LoadingScreen';
@@ -1455,15 +1455,11 @@ function ProjectsContent() {
   );
 }
 
-// Dynamic import with SSR disabled - this completely prevents hydration mismatch
-const DynamicProjectsContent = dynamic(
-  () => Promise.resolve(ProjectsContent),
-  {
-    ssr: false,
-    loading: () => <LoadingScreen message="Yükleniyor..." />
-  }
-);
-
+// Main page component with NoSSR wrapper to prevent hydration errors
 export default function ProjectsPage() {
-  return <DynamicProjectsContent />;
+  return (
+    <NoSSR>
+      <ProjectsContent />
+    </NoSSR>
+  );
 }
