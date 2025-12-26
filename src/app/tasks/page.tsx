@@ -311,8 +311,14 @@ function TasksContent() {
   });
 
   const handleCreateTask = async (taskData?: any) => {
+    // If called as an onClick handler, React passes the event as first arg. Ignore it.
+    const safeTaskData =
+      taskData && typeof taskData === 'object' && 'nativeEvent' in taskData
+        ? undefined
+        : taskData;
+
     // Use passed taskData or fall back to state
-    const taskToCreate = taskData || newTask;
+    const taskToCreate = safeTaskData || newTask;
 
     const hasTitle = Boolean(taskToCreate.title?.toString().trim());
     const hasProject = Boolean((taskToCreate.project_id ?? '').toString().trim());
@@ -321,7 +327,7 @@ function TasksContent() {
       console.warn('Görev oluşturma validasyonu başarısız', {
         title: taskToCreate.title,
         project_id: taskToCreate.project_id,
-        taskDataPassed: Boolean(taskData),
+        taskDataPassed: Boolean(safeTaskData),
         newTaskState: newTask,
       });
       alert('Başlık ve proje seçimi zorunludur.');
