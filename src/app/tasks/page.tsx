@@ -9,6 +9,7 @@ import { Task, Project, UserProfile, TaskComment, TaskAttachment, TaskExpense } 
 
 import CreateTaskView from '@/components/tasks/CreateTaskView';
 import TaskDetailView from '@/components/tasks/TaskDetailView';
+import LoadingScreen from '@/components/ui/LoadingScreen';
 
 function TasksContent() {
   const { userProfile, session, loading } = useAuth();
@@ -234,14 +235,7 @@ function TasksContent() {
 
   // Show loading while checking authentication or fetching data or not mounted
   if (loading || isLoading || !mounted) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Yükleniyor...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Yükleniyor..." />;
   }
 
   if (!userProfile) {
@@ -1411,14 +1405,7 @@ function TasksContent() {
 
 export default function TasksPage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-slate-900">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Yükleniyor...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<LoadingScreen message="Yükleniyor..." />}>
       <TasksContent />
     </Suspense>
   );

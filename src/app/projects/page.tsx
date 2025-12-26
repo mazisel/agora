@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Edit3, Trash2, Building, Calendar, DollarSign, User, Eye, X, Clock, CheckCircle, AlertCircle, Users, FileText, Target } from 'lucide-react';
 import { Project, Task } from '@/types';
+import LoadingScreen from '@/components/ui/LoadingScreen';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import MainLayout from '@/components/layout/MainLayout';
@@ -379,14 +380,7 @@ export default function ProjectsPage() {
 
   // Show loading while checking authentication or if not mounted (client-side rendering only)
   if (loading || !mounted) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Yükleniyor...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Yükleniyor..." />;
   }
 
   // Don't render if not authenticated
