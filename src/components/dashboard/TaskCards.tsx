@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -45,6 +46,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   });
 
   const { user, userProfile } = useAuth();
+  const router = useRouter();
 
   // Fetch tasks from Supabase and API
   const fetchTasks = async () => {
@@ -767,7 +769,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
             <span className="font-medium hidden sm:inline">Kanban</span>
           </button>
           <button
-            onClick={() => window.location.href = '/tasks'}
+            onClick={() => router.push('/tasks')}
             className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl text-sm"
           >
             <Plus className="w-3 h-3" />
@@ -781,8 +783,8 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         <button
           onClick={() => setActiveTab('tasks')}
           className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'tasks'
-              ? 'bg-blue-500 text-white shadow-lg'
-              : 'text-slate-300 hover:text-white hover:bg-slate-600/50'
+            ? 'bg-blue-500 text-white shadow-lg'
+            : 'text-slate-300 hover:text-white hover:bg-slate-600/50'
             }`}
         >
           <div className="flex items-center justify-center gap-2">
@@ -798,8 +800,8 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
             setActiveTab('transferred');
           }}
           className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'transferred'
-              ? 'bg-orange-500 text-white shadow-lg'
-              : 'text-slate-300 hover:text-white hover:bg-slate-600/50'
+            ? 'bg-orange-500 text-white shadow-lg'
+            : 'text-slate-300 hover:text-white hover:bg-slate-600/50'
             }`}
         >
           <div className="flex items-center justify-center gap-2">
@@ -817,8 +819,8 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         <button
           onClick={() => onStatusChange?.('todo')}
           className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${selectedStatus === 'todo'
-              ? 'bg-slate-500 text-white shadow-lg'
-              : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
+            ? 'bg-slate-500 text-white shadow-lg'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
             }`}
         >
           Yeni
@@ -826,8 +828,8 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         <button
           onClick={() => onStatusChange?.('in_progress')}
           className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${selectedStatus === 'in_progress'
-              ? 'bg-blue-500 text-white shadow-lg'
-              : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
+            ? 'bg-blue-500 text-white shadow-lg'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
             }`}
         >
           Devam Ediyor
@@ -835,8 +837,8 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         <button
           onClick={() => onStatusChange?.('review')}
           className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${selectedStatus === 'review'
-              ? 'bg-yellow-500 text-white shadow-lg'
-              : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
+            ? 'bg-yellow-500 text-white shadow-lg'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
             }`}
         >
           İnceleme
@@ -844,8 +846,8 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         <button
           onClick={() => onStatusChange?.('done')}
           className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${selectedStatus === 'done'
-              ? 'bg-green-500 text-white shadow-lg'
-              : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
+            ? 'bg-green-500 text-white shadow-lg'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
             }`}
         >
           Tamamlandı
@@ -1067,7 +1069,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
                 </p>
                 {activeTab === 'tasks' && (
                   <button
-                    onClick={() => window.location.href = '/tasks'}
+                    onClick={() => router.push('/tasks')}
                     className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl font-medium"
                   >
                     İlk Görevi Oluştur
