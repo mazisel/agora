@@ -13,7 +13,7 @@ RUN npm ci
 # Rebuild the source code only when needed
 FROM base AS builder
 # Install ICU for build process
-RUN apk add --no-cache libc6-compat icu-libs
+RUN apk add --no-cache libc6-compat icu-libs icu-data-full tzdata
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -31,10 +31,10 @@ ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 # Disable telemetry during build
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build the application
+# Build the application (output goes to 'build' folder per next.config.ts)
 RUN npm run build
 
-# Production image, copy all the files and run next
+# Production image using standalone output
 FROM base AS runner
 WORKDIR /app
 
@@ -49,11 +49,11 @@ ENV TZ=Europe/Istanbul
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy essential files for running the app
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/next.config.ts ./
-COPY --from=builder --chown=nextjs:nodejs /app/build ./build
+# Copy standalone server (distDir is 'build' in next.config.ts)
+COPY --from=builder /app/build/standalone ./
+# Copy static files
+COPY --from=builder /app/build/static ./build/static
+# Copy public files
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
@@ -63,4 +63,5 @@ EXPOSE 3001
 ENV PORT=3001
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["npm", "start"]
+# Use standalone server instead of npm start
+CMD ["node", "server.js"]
