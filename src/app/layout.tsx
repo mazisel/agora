@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LoadingProvider } from "@/contexts/LoadingContext";
 import { ProgressProvider } from "@/components/providers/ProgressProvider";
+import NoSSR from "@/components/ui/NoSSR";
 
 // Debug utilities (development only)
 if (process.env.NODE_ENV === 'development') {
@@ -40,7 +41,9 @@ export default function RootLayout({
         <AuthProvider>
           <LoadingProvider>
             {/* <ProgressProvider> */}
-            {children}
+            <NoSSR>
+              {children}
+            </NoSSR>
             {/* </ProgressProvider> */}
           </LoadingProvider>
         </AuthProvider>
