@@ -143,6 +143,10 @@ async function sendHttpV1(serviceAccount: any, token: string, title: string, bod
         throw new Error(`FCM token error: ${tokenResp.status}`);
     }
 
+    console.log('[FCM] OAuth token obtained. Access Token starts with:', tokenJson.access_token.substring(0, 15) + '...');
+    const fcmTargetUrl = `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
+    console.log('[FCM] Target URL:', fcmTargetUrl);
+
     const message = {
         message: {
             token,
@@ -152,7 +156,7 @@ async function sendHttpV1(serviceAccount: any, token: string, title: string, bod
     };
 
     const resp = await undiciFetch(
-        `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
+        fcmTargetUrl,
         {
             method: 'POST',
             dispatcher: ipv4Agent,
