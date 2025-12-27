@@ -18,6 +18,12 @@ function parseServiceAccountFromEnv(): { serviceAccount: any; source: string } {
             const raw = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON.trim();
             const jsonStr = Buffer.from(raw, 'base64').toString('utf8');
             const serviceAccount = JSON.parse(jsonStr);
+
+            // Fix private key format - replace literal \n with real newlines
+            if (serviceAccount.private_key && typeof serviceAccount.private_key === 'string') {
+                serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+            }
+
             return { serviceAccount, source: 'GOOGLE_APPLICATION_CREDENTIALS_JSON' };
         } catch (e) {
             throw new Error('Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON: ' + (e as Error).message);
