@@ -11,8 +11,21 @@ export async function POST(request: Request) {
 
         console.log('[FCM] Invoking Edge Function "send-push" for token:', token.substring(0, 15) + '...');
 
+        // Sanitize data payload: FCM only accepts Map<String, String>
+        const sanitizedData: Record<string, string> = {};
+        if (data && typeof data === 'object') {
+            Object.keys(data).forEach(key => {
+                const value = data[key];
+                if (typeof value === 'object') {
+                    sanitizedData[key] = JSON.stringify(value);
+                } else {
+                    sanitizedData[key] = String(value);
+                }
+            });
+        }
+
         const { data: funcData, error: funcError } = await supabaseAdmin.functions.invoke('send-push', {
-            body: { token, title, body, data }
+            body: { token, title, body, data: sanitizedData }
         });
 
         if (funcError) {
