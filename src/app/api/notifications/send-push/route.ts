@@ -237,10 +237,9 @@ export async function POST(request: Request) {
             }
 
             // Try legacy HTTP API with server key if available
-            const serverKey = process.env.FCM_SERVER_KEY;
             if (serverKey) {
                 try {
-                    console.log('[FCM] Trying legacy HTTP API fallback');
+                    console.log('[FCM] Trying legacy HTTP API fallback with key length:', serverKey.length);
                     const legacyRes = await fetch('https://fcm.googleapis.com/fcm/send', {
                         method: 'POST',
                         headers: {
