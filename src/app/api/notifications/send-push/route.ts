@@ -99,7 +99,8 @@ async function sendHttpV1(serviceAccount: any, token: string, title: string, bod
     });
 
     // Build JWT assertion manually to control transport (IPv4)
-    const iat = Math.floor(Date.now() / 1000);
+    // Subtract 60 seconds from iat to handle potential clock skew between Docker container and Google servers
+    const iat = Math.floor(Date.now() / 1000) - 60;
     const exp = iat + 3600;
     const scope = [
         'https://www.googleapis.com/auth/firebase.messaging',
