@@ -1,3 +1,10 @@
+import dns from 'node:dns';
+import { Agent, fetch as undiciFetch } from 'undici';
+
+// Prefer IPv4 to avoid IPv6 timeouts in Docker environments
+dns.setDefaultResultOrder('ipv4first');
+const ipv4Agent = new Agent({ connect: { family: 4, timeout: 15000 } });
+
 const TELEGRAM_API_BASE = process.env.TELEGRAM_BOT_TOKEN
   ? `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`
   : null;
@@ -195,8 +202,11 @@ export async function sendTelegramMessage(
   }
 
   try {
-    const response = await fetch(`${TELEGRAM_API_BASE}/sendMessage`, {
+    console.log('[Telegram] Sending message to chat:', chatId);
+
+    const response = await undiciFetch(`${TELEGRAM_API_BASE}/sendMessage`, {
       method: 'POST',
+      dispatcher: ipv4Agent,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -210,16 +220,17 @@ export async function sendTelegramMessage(
       }),
     });
 
-    const result = await response.json();
+    const result: any = await response.json();
 
     if (!result.ok) {
-      console.error('Telegram API returned an error:', result);
+      console.error('[Telegram] API returned an error:', result);
       return false;
     }
 
+    console.log('[Telegram] Message sent successfully to chat:', chatId);
     return true;
   } catch (error) {
-    console.error('Failed to send Telegram message:', error);
+    console.error('[Telegram] Failed to send message:', error);
     return false;
   }
 }
