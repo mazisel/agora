@@ -236,42 +236,7 @@ export async function POST(request: Request) {
                 }, { status: 400 });
             }
 
-            // Try legacy HTTP API with server key if available
-            if (serverKey) {
-                try {
-                    console.log('[FCM] Trying legacy HTTP API fallback with key length:', serverKey.length);
-                    const legacyRes = await fetch('https://fcm.googleapis.com/fcm/send', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `key=${serverKey}`,
-                        },
-                        body: JSON.stringify({
-                            to: token,
-                            notification: { title, body },
-                            data: sanitizedData,
-                        }),
-                    });
-
-                    const legacyJson = await legacyRes.json().catch(() => ({}));
-                    if (!legacyRes.ok) {
-                        console.error('[FCM] Legacy API error:', legacyRes.status, legacyJson);
-                        return NextResponse.json({
-                            success: false,
-                            legacy: true,
-                            status: legacyRes.status,
-                            error: legacyJson,
-                        }, { status: 500 });
-                    }
-
-                    console.log('[FCM] Legacy API success:', legacyJson);
-                    return NextResponse.json({ success: true, legacy: true, response: legacyJson });
-                } catch (legacyErr: any) {
-                    console.error('[FCM] Legacy API fallback failed:', legacyErr);
-                }
-            }
-
-            // Return error
+            // Legacy API fallback removed as deprecated by Google
             if (sdkError.code === 'messaging/third-party-auth-error' || sdkError.code === 'app/network-timeout') {
                 console.warn('[FCM] Known Docker/Next.js compatibility issue');
                 return NextResponse.json({
