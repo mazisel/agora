@@ -1,9 +1,13 @@
-FROM node:20-alpine AS base
+FROM node:20-bookworm-slim AS base
+
+# Install runtime deps (tzdata + certs) once for all stages
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata ca-certificates wget procps \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies only when needed
 FROM base AS deps
-# Add ICU libraries for proper locale support (fixes returnNaN and timezone errors)
-RUN apk add --no-cache libc6-compat icu-libs icu-data-full tzdata
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
@@ -12,8 +16,6 @@ RUN npm ci
 
 # Rebuild the source code only when needed
 FROM base AS builder
-# Install ICU for build process
-RUN apk add --no-cache libc6-compat icu-libs icu-data-full tzdata
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -37,9 +39,6 @@ RUN npm run build
 # Production image using standalone output
 FROM base AS runner
 WORKDIR /app
-
-# Install ICU libraries and timezone data for runtime (fixes returnNaN and /dev/lrt errors)
-RUN apk add --no-cache icu-libs icu-data-full tzdata
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

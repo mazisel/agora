@@ -3,6 +3,9 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { buildTelegramMessage, sendTelegramMessages } from '@/lib/telegram';
 
 const REMINDER_SECRET = process.env.TASK_REMINDER_SECRET;
+const REMINDER_MIN_INTERVAL_MS = 30 * 1000;
+let isProcessing = false;
+let lastProcessedAt = 0;
 
 function ensureAuthorized(request: NextRequest): boolean {
   if (!REMINDER_SECRET) {
@@ -23,6 +26,18 @@ export async function POST(request: NextRequest) {
   if (!ensureAuthorized(request)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  const nowMs = Date.now();
+  if (isProcessing || nowMs - lastProcessedAt < REMINDER_MIN_INTERVAL_MS) {
+    return NextResponse.json({
+      success: true,
+      processed: 0,
+      skipped: true,
+      reason: isProcessing ? 'already-running' : 'rate-limited',
+    });
+  }
+
+  isProcessing = true;
 
   try {
     const now = new Date();
@@ -170,5 +185,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('process reminders error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    lastProcessedAt = nowMs;
+    isProcessing = false;
   }
 }

@@ -8,6 +8,10 @@ const ipv4Agent = new Agent({ connect: { family: 4, timeout: 15000 } });
 const TELEGRAM_API_BASE = process.env.TELEGRAM_BOT_TOKEN
   ? `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`
   : null;
+const TELEGRAM_SEND_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.TELEGRAM_SEND_CONCURRENCY || 5)
+);
 
 export type TelegramNotificationType =
   | 'task_assigned'
@@ -245,14 +249,21 @@ export async function sendTelegramMessages(
     return { successful: 0, failed: 0 };
   }
 
-  const results = await Promise.allSettled(
-    uniqueChatIds.map((chatId) => sendTelegramMessage(chatId, message))
-  );
+  let successful = 0;
+  let failed = 0;
 
-  const successful = results.filter(
-    (result) => result.status === 'fulfilled' && result.value === true
-  ).length;
-  const failed = uniqueChatIds.length - successful;
+  for (let i = 0; i < uniqueChatIds.length; i += TELEGRAM_SEND_CONCURRENCY) {
+    const batch = uniqueChatIds.slice(i, i + TELEGRAM_SEND_CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map((chatId) => sendTelegramMessage(chatId, message))
+    );
+
+    const batchSuccessful = results.filter(
+      (result) => result.status === 'fulfilled' && result.value === true
+    ).length;
+    successful += batchSuccessful;
+    failed += batch.length - batchSuccessful;
+  }
 
   return { successful, failed };
 }
