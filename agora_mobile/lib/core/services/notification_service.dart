@@ -1,15 +1,47 @@
-
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
   final SupabaseClient _supabase;
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   NotificationService(this._supabase);
 
   Future<void> initialize() async {
+    // Initialize local notifications for foreground display
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    await _localNotifications.initialize(initSettings);
+
+    // Create notification channel for Android
+    const androidChannel = AndroidNotificationChannel(
+      'high_importance_channel',
+      'High Importance Notifications',
+      description: 'This channel is used for important notifications.',
+      importance: Importance.max,
+    );
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(androidChannel);
+
+    // Request iOS foreground notification presentation
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
     // Request permission
     NotificationSettings settings = await _fcm.requestPermission(
       alert: true,
@@ -33,7 +65,7 @@ class NotificationService {
         
         if (apnsToken == null) {
           debugPrint('Failed to get APNS token after 20 seconds. Push notifications may not work on iOS Simulator.');
-          return; // Stop here to avoid crashing with the error
+          return;
         }
         
         debugPrint('APNS Token: $apnsToken');
@@ -59,19 +91,51 @@ class NotificationService {
         }
       });
 
-      // Handle foreground messages
+      // Handle foreground messages - SHOW AS LOCAL NOTIFICATION (Android only, iOS uses native presentation)
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('Got a message whilst in the foreground!');
         debugPrint('Message data: ${message.data}');
 
-        if (message.notification != null) {
-          debugPrint('Message also contained a notification: ${message.notification}');
+        final notification = message.notification;
+        if (notification != null) {
+          // Only show local notification on Android
+          // iOS already handles it via setForegroundNotificationPresentationOptions
+          if (defaultTargetPlatform == TargetPlatform.android) {
+            debugPrint('Showing local notification (Android): ${notification.title}');
+            _showLocalNotification(notification.title, notification.body);
+          } else {
+            debugPrint('iOS notification shown natively: ${notification.title}');
+          }
         }
       });
 
     } else {
       debugPrint('User declined or has not accepted permission');
     }
+  }
+
+  Future<void> _showLocalNotification(String? title, String? body) async {
+    const androidDetails = AndroidNotificationDetails(
+      'high_importance_channel',
+      'High Importance Notifications',
+      channelDescription: 'This channel is used for important notifications.',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title ?? 'Yeni Bildirim',
+      body ?? '',
+      details,
+    );
   }
 
   Future<void> _saveTokenToDatabase(String token) async {

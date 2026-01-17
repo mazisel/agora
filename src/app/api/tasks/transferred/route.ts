@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+const isDev = process.env.NODE_ENV !== 'production';
+const debugLog = (...args: unknown[]) => {
+  if (isDev) {
+    console.log(...args);
+  }
+};
+
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 API: /api/tasks/transferred called');
+    debugLog('🔍 API: /api/tasks/transferred called');
     
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      console.log('🔍 API: No auth header');
+      debugLog('🔍 API: No auth header');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -17,14 +24,14 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
-      console.log('🔍 API: Invalid user', userError);
+      debugLog('🔍 API: Invalid user', userError);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    console.log('🔍 API: User authenticated:', user.id);
+    debugLog('🔍 API: User authenticated:', user.id);
 
     // Direkt user ID ile sorgu yap (RLS bypass için)
-    console.log('🔍 API: Querying with user ID:', user.id);
+    debugLog('🔍 API: Querying with user ID:', user.id);
     
     const { data: transferredTasks, error } = await supabase
       .from('task_transfers')
@@ -56,14 +63,14 @@ export async function GET(request: NextRequest) {
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
 
-    console.log('🔍 API: Query result:', { transferredTasks, error });
+    debugLog('🔍 API: Query result:', { transferredTasks, error });
 
     if (error) {
       console.error('🔍 API: Database error:', error);
       return NextResponse.json({ error: 'Failed to fetch transferred tasks', details: error }, { status: 500 });
     }
 
-    console.log('🔍 API: Returning data:', transferredTasks?.length || 0, 'transfers');
+    debugLog('🔍 API: Returning data:', transferredTasks?.length || 0, 'transfers');
 
     return NextResponse.json({ 
       success: true, 

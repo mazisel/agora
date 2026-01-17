@@ -113,6 +113,10 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
 
     const loadCounts = async () => {
       try {
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+          return;
+        }
+
         // Get pending tasks count (only todo status)
         const { data: tasks, error: tasksError } = await supabase
           .from('tasks')
@@ -141,7 +145,7 @@ export default function Sidebar({ collapsed: initialCollapsed = false }: Sidebar
     // Polling interval for updates
     const interval = setInterval(() => {
       loadCounts();
-    }, 30000); // Update every 30 seconds
+    }, 120000); // Update every 2 minutes
 
     return () => {
       clearInterval(interval);

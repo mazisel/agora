@@ -49,11 +49,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fallbackProfile = createFallbackProfile(userId);
     setUserProfile(fallbackProfile);
 
-    try {
-      // Much shorter timeout - 3 seconds
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+    // Much shorter timeout - 3 seconds
+    const controller = new AbortController();
+    let didTimeout = false;
+    const timeoutId = setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, 3000);
 
+    try {
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -61,11 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .abortSignal(controller.signal)
         .single();
 
-      clearTimeout(timeoutId);
-
       if (error) {
         debugLoading.error(debugKey, error);
-        // Keep fallback profile
         return;
       }
 
@@ -77,11 +78,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           return data;
         });
-        debugLoading.end(debugKey);
       }
     } catch (error: any) {
+      // Ignore abort/timeouts to avoid noisy "Load failed" logs.
+      if (didTimeout || controller.signal.aborted) {
+        return;
+      }
       debugLoading.error(debugKey, error);
       // Keep fallback profile
+    } finally {
+      clearTimeout(timeoutId);
+      debugLoading.end(debugKey);
     }
   };
 

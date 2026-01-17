@@ -18,19 +18,23 @@ Future<void> main() async {
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
-  // Initialize Firebase (Safely)
+  // Initialize Firebase and Notifications in background to avoid blocking UI
+  _initializeBackgroundServices();
+  
+  runApp(const ProviderScope(child: MyApp()));
+}
+
+Future<void> _initializeBackgroundServices() async {
   try {
     await Firebase.initializeApp();
     
     // Initialize Notification Service
     final notificationService = NotificationService(Supabase.instance.client);
     await notificationService.initialize();
+    debugPrint('Background services initialized successfully');
   } catch (e) {
-    debugPrint('Firebase initialization failed: $e');
-    // Continue running app even if Firebase fails (e.g. missing google-services.json)
+    debugPrint('Firebase/Notification initialization failed: $e');
   }
-
-  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {

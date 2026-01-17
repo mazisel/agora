@@ -16,6 +16,13 @@ interface TaskCardsProps {
   onStatusChange?: (status: string) => void;
 }
 
+const isDev = process.env.NODE_ENV !== 'production';
+const debugLog = (...args: unknown[]) => {
+  if (isDev) {
+    console.log(...args);
+  }
+};
+
 export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [transferredTasks, setTransferredTasks] = useState<any[]>([]);
@@ -210,12 +217,12 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        console.log('🔍 No session token available');
+        debugLog('🔍 No session token available');
         return;
       }
 
-      console.log('🔍 Fetching transferred tasks for user:', user.id);
-      console.log('🔍 User profile:', userProfile);
+      debugLog('🔍 Fetching transferred tasks for user:', user.id);
+      debugLog('🔍 User profile:', userProfile);
 
       const response = await fetch('/api/tasks/transferred', {
         headers: {
@@ -223,11 +230,11 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         }
       });
 
-      console.log('🔍 API Response status:', response.status);
+      debugLog('🔍 API Response status:', response.status);
 
       if (response.ok) {
         const result = await response.json();
-        console.log('🔍 API Response data:', result);
+        debugLog('🔍 API Response data:', result);
         // API direkt array dönüyor, result.data değil
         setTransferredTasks(Array.isArray(result) ? result : []);
       } else {
@@ -246,7 +253,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
   };
 
   useEffect(() => {
-    // console.log('🔍 TaskCards useEffect triggered'); // Reduced logging
+    // debugLog('🔍 TaskCards useEffect triggered'); // Reduced logging
 
     if (user?.id && userProfile?.id) {
       loadData();
@@ -390,7 +397,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
       });
 
       if (response.ok) {
-        console.log('Support ticket başarıyla çözüldü olarak işaretlendi');
+        debugLog('Support ticket başarıyla çözüldü olarak işaretlendi');
         return;
       }
 
@@ -408,7 +415,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
       });
 
       if (response.ok) {
-        console.log('Öneri/Şikayet başarıyla uygulandı olarak işaretlendi');
+        debugLog('Öneri/Şikayet başarıyla uygulandı olarak işaretlendi');
       } else {
         console.error('Talep güncellenemedi:', await response.text());
       }
@@ -442,7 +449,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         throw commentsError;
       }
 
-      console.log('Comments data:', commentsData);
+      debugLog('Comments data:', commentsData);
 
       // Fetch attachments
       const { data: attachmentsData, error: attachmentsError } = await supabase
@@ -485,7 +492,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
             filter: `task_id=eq.${taskId}`
           },
           async (payload) => {
-            console.log('New comment received:', payload);
+            debugLog('New comment received:', payload);
             // Fetch user info for the new comment
             const { data: userData } = await supabase
               .from('user_profiles')
@@ -630,7 +637,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
       }
 
       const result = await response.json();
-      console.log('Expense added successfully:', result.data);
+      debugLog('Expense added successfully:', result.data);
 
       // Reset form
       setNewExpense({
@@ -875,8 +882,8 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
         </button>
         <button
           onClick={() => {
-            console.log('🔍 Yönlendirilenler sekmesine tıklandı');
-            console.log('🔍 Mevcut transferredTasks:', transferredTasks);
+            debugLog('🔍 Yönlendirilenler sekmesine tıklandı');
+            debugLog('🔍 Mevcut transferredTasks:', transferredTasks);
             setActiveTab('transferred');
           }}
           className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'transferred'
@@ -951,7 +958,7 @@ export default function TaskCards({ selectedStatus, onStatusChange }: TaskCardsP
                 <div
                   key={task.id}
                   onClick={() => {
-                    console.log('Task clicked:', task.id);
+                    debugLog('Task clicked:', task.id);
                     setViewingTask(task);
                     fetchTaskDetails(task.id);
                   }}
