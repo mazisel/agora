@@ -4,6 +4,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { LoadingProvider } from "@/contexts/LoadingContext";
 import { ProgressProvider } from "@/components/providers/ProgressProvider";
 import NoSSR from "@/components/ui/NoSSR";
+import "@/lib/runtimeGuards";
 
 // Debug utilities (development only)
 if (process.env.NODE_ENV === 'development') {
